@@ -1,0 +1,17 @@
+{
+  "name": "agent-room-desktop",
+  "version": "0.1.0",
+  "private": true,
+  "description": "A local desktop room for your coding agents, powered by hcom.",
+  "main": "main.cjs",
+  "scripts": {
+    "start": "electron .",
+    "install-runtime": "install-electron",
+    "web": "node server.cjs",
+    "test": "node --test test/*.test.cjs",
+    "check": "node --check main.cjs && node --check preload.cjs && node --check server.cjs && node --check lib/hcom-service.cjs && node --check lib/connection-profiles.cjs && node --check lib/model-gateway.cjs && node --check lib/engine-connections.cjs && node --check lib/usage.cjs && node --check renderer/connections.js && node --check renderer/usage.js && node --check renderer/avatars.js && node --check renderer/app.js"
+  },
+  "devDependencies": {
+    "electron": "43.8.4"
+  }
+}

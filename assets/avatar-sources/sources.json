@@ -1,0 +1,50 @@
+[
+  {
+    "id": "violet",
+    "source": "violet.png",
+    "sha256": "ccd5fe49256d2a83d810422bdafdb532876fbc26c8b0e283fb3c3bcd35e79211",
+    "variant": "mint"
+  },
+  {
+    "id": "sprout",
+    "source": "sprout.png",
+    "sha256": "ae74ea2cc5fd186f12ff7110f7d444e3bb2e23c635ec6c25e6b4ae4935443ca8",
+    "variant": "aqua"
+  },
+  {
+    "id": "orange",
+    "source": "orange.png",
+    "sha256": "2c14488c5ad5945def187659fcb8016edfb46974321dd1a2503e84dc081b973b",
+    "variant": "lavender"
+  },
+  {
+    "id": "star",
+    "source": "star.png",
+    "sha256": "da2f4d4ddbf9e31eb0f3f80d2ac718f533029f569fdba84d45cb42bf1ce4bbaf",
+    "variant": "coral"
+  },
+  {
+    "id": "teal",
+    "source": "teal.png",
+    "sha256": "774f827c57a4898b96318e6862364cde369c2e503c7a523b00658a95591bd2d4",
+    "variant": "indigo"
+  },
+  {
+    "id": "berry",
+    "source": "berry.png",
+    "sha256": "5568b3d7d0488607633d4d03591c6708291a6bf9d1b9ba462281ee7e8b499396",
+    "variant": "jade"
+  },
+  {
+    "id": "cloud",
+    "source": "cloud.png",
+    "sha256": "ac33301c7edd9839d3abb0964b5e8b137902ad99bbbbfb2e2d2ef787e7a41a21",
+    "variant": "lilac"
+  },
+  {
+    "id": "pink",
+    "source": "pink.png",
+    "sha256": "c8353b359d8634cf81e4a244a02efa7854277f35f1ff991b35688a35a6d2b939",
+    "variant": "peach"
+  }
+]

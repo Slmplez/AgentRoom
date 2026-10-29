@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'none'">
+  <title>Agent Room</title>
+  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="design-tokens.css">
+  <link rel="stylesheet" href="workbench.css">
+</head>
+<body>
+  <header class="titlebar">
+    <div class="brand"><span class="brand-symbol" data-icon="room-mark"></span><strong>Agent Room</strong><span class="brand-divider"></span><span class="brand-caption">多 Agent 工作空间</span></div>
+    <div class="titlebar-right"><span class="local-badge"><i></i> 本地运行</span><button class="theme-toggle" data-action="theme" aria-label="切换到深色" title="切换到深色" data-icon="moon"></button><div class="window-controls"><button data-window="minimize" aria-label="最小化" data-icon="minus"></button><button data-window="maximize" aria-label="最大化" data-icon="square"></button><button data-window="close" aria-label="关闭" data-icon="close"></button></div></div>
+  </header>
+  <div class="app-layout">
+    <aside class="sidebar" aria-label="会话列表">
+      <div class="sidebar-top"><button class="new-conversation" data-action="new-room"><span data-icon="plus"></span>新建群聊<kbd>Ctrl N</kbd></button><button class="icon-button" data-action="toggle-sidebar" aria-label="收起侧栏" title="收起侧栏 · Ctrl B" data-icon="panel-left"></button></div>
+      <label class="search-box"><span data-icon="search"></span><input id="search" placeholder="搜索会话或成员" autocomplete="off" aria-label="搜索对话"><kbd>Ctrl K</kbd></label>
+      <nav class="sidebar-nav" aria-label="主导航"><button data-action="conversations" class="active" data-nav="conversations"><span data-icon="chat"></span>对话</button><button data-action="connections"><span data-icon="sliders"></span>连接与模型</button><button data-action="usage"><span data-icon="chart"></span>用量统计</button></nav>
+      <div class="workspace-label">工作空间<button class="icon-button" data-action="new-workspace" aria-label="添加工作区" title="添加工作区" data-icon="plus"></button></div>
+      <button id="workspace-button" class="workspace-switch" aria-label="切换工作区"><span class="workspace-mark" data-icon="workspace"></span><span><strong id="workspace-name">我的工作区</strong><small id="workspace-subtitle">你的 agent，共同的空间</small></span><span data-icon="chevron-down"></span></button>
+      <div class="filters" role="tablist" aria-label="会话分类"><button class="selected" role="tab" aria-selected="true" data-filter="all">全部</button><button role="tab" aria-selected="false" data-filter="unread">未读 <span id="unread-total" hidden></span></button><button role="tab" aria-selected="false" data-filter="group">群聊</button><button role="tab" aria-selected="false" data-filter="dm">成员</button></div>
+      <div id="conversation-list" class="conversation-list"></div>
+      <div class="sidebar-footer"><button class="invite-button" data-action="launch"><span class="invite-icon" data-icon="plus"></span><span><strong>添加 Agent</strong><small>Codex · Claude Code · Pi · OpenCode</small></span><span data-icon="arrow"></span></button><div class="connection-line"><span class="connection-dot"></span><span id="connection-text">正在连接 hcom…</span><button id="refresh-button" aria-label="刷新连接" title="刷新连接" data-icon="refresh"></button></div><button class="account-button" data-action="settings"><span class="account-avatar">Z</span><span><strong>本地工作空间</strong><small>连接与设置</small></span><span data-icon="settings"></span></button></div>
+    </aside>
+    <main class="conversation">
+      <header id="conversation-header" class="conversation-header"></header>
+      <div id="connection-alert" class="connection-alert" hidden></div>
+      <section id="messages" class="messages" aria-label="消息记录" aria-live="polite"></section>
+      <div class="composer-area">
+        <div id="typing-line" class="typing-line"></div>
+        <div class="composer" id="composer">
+          <div id="reply-preview" class="reply-preview" hidden></div>
+          <div id="mention-menu" class="mention-menu" role="listbox" aria-label="提及成员" hidden></div>
+          <textarea id="message-input" rows="2" placeholder="向团队描述任务，输入 @ 指定成员…" aria-label="消息内容"></textarea>
+          <div class="composer-toolbar"><div class="composer-tools"><button class="composer-tool" data-action="mention" title="提及成员" aria-label="提及成员" data-icon="at"></button><button class="composer-tool" data-action="emoji" title="插入表情" aria-label="插入表情" data-icon="smile"></button><span class="toolbar-divider"></span><button class="recipient-button" data-action="members"><span data-icon="agents"></span><span class="composer-hint" id="composer-hint">房间成员</span><span data-icon="chevron-down"></span></button></div><button id="send-button" class="send-button" aria-label="发送消息" disabled><span data-icon="arrow-up"></span></button></div>
+        </div>
+        <div class="environment-bar"><button data-action="workspace-menu" title="切换工作目录"><span data-icon="folder"></span><span id="composer-workspace">本地工作区</span></button><button data-action="launch" title="启动新的 Agent"><span data-icon="code"></span><span id="composer-engines">选择 Agent</span><span data-icon="chevron-down"></span></button></div>
+        <div class="composer-bottom"><span id="routing-hint">未 @ 时发送给房间内所有成员</span><span>Enter 发送 <span class="hint-separator">·</span> Shift + Enter 换行</span></div>
+      </div>
+    </main>
+    <aside id="details-panel" class="details-panel" hidden></aside>
+  </div>
+  <div id="workspace-menu" class="workspace-menu" hidden></div>
+  <div id="modal-root"></div>
+  <div id="toast" class="toast" role="status" hidden></div>
+  <script src="icons.js"></script>
+  <script src="avatars.js"></script>
+  <script src="connections.js"></script>
+  <script src="usage.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

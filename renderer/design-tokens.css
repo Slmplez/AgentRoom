@@ -1,0 +1,58 @@
+/* Agent Room theme. Values adapted from Caho1/open-claude-ui (MIT).
+   Reference: code-examples/cds-theme.css and docs/v2/03. See THIRD_PARTY_NOTICES.md. */
+:root {
+  color-scheme: light;
+  --surface-0: #f5f5f3;
+  --surface-1: #fcfcfb;
+  --surface-2: #ffffff;
+  --surface-3: #ffffff;
+  --ink: #262624;
+  --text-secondary: #62615c;
+  --muted: #797872;
+  --line: #26262415;
+  --line-strong: #26262429;
+  --hover: #26262408;
+  --selected: #2626240e;
+  --clay: #c6613f;
+  --clay-soft: #f7e9e3;
+  --clay-text: #a64c30;
+  --success: #577a60;
+  --warning: #9d7138;
+  --user-surface: #f0efec;
+  --shadow: 0 0 0 1px var(--line), 0 8px 28px #00000012, 0 2px 6px #00000008;
+  --blue: var(--clay);
+  --blue-dark: #ae5132;
+  --pale: var(--surface-0);
+  --sidebar: 264px;
+  --measure: 820px;
+  --titlebar-height: 42px;
+  --radius-control: 8px;
+  --radius-panel: 12px;
+  --radius-composer: 14px;
+  --ease-out: cubic-bezier(.165,.84,.44,1);
+  --ease-snap: cubic-bezier(.32,.72,0,1);
+  --font-sans: "Segoe UI Variable", "Segoe UI", "Microsoft YaHei UI", system-ui, sans-serif;
+  --font-serif: Georgia, "Noto Serif CJK SC", "Source Han Serif SC", "SimSun", serif;
+  --font-mono: "Cascadia Code", Consolas, monospace;
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --surface-0: #191918;
+  --surface-1: #151515;
+  --surface-2: #20201f;
+  --surface-3: #292927;
+  --ink: #e7e7e2;
+  --text-secondary: #b1b0a8;
+  --muted: #92918a;
+  --line: #ffffff13;
+  --line-strong: #ffffff29;
+  --hover: #ffffff09;
+  --selected: #ffffff12;
+  --clay: #d97757;
+  --clay-soft: #38261f;
+  --clay-text: #e09c83;
+  --success: #91b09a;
+  --warning: #d4b07a;
+  --user-surface: #292927;
+  --shadow: 0 0 0 1px var(--line-strong), 0 12px 36px #00000040;
+}

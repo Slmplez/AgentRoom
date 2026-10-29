@@ -1,0 +1,26 @@
+node_modules/
+.data/
+artifacts/
+*.log
+
+# Local credentials and certificates (public loopback fixtures are intentional).
+.env
+.env.*
+.npmrc
+*.pem
+*.key
+*.p12
+*.pfx
+*.crt
+*.cer
+!test/fixtures/tls-cert.pem
+!test/fixtures/tls-key.pem
+
+# Generated distribution and local tooling files.
+dist/
+out/
+coverage/
+__pycache__/
+*.pyc
+.DS_Store
+Thumbs.db
