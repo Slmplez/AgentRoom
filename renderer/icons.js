@@ -1,12 +1,10 @@
 (() => {
   const paths = {
-    'room-mark': '<path d="M4 7.5 12 3l8 4.5v9L12 21l-8-4.5zM4 7.5l8 4.5 8-4.5M12 12v9"/><path d="m8 5.3 8 4.5"/>',
     'panel-left': '<rect x="3" y="4" width="18" height="16" rx="3"/><path d="M9 4v16"/>',
     sliders: '<path d="M4 6h7m4 0h5M4 12h2m4 0h10M4 18h10m4 0h2"/><circle cx="13" cy="6" r="2"/><circle cx="8" cy="12" r="2"/><circle cx="16" cy="18" r="2"/>',
     chart: '<path d="M4 4v16h17M8 15v-4M13 15V7M18 15v-6"/>',
     moon: '<path d="M20.5 13a8.5 8.5 0 0 1-9.5-9.5A8.5 8.5 0 1 0 20.5 13z"/>',
     'arrow-up': '<path d="M12 19V5m-6 6 6-6 6 6"/>',
-    brand: '<path d="M5 5.5A3.5 3.5 0 0 1 8.5 2H17a4 4 0 0 1 4 4v6a4 4 0 0 1-4 4h-3l-4.5 4v-4h-1A3.5 3.5 0 0 1 5 12.5z" fill="currentColor" stroke="none"/><path d="M2 9v6a4 4 0 0 0 4 4h1v3l4-3" opacity=".4"/><path d="M10 8h.01M16 8h.01" stroke="white" stroke-width="2.7" stroke-linecap="round"/>',
     chat: '<path d="M21 11.5a8.4 8.4 0 0 1-.9 3.8A8.5 8.5 0 0 1 12.5 20a8.4 8.4 0 0 1-3.8-.9L3 21l1.9-5.7a8.4 8.4 0 0 1-.9-3.8A8.5 8.5 0 0 1 8.7 3.9a8.4 8.4 0 0 1 3.8-.9h.5a8.5 8.5 0 0 1 8 8z"/>',
     chats: '<path d="M3 3h13v10H9l-4 4v-4H3z" fill="currentColor" stroke="none"/><path d="M13 10h8v9h-3v3l-4-3h-3v-4" opacity=".45" fill="currentColor" stroke="none"/>',
     agents: '<circle cx="9" cy="8" r="3"/><path d="M3 21v-2a6 6 0 0 1 12 0v2M16 5a3 3 0 0 1 0 6M21 21v-2a6 6 0 0 0-4-5.65"/>',
@@ -36,6 +34,9 @@
     globe: '<circle cx="12" cy="12" r="9"/><ellipse cx="12" cy="12" rx="4" ry="9"/><path d="M3 12h18"/>',
     bolt: '<path d="m13 2-9 12h7l-1 8 10-12h-7z"/>',
   };
-  window.icon = (name, className = '') => `<svg class="icon ${className}" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths[name] || paths.chat}</svg>`;
+  window.icon = (name, className = '') => {
+    if (name === 'room-mark' || name === 'brand') return `<span class="icon room-mark ${className}" aria-hidden="true"></span>`;
+    return `<svg class="icon ${className}" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths[name] || paths.chat}</svg>`;
+  };
   document.querySelectorAll('[data-icon]').forEach(element => { element.innerHTML = window.icon(element.dataset.icon); });
 })();

@@ -3,6 +3,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs/promises');
 const os = require('node:os');
 const path = require('node:path');
+const { EventEmitter } = require('node:events');
 const { HcomService, cleanAgent, normalizeMessages, resolveTargets, validateMessage, workspaceId } = require('../lib/hcom-service.cjs');
 
 const directoryA = path.join(os.tmpdir(), 'ar-workspace-a');
@@ -83,11 +84,31 @@ test('room membership cannot include agents from another workspace', async t => 
   assert.deepEqual(result.room.members, ['nora', 'silo']);
   assert.equal(result.room.workspaceId, room.workspaceId);
 });
-test('OpenCode and Oh My Pi launch with cwd and a literal validated tag', async t => {
+test('compatibility launches run headless with cwd and a literal validated tag', async t => {
   const { service, calls, dir } = await fixture(t);
   await service.launch({ tool: 'opencode', directory: dir, tag: 'frontend' });
   await service.launch({ tool: 'omp', directory: dir, tag: 'review_2' });
-  assert.deepEqual(calls.find(args => args[0] === 'opencode'), ['opencode', '--go', '--tag', 'frontend', '--dir', dir, '--json']);
+  assert.deepEqual(calls.find(args => args[0] === 'opencode'), ['opencode', '--headless', '--go', '--tag', 'frontend', '--dir', dir, '--json']);
+  assert.ok(calls.filter(args => ['opencode', 'omp'].includes(args[0])).every(args => args.includes('--headless')));
   await assert.rejects(service.launch({ tool: 'powershell', directory: dir }), /受支持/);
   await assert.rejects(service.launch({ tool: 'pi', directory: dir, tag: 'x; do-bad-things' }), /Tag/);
+});
+
+test('native Add Agent bypasses the external terminal launcher', async t => {
+  const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'agent-room-native-launch-'));
+  t.after(() => fs.rm(dir, { recursive: true, force: true }));
+  const runtime = new EventEmitter(), launches = [];
+  runtime.snapshot = async () => ({ agents: [], events: [] });
+  runtime.launch = async payload => {
+    launches.push(payload);
+    return { handles: [{ instance_name: 'local-test', tool: payload.tool, embedded: true }] };
+  };
+  const service = new HcomService({ dataDir: dir, runtime, run: async () => { throw new Error('External hcom must not be launched'); } });
+  for (const tool of ['codex', 'claude', 'pi', 'opencode']) {
+    const receipt = await service.launch({ tool, directory: dir, tag: 'room' });
+    assert.equal(receipt.result.handles[0].embedded, true);
+  }
+  assert.deepEqual(launches.map(p => p.tool), ['codex', 'claude', 'pi', 'opencode']);
+  assert.ok(launches.every(p => p.directory === dir && p.tag === 'room'));
+  assert.ok(launches.every(p => !p.args.some(arg => ['--headless', '--go', '--tag', '--dir', '--json'].includes(arg))), 'hcom wrapper flags do not reach the agent CLI');
 });

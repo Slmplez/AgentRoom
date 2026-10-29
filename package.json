@@ -9,9 +9,19 @@
     "install-runtime": "install-electron",
     "web": "node server.cjs",
     "test": "node --test test/*.test.cjs",
-    "check": "node --check main.cjs && node --check preload.cjs && node --check server.cjs && node --check lib/hcom-service.cjs && node --check lib/connection-profiles.cjs && node --check lib/model-gateway.cjs && node --check lib/engine-connections.cjs && node --check lib/usage.cjs && node --check renderer/connections.js && node --check renderer/usage.js && node --check renderer/avatars.js && node --check renderer/app.js"
+    "check": "node --check main.cjs && node --check preload.cjs && node --check server.cjs && node --check lib/hcom-service.cjs && node --check lib/connection-profiles.cjs && node --check lib/model-gateway.cjs && node --check lib/engine-connections.cjs && node --check lib/usage.cjs && node --check lib/capability-library.cjs && node --check lib/mcp-hub.cjs && node --check lib/capability-launch.cjs && node --check renderer/capabilities.js && node --check lib/context-telemetry.cjs && node --check lib/pi-context-extension.mjs && node --check renderer/context.js && node --check renderer/connections.js && node --check renderer/usage.js && node --check renderer/avatars.js && node --check renderer/app.js && node --check lib/native-runtime.cjs && node --check lib/runtime-host.cjs && node --check lib/terminal-contract.cjs && node --check renderer/terminal.js && node --check lib/rpc-runtime.cjs && node --check lib/rpc/transport.cjs && node --check lib/rpc/engines.cjs",
+    "verify:capabilities-ui": "electron scripts/verify-capabilities-ui.cjs --disable-gpu",
+    "verify:capability-clis": "node scripts/verify-capability-clis.cjs",
+    "build:native": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-native.ps1",
+    "build:native:release": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-native.ps1 -Release",
+    "verify:rpc": "node scripts/verify-rpc.cjs"
   },
   "devDependencies": {
     "electron": "43.8.4"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "1.32.2",
+    "@xterm/addon-fit": "^0.11.0",
+    "@xterm/xterm": "^6.0.0"
   }
 }

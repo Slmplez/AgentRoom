@@ -1,0 +1,64 @@
+.modal.capability-modal { width: min(960px, calc(100vw - 64px)); max-width: 960px; padding: 26px; color: var(--ink); }
+.capability-modal .button.primary { background: var(--clay-text); color: var(--surface-2); }
+.capability-modal .modal-subtitle { max-width: 760px; line-height: 1.7; }
+.capability-modal .modal-actions { margin-top: 20px; }
+.cap-tabs { display: flex; gap: 24px; margin: 22px 0 0; border-bottom: 1px solid var(--line); }
+.cap-tabs button { padding: 12px 0; color: var(--text-secondary); font-size: 14px; border-radius: 0; }
+.cap-tabs button[aria-selected="true"] { color: var(--ink); box-shadow: inset 0 -2px var(--clay); }
+.cap-tabs span { display: inline-block; margin-left: 7px; color: var(--muted); font-size: 12px; }
+.cap-body { padding-top: 22px; }
+.cap-layout { display: grid; grid-template-columns: 210px minmax(0, 1fr); gap: 28px; }
+.cap-sidebar { min-width: 0; }
+.cap-sidebar > .button { width: 100%; margin-bottom: 12px; }
+.cap-server-item { display: block; width: 100%; text-align: left; padding: 13px 12px; margin: 3px 0; border-radius: 8px; }
+.cap-server-item:hover, .cap-server-item.selected { background: var(--selected); }
+.cap-server-item strong, .cap-server-item small { display: block; overflow-wrap: anywhere; }
+.cap-server-item strong { font-size: 14px; font-weight: 500; color: var(--ink); }
+.cap-server-item small { font-size: 11px; margin-top: 6px; color: var(--text-secondary); }
+.cap-editor { min-width: 0; }
+.cap-editor h3, .cap-body h3 { font-size: 15px; margin: 0; font-weight: 600; color: var(--ink); }
+.cap-section-heading { display: flex; gap: 16px; align-items: center; justify-content: space-between; }
+.cap-inline { display: flex; align-items: center; gap: 7px; font-size: 12px; white-space: nowrap; color: var(--text-secondary); }
+.cap-form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.capability-modal .text-input { color: var(--ink); background: var(--surface-2); border-color: var(--line-strong); font-size: 13px; }
+.capability-modal .form-label { color: var(--text-secondary); font-size: 12px; margin-top: 18px; }
+.capability-modal textarea.text-input { resize: vertical; min-height: 58px; line-height: 1.6; padding: 9px 11px; }
+.cap-code { font-family: var(--font-mono); }
+.cap-advanced { margin: 20px 0; }
+.cap-advanced summary { font-size: 12px; color: var(--text-secondary); cursor: pointer; }
+.cap-advanced small { display: block; color: var(--text-secondary); font-size: 11px; line-height: 1.7; margin-top: 6px; overflow-wrap: anywhere; }
+.cap-editor-actions { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 8px; margin-top: 20px; }
+.cap-editor-actions .cap-danger { margin-right: auto; }
+.cap-note { color: var(--text-secondary); font-size: 12px; line-height: 1.8; margin: 14px 0 0; }
+.cap-empty { padding: 20px 2px; color: var(--text-secondary); font-size: 13px; line-height: 1.7; }
+.cap-test-result { font-size: 12px; color: var(--text-secondary); line-height: 1.7; }
+.cap-tool-list { max-height: 230px; overflow-y: auto; }
+.cap-choice { display: flex; gap: 12px; align-items: flex-start; padding: 13px 2px; cursor: pointer; }
+.cap-choice + .cap-choice { border-top: 1px solid var(--line); }
+.cap-choice input, .cap-inline input { accent-color: var(--clay); flex-shrink: 0; margin-top: 3px; }
+.cap-choice span { min-width: 0; }
+.cap-choice strong { display: block; color: var(--ink); font-size: 13px; font-weight: 500; overflow-wrap: anywhere; }
+.cap-choice small { display: block; font-size: 12px; line-height: 1.7; color: var(--text-secondary); margin-top: 4px; overflow-wrap: anywhere; }
+.cap-choice:has(input:disabled) { cursor: default; opacity: .65; }
+.cap-skill-import { max-width: 690px; }
+.cap-skill-import p, .cap-assignment-head p { color: var(--text-secondary); line-height: 1.8; font-size: 13px; }
+.cap-skill-import > .button { margin-top: 12px; }
+.cap-skill-list { margin-top: 28px; }
+.cap-skill { display: grid; grid-template-columns: 32px minmax(0, 1fr) auto; gap: 14px; padding: 20px 0; border-top: 1px solid var(--line); }
+.cap-skill p { font-size: 13px; color: var(--text-secondary); line-height: 1.7; margin: 7px 0; }
+.cap-skill small { display: block; color: var(--text-secondary); font-size: 11px; line-height: 1.8; overflow-wrap: anywhere; }
+.cap-skill-mark { color: var(--clay); padding-top: 1px; }
+.cap-skill-mark svg { width: 24px; height: 24px; }
+.cap-row-actions { display: flex; gap: 6px; align-self: start; }
+.cap-assignment-head { display: flex; justify-content: space-between; gap: 24px; align-items: flex-start; }
+.cap-assignment-head select { max-width: 230px; }
+.cap-assign-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 36px; margin-top: 26px; }
+.cap-assign-grid section { min-width: 0; }
+.cap-launch { border-top: 1px solid var(--line); margin-top: 22px; padding-top: 4px; }
+.cap-launch h4 { font-size: 12px; color: var(--text-secondary); margin-bottom: 0; }
+.member-capabilities { font-size: 10px; color: var(--text-secondary); line-height: 1.7; padding-top: 8px; }
+.member-capabilities small { display: block; }
+.cap-error { color: var(--warning); font-size: 13px; line-height: 1.7; }
+.capability-modal button:focus-visible, .capability-modal input:focus-visible, .capability-modal select:focus-visible, .capability-modal textarea:focus-visible, .capability-modal summary:focus-visible { outline: 2px solid var(--clay); outline-offset: 3px; }
+@media (max-width: 1100px) { .capability-modal { padding: 22px; } .cap-layout { grid-template-columns: 180px minmax(0, 1fr); gap: 22px; } .cap-row-actions { flex-direction: column; } }
+@media (max-width: 760px) { .cap-layout, .cap-assign-grid { grid-template-columns: 1fr; } .cap-sidebar { display: flex; gap: 8px; overflow-x: auto; } .cap-sidebar .cap-note { display: none; } .cap-sidebar > button { min-width: 150px; } .cap-assignment-head { flex-direction: column; } .cap-tabs { gap: 18px; } }

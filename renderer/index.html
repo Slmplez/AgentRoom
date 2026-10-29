@@ -5,20 +5,22 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'none'">
   <title>Agent Room</title>
+  <link rel="icon" type="image/png" href="assets/brand/app.png">
   <link rel="stylesheet" href="styles.css">
   <link rel="stylesheet" href="design-tokens.css">
   <link rel="stylesheet" href="workbench.css">
+  <link rel="stylesheet" href="capabilities.css">
 </head>
 <body>
   <header class="titlebar">
-    <div class="brand"><span class="brand-symbol" data-icon="room-mark"></span><strong>Agent Room</strong><span class="brand-divider"></span><span class="brand-caption">多 Agent 工作空间</span></div>
+    <div class="brand"><span class="brand-symbol" data-icon="room-mark" aria-hidden="true"></span><span class="brand-name">Agent Room</span></div>
     <div class="titlebar-right"><span class="local-badge"><i></i> 本地运行</span><button class="theme-toggle" data-action="theme" aria-label="切换到深色" title="切换到深色" data-icon="moon"></button><div class="window-controls"><button data-window="minimize" aria-label="最小化" data-icon="minus"></button><button data-window="maximize" aria-label="最大化" data-icon="square"></button><button data-window="close" aria-label="关闭" data-icon="close"></button></div></div>
   </header>
   <div class="app-layout">
     <aside class="sidebar" aria-label="会话列表">
       <div class="sidebar-top"><button class="new-conversation" data-action="new-room"><span data-icon="plus"></span>新建群聊<kbd>Ctrl N</kbd></button><button class="icon-button" data-action="toggle-sidebar" aria-label="收起侧栏" title="收起侧栏 · Ctrl B" data-icon="panel-left"></button></div>
       <label class="search-box"><span data-icon="search"></span><input id="search" placeholder="搜索会话或成员" autocomplete="off" aria-label="搜索对话"><kbd>Ctrl K</kbd></label>
-      <nav class="sidebar-nav" aria-label="主导航"><button data-action="conversations" class="active" data-nav="conversations"><span data-icon="chat"></span>对话</button><button data-action="connections"><span data-icon="sliders"></span>连接与模型</button><button data-action="usage"><span data-icon="chart"></span>用量统计</button></nav>
+      <nav class="sidebar-nav" aria-label="主导航"><button data-action="conversations" class="active" data-nav="conversations"><span data-icon="chat"></span>对话</button><button data-action="connections"><span data-icon="sliders"></span>连接与模型</button><button data-action="capabilities"><span data-icon="layers"></span>能力库</button><button data-action="usage"><span data-icon="chart"></span>用量统计</button></nav>
       <div class="workspace-label">工作空间<button class="icon-button" data-action="new-workspace" aria-label="添加工作区" title="添加工作区" data-icon="plus"></button></div>
       <button id="workspace-button" class="workspace-switch" aria-label="切换工作区"><span class="workspace-mark" data-icon="workspace"></span><span><strong id="workspace-name">我的工作区</strong><small id="workspace-subtitle">你的 agent，共同的空间</small></span><span data-icon="chevron-down"></span></button>
       <div class="filters" role="tablist" aria-label="会话分类"><button class="selected" role="tab" aria-selected="true" data-filter="all">全部</button><button role="tab" aria-selected="false" data-filter="unread">未读 <span id="unread-total" hidden></span></button><button role="tab" aria-selected="false" data-filter="group">群聊</button><button role="tab" aria-selected="false" data-filter="dm">成员</button></div>
@@ -46,10 +48,16 @@
   <div id="workspace-menu" class="workspace-menu" hidden></div>
   <div id="modal-root"></div>
   <div id="toast" class="toast" role="status" hidden></div>
+  <link rel="stylesheet" href="vendor/xterm.css">
+  <script src="vendor/xterm.js"></script>
+  <script src="vendor/addon-fit.js"></script>
+  <script src="terminal.js"></script>
   <script src="icons.js"></script>
   <script src="avatars.js"></script>
   <script src="connections.js"></script>
   <script src="usage.js"></script>
+  <script src="context.js"></script>
+  <script src="capabilities.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

@@ -31,9 +31,13 @@
     desktop: false, getState: () => http('state'), refresh: () => http('refresh', {}),
     send: payload => http('send', payload), createRoom: payload => http('rooms', payload),
     createWorkspace: payload => http('workspaces', payload), terminal: id => http('terminal', { id }),
+    inspectSession: id => http('session/inspect', { id }), respondSession: (id, requestId, answer) => http('session/respond', { id, requestId, answer }),
+    cancelSession: id => http('session/cancel', { id }), stopSession: id => http('session/stop', { id }),
     saveConnection: payload => http('connections/save', payload), removeConnection: id => http('connections/remove', { id }),
     testConnection: payload => http('connections/test', payload), chooseCertificate: async () => null,
     getUsage: () => http('usage'),
+    saveCapabilityServer: payload => http('capabilities/server-save', payload), importCapabilitySkill: payload => http('capabilities/skill-import', payload),
+    removeCapability: payload => http('capabilities/remove', payload), bindCapabilities: payload => http('capabilities/bind', payload), testCapabilityServer: payload => http('capabilities/test', payload),
     launch: payload => http('launch', payload), chooseDirectory: async () => null,
     openSource: () => window.open('https://github.com/aannoo/hcom', '_blank', 'noopener'),
     onState: callback => { const stream = new EventSource('/api/events'); stream.onmessage = event => callback(JSON.parse(event.data)); return () => stream.close(); },
@@ -146,7 +150,7 @@
       const count = unread(room);
       const members = membersOf(room);
       const preview = last ? `${last.human ? '你' : last.senderName.split(' · ')[0]}：${last.text}` : room.agent ? `${statusLabel(room.agent.status)}${room.agent.tag ? ` · #${room.agent.tag}` : ''} · ${room.agent.label}` : room.description;
-      return `<button class="conversation-item ${room.id === active ? 'selected' : ''}" data-room="${esc(room.id)}" aria-label="${esc(room.title)}" ${room.id === active ? 'aria-current="page"' : ''}>${room.agent ? avatar(room.agent, '', true) : `<span class="group-icon">${icon(room.pinned ? 'chat' : 'chats')}</span>`}<span class="conversation-content"><span class="conversation-top"><span class="conversation-title">${esc(room.title)}</span>${room.pinned ? icon('pin', 'mini-pin') : ''}<span class="conversation-time">${last ? clock(last.timestamp) : ''}</span></span><span class="conversation-preview"><span class="preview-text">${esc(preview)}</span>${count ? `<span class="unread-badge">${count > 9 ? '9+' : count}</span>` : ''}</span></span></button>`;
+      return `<button class="conversation-item ${room.id === active ? 'selected' : ''}" data-room="${esc(room.id)}" aria-label="${esc(room.title + (room.agent ? `，${window.AgentContext.describe(room.agent.context)}` : ''))}" ${room.id === active ? 'aria-current="page"' : ''}>${room.agent ? avatar(room.agent, '', true) : `<span class="group-icon">${icon(room.pinned ? 'chat' : 'chats')}</span>`}<span class="conversation-content"><span class="conversation-top"><span class="conversation-title">${esc(room.title)}</span>${room.pinned ? icon('pin', 'mini-pin') : ''}<span class="conversation-time">${last ? clock(last.timestamp) : ''}</span></span><span class="conversation-preview">${room.agent ? window.AgentContext.render(room.agent.context) : ''}<span class="preview-text">${esc(preview)}</span>${count ? `<span class="unread-badge">${count > 9 ? '9+' : count}</span>` : ''}</span></span></button>`;
     }
     const pinned = groupRooms().filter(room => room.pinned && isVisible(room));
     const other = groupRooms().filter(room => !room.pinned && isVisible(room));
@@ -163,7 +167,7 @@
   function renderHeader() {
     const room = currentRoom();
     const members = membersOf(room);
-    html('#conversation-header', `<div class="header-location"><button class="icon-button" data-action="toggle-sidebar" aria-label="${sidebarCollapsed ? '展开侧栏' : '收起侧栏'}" title="切换侧栏 · Ctrl B">${icon('panel-left')}</button><div><div class="header-title">${esc(room?.title || '协作大厅')}</div><div class="room-subtitle">${esc(currentWorkspace()?.title || '本地工作区')}<span class="subtitle-dot">/</span>${room?.agent ? `${esc(room.agent.label)} · ${esc(statusLabel(room.agent.status))}` : `${members.length} 个 Agent · 群聊`}</div></div></div><div class="header-actions">${room?.agent ? `<button class="icon-button" data-terminal="${esc(room.agent.id)}" aria-label="查看终端" title="查看终端">${icon('terminal')}</button>` : `<button class="members-pill" data-action="launch">${icon('plus')} 添加 Agent</button>`}<button class="icon-button ${details ? 'selected' : ''}" data-action="members" title="工作区与成员" aria-label="工作区与成员" aria-expanded="${details}">${icon('panel-left')}</button></div>`);
+    html('#conversation-header', `<div class="header-location"><button class="icon-button" data-action="toggle-sidebar" aria-label="${sidebarCollapsed ? '展开侧栏' : '收起侧栏'}" title="切换侧栏 · Ctrl B">${icon('panel-left')}</button><div><div class="header-title">${esc(room?.title || '协作大厅')}</div><div class="room-subtitle">${esc(currentWorkspace()?.title || '本地工作区')}<span class="subtitle-dot">/</span>${room?.agent ? `${esc(room.agent.label)} · ${esc(statusLabel(room.agent.status))}` : `${members.length} 个 Agent · 群聊`}</div></div></div><div class="header-actions">${room?.agent ? window.AgentContext.render(room.agent.context, false, true) : ''}${room?.agent ? `<button class="icon-button" data-terminal="${esc(room.agent.id)}" aria-label="查看会话" title="查看会话">${icon('terminal')}</button>` : `<button class="members-pill" data-action="launch">${icon('plus')} 添加 Agent</button>`}<button class="icon-button ${details ? 'selected' : ''}" data-action="members" title="工作区与成员" aria-label="工作区与成员" aria-expanded="${details}">${icon('panel-left')}</button></div>`);
   }
   function welcome(room) {
     const members = membersOf(room);
@@ -172,13 +176,14 @@
   function renderMessages() {
     const room = currentRoom();
     const messages = messagesOf(room);
-    const key = `${active}:${messages.map(message => message.id).join(',')}:${[...expanded].join(',')}:${workspaceAgents().length}:${avatarRevision}`;
+    const pending = membersOf(room).filter(a => a.rpc && (a.rpc.current?.thread === room?.thread || a.rpc.error));
+    const key = `${active}:${messages.map(message => message.id).join(',')}:${[...expanded].join(',')}:${workspaceAgents().length}:${avatarRevision}:${JSON.stringify(pending.map(a => a.rpc))}`;
     if (key === renderedMessageKey) return;
     const container = $('#messages');
     const atBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 100;
     const changedRoom = !renderedMessageKey.startsWith(`${active}:`);
     renderedMessageKey = key;
-    if (!messages.length) { container.innerHTML = welcome(room); return; }
+    if (!messages.length && !pending.length) { container.innerHTML = welcome(room); return; }
     let lastDate = '';
     container.innerHTML = messages.map(message => {
       const date = new Date(message.timestamp);
@@ -189,7 +194,7 @@
       const isLong = message.text.length > 420;
       const collapsed = isLong && !expanded.has(message.id);
       return `${divider}<article class="message ${message.human ? 'human' : ''}" id="message-${esc(message.id)}">${avatar(message.human ? { tool: 'human' } : state.agents.find(agent => agent.id === message.sender || agent.name === message.sender) || { id: message.sender, tool: message.tool })}<div class="message-main"><div class="message-heading"><span class="message-name">${esc(message.senderName)}</span><span class="message-engine">${message.human ? 'YOU' : esc(state.agents.find(agent => agent.id === message.sender)?.label || message.tool)}</span><span class="message-actions"><button data-copy-message="${esc(message.id)}">复制</button></span><time class="message-time">${clock(message.timestamp)}</time></div><div class="message-bubble ${collapsed ? 'collapsed' : ''}">${formatText(message.text)}</div>${isLong ? `<button class="expand-message" data-expand="${esc(message.id)}">${collapsed ? '展开完整消息' : '收起消息'}</button>` : ''}<div class="message-footer">${message.human ? `${icon('checkdouble')} 已发送${message.recipients.length ? ` · ${message.recipients.length} 位接收者` : ''}` : message.intent === 'ack' ? `${icon('check')} 已回应` : ''}${message.replyTo ? `<button class="reply-link" data-jump="${esc(message.replyTo)}">回复 #${esc(message.replyTo)}</button>` : ''}</div></div></article>`;
-    }).join('');
+    }).join('') + pending.map(a => `<article class="message rpc-progress">${avatar(a)}<div class="message-main"><div class="message-heading"><span class="message-name">${esc(a.displayName)}</span><span class="message-engine">${esc(statusLabel(a.status))}${a.rpc.queueLength ? ` · ${a.rpc.queueLength} 条排队` : ''}</span></div><div class="message-bubble">${formatText(a.rpc.partial || a.rpc.error || (a.rpc.approvals.length ? '需要你的确认，等待处理。' : a.rpc.activity ? `正在执行 ${a.rpc.activity.kind}` : '正在思考…'))}</div><button class="expand-message" data-terminal="${esc(a.id)}">${a.rpc.approvals.length ? '处理确认' : '查看会话状态'}</button></div></article>`).join('');
     if (atBottom || changedRoom) container.scrollTop = container.scrollHeight;
   }
   function renderDetails() {
@@ -197,7 +202,7 @@
     if (!details) return;
     const room = currentRoom(); const members = membersOf(room);
     const tags = [...new Set(members.map(agent => agent.tag).filter(Boolean))];
-    html('#details-panel', `<div class="details-title">工作区与成员<button class="icon-button" data-action="members" aria-label="关闭详情">${icon('close')}</button></div><section class="context-card"><div class="context-heading">工作环境<span class="context-local">本机</span></div><div class="context-path">${icon('folder')}<span><strong>${esc(currentWorkspace()?.title || '本地工作区')}</strong><small>${esc(currentWorkspace()?.directory || '请选择工作目录')}</small></span></div><button class="context-switch" data-action="workspace-menu">切换工作区 ${icon('chevron-down')}</button></section><section class="context-card"><div class="context-summary"><span>当前会话</span><strong>${room?.type === 'dm' ? '私聊' : '群聊'}</strong></div><div class="context-summary"><span>房间成员</span><strong>${members.length} 个 Agent</strong></div><div class="context-summary"><span>消息记录</span><strong>${messagesOf(room).length} 条</strong></div></section><div class="details-section-title">房间成员</div>${members.map(agent => `<div class="member-card">${avatar(agent, 'small', true)}<div><strong>${esc(agent.displayName)}</strong><small class="member-tags">${esc(statusLabel(agent.status))}${agent.tag ? `<span class="tag-pill">#${esc(agent.tag)}</span>` : ''}</small></div><button class="icon-button" data-terminal="${esc(agent.id)}" title="只读终端" aria-label="查看 ${esc(agent.displayName)} 的终端">${icon('terminal')}</button></div>`).join('') || '<p class="detail-note">还没有成员。添加 Agent 时选择这个工作目录，会自动出现在这里。</p>'}<button class="detail-add-button" data-action="launch">${icon('plus')} 添加 Agent</button>${tags.length ? `<div class="details-section-title">按标签提及</div><div class="detail-tags">${tags.map(tag => `<button data-invite="${esc(tag)}">#${esc(tag)}</button>`).join('')}</div><p class="detail-note">点击标签插入 @ 提及，发送前可继续编辑消息。</p>` : ''}`);
+    html('#details-panel', `<div class="details-title">工作区与成员<button class="icon-button" data-action="members" aria-label="关闭详情">${icon('close')}</button></div><section class="context-card"><div class="context-heading">工作环境<span class="context-local">本机</span></div><div class="context-path">${icon('folder')}<span><strong>${esc(currentWorkspace()?.title || '本地工作区')}</strong><small>${esc(currentWorkspace()?.directory || '请选择工作目录')}</small></span></div><button class="context-switch" data-action="workspace-menu">切换工作区 ${icon('chevron-down')}</button></section><section class="context-card"><div class="context-summary"><span>当前会话</span><strong>${room?.type === 'dm' ? '私聊' : '群聊'}</strong></div><div class="context-summary"><span>房间成员</span><strong>${members.length} 个 Agent</strong></div><div class="context-summary"><span>消息记录</span><strong>${messagesOf(room).length} 条</strong></div></section><div class="details-section-title">房间成员</div>${members.map(agent => `<div class="member-card">${avatar(agent, 'small', true)}<div><strong>${esc(agent.displayName)}</strong><small class="member-tags">${esc(statusLabel(agent.status))}${agent.tag ? `<span class="tag-pill">#${esc(agent.tag)}</span>` : ''}</small></div><button class="icon-button" data-terminal="${esc(agent.id)}" title="${agent.mode === 'rpc' ? '会话状态与权限确认' : '应用内交互终端'}" aria-label="查看 ${esc(agent.displayName)} 的会话">${icon('terminal')}</button></div><div class="member-context">${window.AgentContext.render(agent.context, true)}${capabilities.member(agent)}</div>`).join('') || '<p class="detail-note">还没有成员。添加 Agent 时选择这个工作目录，会自动出现在这里。</p>'}<button class="detail-add-button" data-action="launch">${icon('plus')} 添加 Agent</button>${tags.length ? `<div class="details-section-title">按标签提及</div><div class="detail-tags">${tags.map(tag => `<button data-invite="${esc(tag)}">#${esc(tag)}</button>`).join('')}</div><p class="detail-note">点击标签插入 @ 提及，发送前可继续编辑消息。</p>` : ''}`);
   }
   function updateComposer() {
     $('#send-button').disabled = sending || !input.value.trim() || state.connection !== 'connected';
@@ -267,11 +272,13 @@
     toastTimer = setTimeout(() => { $('#toast').hidden = true; }, 6500);
   }
   function showModal(title, subtitle, content, footer, wide = false) {
-    closeModal(false); modalReturnFocus = document.activeElement;
+    const returnFocus = document.querySelector('.modal') ? modalReturnFocus : document.activeElement;
+    closeModal(false); modalReturnFocus = returnFocus;
     $('#modal-root').innerHTML = `<div class="modal-backdrop"><section class="modal ${wide ? 'wide' : ''}" role="dialog" aria-modal="true" aria-labelledby="modal-title"><div class="modal-head"><h2 id="modal-title">${esc(title)}</h2><button class="icon-button" data-action="close-modal" aria-label="关闭窗口">${icon('close')}</button></div><p class="modal-subtitle">${esc(subtitle)}</p>${content}${footer ? `<div class="modal-actions">${footer}</div>` : ''}</section></div>`;
     requestAnimationFrame(() => $('#modal-root').querySelector('input,button:not(.icon-button),textarea')?.focus());
   }
-  function closeModal(restore = true) { clearInterval(terminalTimer); $('#modal-root').innerHTML = ''; if (restore) modalReturnFocus?.focus(); }
+  let terminalDispose;
+  function closeModal(restore = true) { clearInterval(terminalTimer); terminalDispose?.(); terminalDispose = null; $('#modal-root').innerHTML = ''; if (restore) modalReturnFocus?.focus(); }
   const modalButtons = (label, action) => `<button class="button" data-action="close-modal">取消</button><button class="button primary" id="modal-submit" data-action="${action}">${esc(label)} ${icon('arrow')}</button>`;
   function showNewRoom() {
     const members = workspaceAgents();
@@ -283,9 +290,9 @@
     const other = engines.filter(engine => !primary.includes(engine));
     const selected = primary.find(engine => engine.installed)?.id || primary[0]?.id;
     const option = engine => `<button class="engine-option ${engine.installed ? 'installed' : 'disabled'} ${engine.id === selected ? 'selected' : ''}" data-engine="${esc(engine.id)}" aria-pressed="${engine.id === selected}">${avatar({ tool: engine.id, label: engine.label }, 'small')}<span><strong>${esc(engine.label)}</strong><small>${engine.installed ? '本机已检测到' : '尚未检测到 CLI'}</small></span></button>`;
-    showModal('启动 Agent', '选择引擎、连接方案和工作目录，每次启动一个独立会话。', `<label class="form-label">选择 Agent 引擎</label><div class="engine-grid primary-engines">${primary.map(option).join('')}</div>${other.length ? `<details class="engine-expander"><summary>更多引擎 <span>${other.length}</span></summary><div class="engine-grid">${other.map(option).join('')}</div></details>` : ''}<label class="form-label" for="agent-directory">Workspace · 工作目录</label><div class="directory-row"><input class="text-input" id="agent-directory" value="${esc(currentWorkspace()?.directory || '')}" placeholder="C:\\Projects\\my-app"><button data-browse="agent-directory">选择目录</button></div><label class="form-label" for="agent-tag">Tag <span class="optional-label">· 可选</span></label><input class="text-input" id="agent-tag" maxlength="32" placeholder="例如 frontend、review、research"><p class="form-hint">同一种引擎可以启动多个会话。Tag 是分组标签，可用 @tag 提及当前房间中拥有该标签的成员。</p>`, modalButtons('启动 Agent', 'launch-agent'), true);
+    showModal('启动 Agent', '通过 RPC 启动独立会话。回复、任务状态和权限确认都在此应用中完成。请先在 CLI 中完成账号登录，或选择连接方案。', `<label class="form-label">选择 Agent 引擎</label><div class="engine-grid primary-engines">${primary.map(option).join('')}</div>${other.length ? `<details class="engine-expander"><summary>更多引擎 <span>${other.length}</span></summary><div class="engine-grid">${other.map(option).join('')}</div></details>` : ''}<label class="form-label" for="agent-directory">Workspace · 工作目录</label><div class="directory-row"><input class="text-input" id="agent-directory" value="${esc(currentWorkspace()?.directory || '')}" placeholder="C:\\Projects\\my-app"><button data-browse="agent-directory">选择目录</button></div><label class="form-label" for="agent-tag">Tag <span class="optional-label">· 可选</span></label><input class="text-input" id="agent-tag" maxlength="32" placeholder="例如 frontend、review、research"><p class="form-hint">同一种引擎可以启动多个会话。Tag 是分组标签，可用 @tag 提及当前房间中拥有该标签的成员。</p>`, modalButtons('启动 Agent', 'launch-agent'), true);
     $('.modal').classList.add('launcher-modal');
-    connections.decorateLaunch();
+    connections.decorateLaunch(); capabilities.decorateLaunch();
   }
   function showWorkspaceMenu() {
     const menu = $('#workspace-menu');
@@ -303,6 +310,15 @@
   }
   async function showTerminal(id) {
     const agent = state.agents.find(item => item.id === id);
+    if (agent?.mode === 'rpc') return showRpcSession(agent);
+    if (state.runtimeMode === 'native') {
+      showModal(agent ? `${agent.displayName} 的终端` : '终端', '会话在 Agent Room 内运行。首次信任或登录提示可在这里完成。', '<div id="terminal-status" class="terminal-status">正在连接…</div><div id="native-terminal" style="height:440px;padding:12px;background:#18202c;border-radius:12px"></div>', `<button class="button" id="stop-native-session">停止会话</button><button class="button" data-action="close-modal">关闭面板</button>`, true);
+      const element = $('#native-terminal');
+      $('#stop-native-session').onclick = () => bridge.stopSession(id).catch(error => toast(error.message));
+      const dispose = await window.AgentRoomTerminal.mount({ id, bridge, element, status: $('#terminal-status'), onError: toast });
+      if (element.isConnected) terminalDispose = dispose; else dispose();
+      return;
+    }
     showModal(agent ? `${agent.displayName} 的终端` : '终端', '只读实时画面 · 这里显示原始会话状态，不会向终端注入输入。', `<div id="terminal-status" class="terminal-status">正在读取…</div><pre id="terminal-output" class="terminal-output">连接终端中…</pre>`, '<button class="button" data-action="close-modal">关闭</button>', true);
     const refresh = async () => {
       try {
@@ -314,8 +330,38 @@
     };
     await refresh(); terminalTimer = setInterval(refresh, 3000);
   }
+  async function showRpcSession(agent) {
+    const id = agent.id;
+    showModal(`${agent.displayName} 的会话`, '无终端会话 · 回复直接显示在聊天中。权限请求只在你确认后继续。', '<p id="rpc-status" role="status">正在读取…</p><p id="rpc-error" class="form-hint"></p><div id="rpc-requests"></div>', '<button class="button" id="rpc-cancel">中断当前任务</button><button class="button" id="rpc-stop">停止 Agent</button><button class="button" data-action="close-modal">关闭</button>', true);
+    const statusElement = $('#rpc-status');
+    const act = async fn => { try { await fn(); await refresh(); } catch (e) { toast(e.message); } };
+    $('#rpc-cancel').onclick = () => act(() => bridge.cancelSession(id));
+    $('#rpc-stop').onclick = () => act(() => bridge.stopSession(id));
+    let requestKey = '';
+    async function refresh() {
+      const view = await bridge.inspectSession(id);
+      if ($('#rpc-status') !== statusElement) return;
+      $('#rpc-status').textContent = `${view.alive ? statusLabel(view.status) : '已停止'} · ${view.queueLength || 0} 条排队${view.activity ? ` · ${view.activity.kind}` : ''}`;
+      $('#rpc-error').textContent = view.error || '';
+      $('#rpc-cancel').disabled = !view.alive || !view.current;
+      $('#rpc-stop').disabled = !view.alive;
+      const key = JSON.stringify(view.approvals);
+      if (key === requestKey) return; requestKey = key;
+      $('#rpc-requests').innerHTML = (view.approvals || []).map((r, index) => {
+        const d = r.data, questions = d.questions || d.input?.questions || [];
+        const fields = r.kind === 'questions' ? questions.map((q, i) => `<label class="form-label" for="rpc-answer-${index}-${i}">${esc(q.question || q.header || q.id)}</label><input class="text-input" id="rpc-answer-${index}-${i}" data-answer-index="${i}" maxlength="4000" placeholder="${esc((q.options || []).map(o => o.label).join(' / '))}">`).join('') : r.kind === 'input' ? `<label class="form-label" for="rpc-value-${index}">${esc(d.title || d.message || '请输入')}</label>${d.method === 'select' ? `<select class="text-input" id="rpc-value-${index}" data-rpc-value>${(d.options || []).map(o => `<option>${esc(o)}</option>`).join('')}</select>` : `<textarea class="text-input" id="rpc-value-${index}" data-rpc-value maxlength="16000"></textarea>`}` : '';
+        return `<section class="context-card rpc-request" data-rpc-request="${esc(r.id)}"><strong>${esc(d.title || d.tool_name || d.permission || d.method || '操作确认')}</strong><pre class="rpc-request-detail">${esc(d.command || d.reason || d.message || (r.kind === 'permission' ? JSON.stringify(d.input || d.permissions || d.patterns || d, null, 2) : ''))}</pre>${fields}<div class="modal-actions"><button class="button" data-rpc-decision="deny">${r.kind === 'permission' ? '拒绝' : '取消'}</button><button class="button primary" data-rpc-decision="allow">${r.kind === 'permission' ? '允许本次' : '提交回答'}</button></div></section>`;
+      }).join('') || '<p class="form-hint">当前没有待处理的确认。</p>';
+      for (const button of document.querySelectorAll('[data-rpc-decision]')) button.onclick = () => act(async () => {
+        const card = button.closest('[data-rpc-request]'), allow = button.dataset.rpcDecision === 'allow';
+        const answer = { allow, cancelled: !allow, value: card.querySelector('[data-rpc-value]')?.value, answers: [...card.querySelectorAll('[data-answer-index]')].map(input => [input.value]) };
+        await bridge.respondSession(id, card.dataset.rpcRequest, answer);
+      });
+    }
+    await refresh(); if (statusElement.isConnected) terminalTimer = setInterval(() => refresh().catch(e => { if (statusElement.isConnected) $('#rpc-error').textContent = e.message; }), 800);
+  }
   function showSettings() {
-    showModal('连接与设置', 'Agent Room · 本地桌面预览版 0.1.0', `<div class="settings-row"><span>消息连接</span><strong>${state.connection === 'connected' ? 'hcom 已连接' : '连接中断'}</strong></div><div class="settings-row"><span>hcom 版本</span><strong>${esc(state.version || '—')}</strong></div><div class="settings-row"><span>工作区</span><strong>${state.workspaces.length} 个本地目录</strong></div><div class="settings-row"><span>已发现的会话</span><strong>${state.agents.length} 位 Agent</strong></div><button class="button settings-connections" data-action="usage">Token 用量与砖块图 ${icon('layers')}</button><button class="button primary settings-connections" data-action="connections">连接、网关与模型 ${icon('arrow')}</button><button class="button settings-avatars" data-action="avatars">${icon('smile')} Agent 头像<span>随机自动分配 · 优先不重复</span>${icon('arrow')}</button><p class="settings-description">会话继续在各自的 CLI 中运行。关闭这个应用不会关闭 agent。应用按工作目录组织成员，tag 用于筛选与提及，群聊成员可自由组合。</p><p class="settings-description">接入说明：用 hcom 启动新的 CLI；已由 hcom 管理的会话会自动发现。普通终端会话需要先完成 hcom 的连接设置。</p>`, `<button class="button" data-action="source">hcom 开源项目 ${icon('globe')}</button><button class="button primary" data-action="close-modal">知道了</button>`);
+    showModal('连接与设置', 'Agent Room · 本地桌面预览版 0.1.0', `<div class="settings-row"><span>消息连接</span><strong>${state.connection === 'connected' ? 'hcom 已连接' : '连接中断'}</strong></div><div class="settings-row"><span>hcom 版本</span><strong>${esc(state.version || '—')}</strong></div><div class="settings-row"><span>工作区</span><strong>${state.workspaces.length} 个本地目录</strong></div><div class="settings-row"><span>已发现的会话</span><strong>${state.agents.length} 位 Agent</strong></div><button class="button settings-connections" data-action="usage">Token 用量与砖块图 ${icon('layers')}</button><button class="button primary settings-connections" data-action="connections">连接、网关与模型 ${icon('arrow')}</button><button class="button settings-avatars" data-action="avatars">${icon('smile')} Agent 头像<span>随机自动分配 · 优先不重复</span>${icon('arrow')}</button><p class="settings-description">桌面版会话由应用内 Rust 核心托管。关闭窗口时有活跃会话会驻留托盘；退出应用会停止本应用托管的会话。应用按工作目录组织成员，tag 用于筛选与提及，群聊成员可自由组合。</p><p class="settings-description">桌面版内置 hcom 原生核心，无需独立安装或启动 hcom。通过“添加 Agent”创建会话，原有外部 hcom 会话与应用数据互不混用。</p>`, `<button class="button" data-action="source">hcom 开源项目 ${icon('globe')}</button><button class="button primary" data-action="close-modal">知道了</button>`);
   }
   function showAvatars() {
     showModal('每位伙伴，都有自己的模样', '随机遇见，记住彼此。新 Agent 会优先分到尚未使用的头像，分配后自动保存。',
@@ -329,6 +375,7 @@
   }
   const connections = window.createConnectionUI({ bridge, getState: () => state, receive, showModal, toast, icon, esc, modalAction });
   window.createUsageUI({ bridge, showModal, icon, esc });
+  const capabilities = window.createCapabilityUI({ bridge, getState: () => state, receive, getWorkspace: currentWorkspace, showModal, toast, icon, esc, modalAction });
   document.addEventListener('click', async event => {
     const button = event.target.closest('button');
     if (button?.dataset.room) return selectRoom(button.dataset.room);
@@ -336,7 +383,7 @@
     if (button?.dataset.filter) { filter = button.dataset.filter; render(); return; }
     if (button?.dataset.mention !== undefined) return insertMention(Number(button.dataset.mention));
     if (button?.dataset.invite) { insertText(`${input.value && !/\s$/.test(input.value.slice(0, input.selectionStart)) ? ' ' : ''}@${button.dataset.invite} `); return; }
-    if (button?.dataset.engine) { document.querySelectorAll('[data-engine]').forEach(item => { item.classList.toggle('selected', item === button); item.setAttribute('aria-pressed', String(item === button)); }); connections.updateLaunch(); return; }
+    if (button?.dataset.engine) { document.querySelectorAll('[data-engine]').forEach(item => { item.classList.toggle('selected', item === button); item.setAttribute('aria-pressed', String(item === button)); }); connections.updateLaunch(); capabilities.updateLaunch(); return; }
     if (button?.dataset.window) return bridge.windowAction?.(button.dataset.window);
     if (button?.dataset.terminal) return showTerminal(button.dataset.terminal);
     if (button?.dataset.prompt) { input.value = button.dataset.prompt; input.focus(); updateComposer(); return; }
@@ -370,9 +417,9 @@
     });
     if (action === 'launch-agent') return modalAction(button, async () => {
       const tool = document.querySelector('[data-engine].selected')?.dataset.engine;
-      const result = await bridge.launch({ tool, directory: $('#agent-directory').value, tag: $('#agent-tag').value, ...connections.launchPayload() });
+      const result = await bridge.launch({ tool, directory: $('#agent-directory').value, tag: $('#agent-tag').value, ...connections.launchPayload(), ...capabilities.launchPayload() });
       receive(result.state); closeModal();
-      toast(result.result.readiness?.blocked ? '会话已启动，请在新终端中完成首次确认。' : result.result.failed ? '有会话启动失败，请查看成员列表和原始终端。' : '新的 Agent 会话已启动，正在等待加入。');
+      toast(result.result.handles?.[0]?.mode === 'rpc' ? 'Agent 已就绪，可以直接 @ 它聊天。' : 'Agent 已启动，请查看会话状态。');
     });
     if (event.target.classList.contains('modal-backdrop')) closeModal();
     if (!event.target.closest('#workspace-menu') && !event.target.closest('#workspace-button')) $('#workspace-menu').hidden = true;

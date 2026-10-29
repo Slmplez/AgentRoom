@@ -24,3 +24,6 @@ __pycache__/
 *.pyc
 .DS_Store
 Thumbs.db
+native/hcom/target/
+native/bin/
+renderer/vendor/
