@@ -197,9 +197,11 @@ test('known not-found submission is never replayed on reconnect; explicit same-k
   assert.equal(second.read().pendingOperations[0].outcome, 'not_found'); assert.equal(posts, 1);
   assert.equal(second.read().messages.length, 0);
   await assert.rejects(second.dispatch({ ...send, text: '改变内容' }), { code: 'idempotency_conflict' });
-  fail = false; await second.dispatch(send);
+  fail = false; await second.retryOperation(send.key);
   await eventually(() => second.read().messages.length === 1);
   assert.equal(posts, 2); assert.equal(second.read().pendingOperations.length, 0);
+  assert.equal(second.read().messages[0].text, '显式重试');
+  await assert.rejects(second.retryOperation(send.key), { code: 'not_found' });
 });
 
 test('database change clears projection and cannot send old unknown commands; journals isolate backend and local user', async t => {

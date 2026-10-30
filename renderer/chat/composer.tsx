@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import type { Agent, ChatClient, Command, Room } from './types';
 import { useEntrance } from './motion';
 
-export type Draft = { text: string; mentions: { agentId: string; start: number; end: number }[] };
+export type Draft = { text: string; mentions: { agentId: string; start: number; end: number }[]; submittedKey?: string };
 export function Composer({ client, room, agents, portrait, openMembers, membersOpen, draft, updateDraft, live, tasks, mock, persistent = false, pendingOperations = [], onError }: {
   client: ChatClient; room: Room; agents: Agent[]; draft: Draft; updateDraft(draft: Draft): void;
   portrait(agent: Agent): string; openMembers(): void; membersOpen: boolean;
@@ -14,7 +14,20 @@ export function Composer({ client, room, agents, portrait, openMembers, membersO
   const [highlighted, setHighlighted] = useState(0), [busy, setBusy] = useState(false), [mode, setMode] = useState<'discussion' | 'task'>('discussion');
   const [owner, setOwner] = useState(room.ownerAgentId || ''), [uncertain, setUncertain] = useState(false);
   const locked = uncertain || persistent && pendingOperations.length > 0;
+  const [recoveredMessageId, setRecoveredMessageId] = useState<string | null>(null);
   const draftRef = useRef(draft); draftRef.current = draft;
+  const recoveredMessage = client.read().messages.find(m => m.id === recoveredMessageId);
+  useEffect(() => {
+    if (!recoveredMessage) return;
+    if (draftRef.current.submittedKey && recoveredMessage.text === draftRef.current.text) updateDraft({ text: '', mentions: [] });
+    setRecoveredMessageId(null);
+  }, [recoveredMessage]);
+  useEffect(() => {
+    if (!persistent || !live || busy || !draft.submittedKey) return;
+    let current = true;
+    void client.checkOperation?.(draft.submittedKey).then(receipt => { if (current && receipt) { setUncertain(false); setRecoveredMessageId(receipt.messageId || null); } }).catch(() => {});
+    return () => { current = false; };
+  }, [client, persistent, live, busy, draft.submittedKey]);
   const position = persistent || menuClosed || composing.current ? null : window.AgentMentions.context(draft.text, cursor, selectionEnd);
   const candidates = position ? agents.filter(a => `${a.name} ${a.displayName}`.toLowerCase().includes(position.query.toLowerCase())) : [];
   const menu = Boolean(position);
@@ -54,8 +67,10 @@ export function Composer({ client, room, agents, portrait, openMembers, membersO
   }
   async function send() {
     if (submitting.current || !live || !draft.text.trim() || locked) return;
-    const submitted = draft, command: Command = { type: 'send', key: crypto.randomUUID(), roomId: room.id, text: draft.text, mode, ownerAgentId: room.type === 'dm' ? room.memberIds[0] : owner || null, mentions: draft.mentions };
+    const key = crypto.randomUUID();
+    const submitted = draft, command: Command = { type: 'send', key, roomId: room.id, text: draft.text, mode, ownerAgentId: room.type === 'dm' ? room.memberIds[0] : owner || null, mentions: draft.mentions };
     submitting.current = true; setBusy(true); setMenuClosed(true); setOptionsOpen(false);
+    if (persistent) updateDraft({ ...draft, submittedKey: key });
     try { await client.dispatch(command); if (draftRef.current.text === submitted.text) updateDraft({ text: '', mentions: [] }); }
     catch (error) { const e = error as Error & { outcome?: string }; if (e.outcome === 'unknown') setUncertain(true); onError(e.message); }
     finally { submitting.current = false; setBusy(false); input.current?.focus(); }
@@ -102,12 +117,12 @@ export function Composer({ client, room, agents, portrait, openMembers, membersO
     {persistent && locked && <p className="chat-inline-error" role="alert">发送结果尚待核查。{pendingOperations.map(operation => <span key={operation.key}>
       <button className="button" data-check-operation disabled={busy || !live} onClick={async () => {
         setBusy(true);
-        try { const receipt = await client.checkOperation?.(operation.key); if (receipt) { setUncertain(false); const message = client.read().messages.find(m => m.id === receipt.messageId); if (message?.text === draftRef.current.text) updateDraft({ text: '', mentions: [] }); } else onError('原请求尚未找到。可保持原文字，用原请求键显式重试。'); }
+        try { const receipt = await client.checkOperation?.(operation.key); if (receipt) { setUncertain(false); setRecoveredMessageId(receipt.messageId || null); } else onError('原请求尚未找到。可以显式重试已保存的原请求，新草稿会保留。'); }
         catch (e) { onError((e as Error).message); } finally { setBusy(false); }
       }}>核查原请求</button>
       {operation.outcome === 'not_found' && <button className="button" data-retry-operation disabled={busy || !live} onClick={async () => {
-        const original = draftRef.current.text; setBusy(true);
-        try { await client.dispatch({ type: 'send', key: operation.key, roomId: room.id, text: original, mode: 'discussion', ownerAgentId: null, mentions: [] }); setUncertain(false); if (draftRef.current.text === original) updateDraft({ text: '', mentions: [] }); }
+        setBusy(true);
+        try { const receipt = await client.retryOperation?.(operation.key); setUncertain(false); setRecoveredMessageId(receipt?.messageId || null); }
         catch (e) { onError((e as Error).message); } finally { setBusy(false); }
       }}>重试原请求</button>}
     </span>)}{!pendingOperations.length && <button className="button" onClick={() => { setUncertain(false); onError('原请求已核查，请确认消息记录后继续。'); }}>查看核查结果</button>}</p>}

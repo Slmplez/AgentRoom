@@ -17,6 +17,7 @@ export interface ChatClient {
   close(): void;
   loadOlderMessages?(options?: { limit?: number }): Promise<number>;
   checkOperation?(key: string): Promise<{ accepted: boolean; messageId?: string | null } | null>;
+  retryOperation?(key: string): Promise<{ accepted: boolean; messageId?: string | null }>;
   dispatch(command: Command): Promise<{ accepted: boolean; operationId?: string; entityId?: string }>;
 }
 export interface PlatformClient {

@@ -61,13 +61,12 @@ export function createPersistentTransport({ session, backendId, localUserId, sto
   }
   async function check(context, key) {
     const entry = readJournal(context.boot).find(item => item.command.key === key);
-    if (!entry) return null;
     try {
-      const receipt = await json(context, '/operations?' + new URLSearchParams({ workspaceId: entry.command.workspaceId, commandType: 'sendDiscussion', key }), persistenceReceiptSchema);
-      update(context, key, null); return receipt;
+      const receipt = await json(context, '/operations?' + new URLSearchParams({ workspaceId: entry?.command.workspaceId || context.boot.workspace.id, commandType: 'sendDiscussion', key }), persistenceReceiptSchema);
+      if (entry) update(context, key, null); return receipt;
     } catch (error) {
       if (error.code !== 'not_found') throw error;
-      update(context, key, { ...entry, outcome: 'not_found' }); return null;
+      if (entry) update(context, key, { ...entry, outcome: 'not_found' }); return null;
     }
   }
   async function consume(context, res) {
@@ -172,6 +171,15 @@ export function createPersistentTransport({ session, backendId, localUserId, sto
     async checkOperation(key) {
       if (!active?.boot || active.controller.signal.aborted) throw clientError('unavailable', '连接尚未恢复。');
       return check(active, key);
+    },
+    async retryOperation(key) {
+      const context = active;
+      if (!context?.boot || context.controller.signal.aborted) throw clientError('unavailable', '连接尚未恢复。');
+      const entry = readJournal(context.boot).find(item => item.command.key === key);
+      if (!entry) throw clientError('not_found', '没有待重试的原请求，请先核查消息记录。');
+      if (entry.command.roomId !== context.scope.roomId) throw clientError('invalid_scope', '原请求不属于当前房间。');
+      if (entry.outcome !== 'not_found') throw clientError('outcome_unknown', '请先核查原请求。', 'unknown');
+      return this.command({ type: 'send', key, roomId: entry.command.roomId, text: entry.command.text, mode: 'discussion', mentions: [], ownerAgentId: null });
     },
   };
 }

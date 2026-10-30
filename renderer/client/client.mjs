@@ -186,6 +186,17 @@ export function createAgentRoomClient(transport) {
       if (!transport.checkOperation) throw clientError('unsupported', '当前后端不支持回执核查。');
       return transport.checkOperation(key);
     },
+    async retryOperation(key) {
+      if (!transport.retryOperation) throw clientError('unsupported', '当前后端不支持原请求重试。');
+      if (state.connection !== 'live') throw clientError('unavailable', '连接尚未恢复。');
+      if (inFlight.has(key)) throw clientError('busy', '原请求正在提交。');
+      inFlight.add(key);
+      try {
+        const receipt = persistenceReceiptSchema.safeParse(await transport.retryOperation(key));
+        if (!receipt.success) throw clientError('invalid_response', '原请求回执无效，请再次核查。', 'unknown');
+        return receipt.data;
+      } finally { inFlight.delete(key); }
+    },
     async loadOlderMessages({ limit = 100 } = {}) {
       if (!transport.history) throw clientError('unsupported', '当前后端不支持历史分页。');
       if (state.connection !== 'live') throw clientError('unavailable', '连接尚未恢复。');
