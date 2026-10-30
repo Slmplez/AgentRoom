@@ -1,11 +1,497 @@
 {
   "kind": "mem0",
-  "runAt": "2026-10-30T15:10:22.702Z",
+  "runAt": "2026-10-30T23:06:20.101Z",
+  "dataDirectory": "E:\\Repo\\ASCET\\agent-chat-desktop-memory-comparison\\experiments\\memory-comparison\\runtime\\mem0-2026-10-30T23-06-20.097Z",
   "node": "v24.4.1",
   "platform": "win32",
   "syntheticDataOnly": true,
-  "checks": [],
-  "timings": [],
+  "checks": [
+    {
+      "name": "cross-task-preference",
+      "layer": "backend",
+      "status": "pass",
+      "evidence": [
+        {
+          "id": "preference",
+          "scope": "agent:iris",
+          "text": "User's name is Iris (鸢尾), and she prefers information presented in concise bullet lists",
+          "source": "fixture://room-a/message-1#v1",
+          "task": "task-1",
+          "revision": 1,
+          "backendId": "2ed4a006-be02-4c94-8cae-d7f025d1b7a0",
+          "score": 0.3254575427615154
+        }
+      ],
+      "ms": 11
+    },
+    {
+      "name": "source-reference",
+      "layer": "backend",
+      "status": "pass",
+      "evidence": [
+        {
+          "id": "preference",
+          "source": "fixture://room-a/message-1#v1"
+        }
+      ],
+      "ms": 5
+    },
+    {
+      "name": "private-scope",
+      "layer": "backend",
+      "status": "pass",
+      "evidence": [],
+      "ms": 10
+    },
+    {
+      "name": "shared-knowledge-independent-souls",
+      "layer": "application",
+      "status": "pass",
+      "evidence": {
+        "iris": {
+          "agentId": "iris",
+          "name": "鸢尾",
+          "personality": "冷静、审慎，先核实证据。",
+          "expression": "简洁、直截了当。",
+          "workStyle": "先列风险，再给结论。",
+          "revision": 1
+        },
+        "ember": {
+          "agentId": "ember",
+          "name": "余烬",
+          "personality": "热情、好奇，乐于探索。",
+          "expression": "温暖、生动，善用比喻。",
+          "workStyle": "先提出可能性，再做小实验。",
+          "revision": 1
+        },
+        "shared": [
+          {
+            "id": "decision",
+            "scope": "room:alpha",
+            "text": "User's project uses SQLite as its database (项目数据库选择 SQLite)",
+            "source": "fixture://room-a/message-2#v1",
+            "task": "task-1",
+            "revision": 1,
+            "backendId": "ebf5efb2-8254-42f4-84d1-68ce21a7b63b",
+            "score": 0.5387818843725263
+          }
+        ]
+      },
+      "ms": 9
+    },
+    {
+      "name": "chinese-paraphrase",
+      "layer": "retrieval-quality",
+      "status": "pass",
+      "evidence": [
+        {
+          "id": "decision",
+          "scope": "room:alpha",
+          "text": "User's project uses SQLite as its database (项目数据库选择 SQLite)",
+          "source": "fixture://room-a/message-2#v1",
+          "task": "task-1",
+          "revision": 1,
+          "backendId": "ebf5efb2-8254-42f4-84d1-68ce21a7b63b",
+          "score": 0.3091842969070777
+        },
+        {
+          "id": "distractor-2",
+          "scope": "room:alpha",
+          "text": "User's project release discussion/meeting is scheduled for Friday, October 30, 2026",
+          "source": "fixture://room-a/distractor-2#v1",
+          "task": "task-1",
+          "revision": 1,
+          "backendId": "701f5238-1c7a-42b3-98a0-11c50f253bbe",
+          "score": 0.233237852797973
+        }
+      ],
+      "ms": 4
+    },
+    {
+      "name": "semantic-top1-with-distractors",
+      "layer": "retrieval-quality",
+      "status": "fail",
+      "error": "Lexically different storage query did not rank database decision first",
+      "ms": 6
+    },
+    {
+      "name": "multilingual-query-grid",
+      "layer": "retrieval-quality",
+      "status": "pass",
+      "evidence": {
+        "top1Correct": 8,
+        "total": 8,
+        "queries": [
+          {
+            "query": "持久化数据采用什么方案？",
+            "expectedId": "decision",
+            "correct": true,
+            "hits": [
+              {
+                "id": "decision",
+                "scope": "room:alpha",
+                "text": "User's project uses SQLite as its database (项目数据库选择 SQLite)",
+                "source": "fixture://room-a/message-2#v1",
+                "task": "task-1",
+                "revision": 1,
+                "backendId": "ebf5efb2-8254-42f4-84d1-68ce21a7b63b",
+                "score": 0.3273623153977474
+              },
+              {
+                "id": "distractor-2",
+                "scope": "room:alpha",
+                "text": "User's project release discussion/meeting is scheduled for Friday, October 30, 2026",
+                "source": "fixture://room-a/distractor-2#v1",
+                "task": "task-1",
+                "revision": 1,
+                "backendId": "701f5238-1c7a-42b3-98a0-11c50f253bbe",
+                "score": 0.2728164151535195
+              }
+            ]
+          },
+          {
+            "query": "Which technology keeps our records on disk?",
+            "expectedId": "decision",
+            "correct": true,
+            "hits": [
+              {
+                "id": "decision",
+                "scope": "room:alpha",
+                "text": "User's project uses SQLite as its database (项目数据库选择 SQLite)",
+                "source": "fixture://room-a/message-2#v1",
+                "task": "task-1",
+                "revision": 1,
+                "backendId": "ebf5efb2-8254-42f4-84d1-68ce21a7b63b",
+                "score": 0.11725838830630161
+              }
+            ]
+          },
+          {
+            "query": "界面视觉要用什么色调？",
+            "expectedId": "distractor-0",
+            "correct": true,
+            "hits": [
+              {
+                "id": "distractor-0",
+                "scope": "room:alpha",
+                "text": "User's project uses terracotta as its theme color (项目主题色是陶土色)",
+                "source": "fixture://room-a/distractor-0#v1",
+                "task": "task-1",
+                "revision": 1,
+                "backendId": "a4425e1e-3edf-4f7a-b3db-0e57ba454c30",
+                "score": 0.4476814884887794
+              },
+              {
+                "id": "distractor-1",
+                "scope": "room:alpha",
+                "text": "User's project uses TypeScript as its development language (项目开发语言是 TypeScript)",
+                "source": "fixture://room-a/distractor-1#v1",
+                "task": "task-1",
+                "revision": 1,
+                "backendId": "51fb60e0-cf25-47ab-8383-7a18fdf7a8d6",
+                "score": 0.26129852456467856
+              }
+            ]
+          },
+          {
+            "query": "What hue should the interface use?",
+            "expectedId": "distractor-0",
+            "correct": true,
+            "hits": [
+              {
+                "id": "distractor-0",
+                "scope": "room:alpha",
+                "text": "User's project uses terracotta as its theme color (项目主题色是陶土色)",
+                "source": "fixture://room-a/distractor-0#v1",
+                "task": "task-1",
+                "revision": 1,
+                "backendId": "a4425e1e-3edf-4f7a-b3db-0e57ba454c30",
+                "score": 0.2203796607248407
+              },
+              {
+                "id": "distractor-1",
+                "scope": "room:alpha",
+                "text": "User's project uses TypeScript as its development language (项目开发语言是 TypeScript)",
+                "source": "fixture://room-a/distractor-1#v1",
+                "task": "task-1",
+                "revision": 1,
+                "backendId": "51fb60e0-cf25-47ab-8383-7a18fdf7a8d6",
+                "score": 0.1580002417020896
+              },
+              {
+                "id": "distractor-2",
+                "scope": "room:alpha",
+                "text": "User's project release discussion/meeting is scheduled for Friday, October 30, 2026",
+                "source": "fixture://room-a/distractor-2#v1",
+                "task": "task-1",
+                "revision": 1,
+                "backendId": "701f5238-1c7a-42b3-98a0-11c50f253bbe",
+                "score": 0.05351869949971091
+              }
+            ]
+          },
+          {
+            "query": "代码用哪门语言编写？",
+            "expectedId": "distractor-1",
+            "correct": true,
+            "hits": [
+              {
+                "id": "distractor-1",
+                "scope": "room:alpha",
+                "text": "User's project uses TypeScript as its development language (项目开发语言是 TypeScript)",
+                "source": "fixture://room-a/distractor-1#v1",
+                "task": "task-1",
+                "revision": 1,
+                "backendId": "51fb60e0-cf25-47ab-8383-7a18fdf7a8d6",
+                "score": 0.4766877978740829
+              },
+              {
+                "id": "distractor-0",
+                "scope": "room:alpha",
+                "text": "User's project uses terracotta as its theme color (项目主题色是陶土色)",
+                "source": "fixture://room-a/distractor-0#v1",
+                "task": "task-1",
+                "revision": 1,
+                "backendId": "a4425e1e-3edf-4f7a-b3db-0e57ba454c30",
+                "score": 0.13375082027593793
+              }
+            ]
+          },
+          {
+            "query": "Which programming language should contributors use?",
+            "expectedId": "distractor-1",
+            "correct": true,
+            "hits": [
+              {
+                "id": "distractor-1",
+                "scope": "room:alpha",
+                "text": "User's project uses TypeScript as its development language (项目开发语言是 TypeScript)",
+                "source": "fixture://room-a/distractor-1#v1",
+                "task": "task-1",
+                "revision": 1,
+                "backendId": "51fb60e0-cf25-47ab-8383-7a18fdf7a8d6",
+                "score": 0.34175601798764754
+              },
+              {
+                "id": "decision",
+                "scope": "room:alpha",
+                "text": "User's project uses SQLite as its database (项目数据库选择 SQLite)",
+                "source": "fixture://room-a/message-2#v1",
+                "task": "task-1",
+                "revision": 1,
+                "backendId": "ebf5efb2-8254-42f4-84d1-68ce21a7b63b",
+                "score": 0.10376035612419346
+              },
+              {
+                "id": "distractor-2",
+                "scope": "room:alpha",
+                "text": "User's project release discussion/meeting is scheduled for Friday, October 30, 2026",
+                "source": "fixture://room-a/distractor-2#v1",
+                "task": "task-1",
+                "revision": 1,
+                "backendId": "701f5238-1c7a-42b3-98a0-11c50f253bbe",
+                "score": 0.09319729531874918
+              },
+              {
+                "id": "distractor-0",
+                "scope": "room:alpha",
+                "text": "User's project uses terracotta as its theme color (项目主题色是陶土色)",
+                "source": "fixture://room-a/distractor-0#v1",
+                "task": "task-1",
+                "revision": 1,
+                "backendId": "a4425e1e-3edf-4f7a-b3db-0e57ba454c30",
+                "score": 0.06917097037917737
+              }
+            ]
+          },
+          {
+            "query": "哪天开发布会议？",
+            "expectedId": "distractor-2",
+            "correct": true,
+            "hits": [
+              {
+                "id": "distractor-2",
+                "scope": "room:alpha",
+                "text": "User's project release discussion/meeting is scheduled for Friday, October 30, 2026",
+                "source": "fixture://room-a/distractor-2#v1",
+                "task": "task-1",
+                "revision": 1,
+                "backendId": "701f5238-1c7a-42b3-98a0-11c50f253bbe",
+                "score": 0.6969674832733734
+              },
+              {
+                "id": "distractor-0",
+                "scope": "room:alpha",
+                "text": "User's project uses terracotta as its theme color (项目主题色是陶土色)",
+                "source": "fixture://room-a/distractor-0#v1",
+                "task": "task-1",
+                "revision": 1,
+                "backendId": "a4425e1e-3edf-4f7a-b3db-0e57ba454c30",
+                "score": 0.10760123030433383
+              }
+            ]
+          },
+          {
+            "query": "On which day will we discuss the release?",
+            "expectedId": "distractor-2",
+            "correct": true,
+            "hits": [
+              {
+                "id": "distractor-2",
+                "scope": "room:alpha",
+                "text": "User's project release discussion/meeting is scheduled for Friday, October 30, 2026",
+                "source": "fixture://room-a/distractor-2#v1",
+                "task": "task-1",
+                "revision": 1,
+                "backendId": "701f5238-1c7a-42b3-98a0-11c50f253bbe",
+                "score": 0.4300214503382783
+              },
+              {
+                "id": "distractor-0",
+                "scope": "room:alpha",
+                "text": "User's project uses terracotta as its theme color (项目主题色是陶土色)",
+                "source": "fixture://room-a/distractor-0#v1",
+                "task": "task-1",
+                "revision": 1,
+                "backendId": "a4425e1e-3edf-4f7a-b3db-0e57ba454c30",
+                "score": 0.05130808188261027
+              }
+            ]
+          }
+        ]
+      },
+      "ms": 47
+    },
+    {
+      "name": "correction",
+      "layer": "backend",
+      "status": "pass",
+      "evidence": [
+        {
+          "id": "preference",
+          "scope": "agent:iris",
+          "text": "Iris now prefers detailed paragraphs. 鸢尾现在偏好详细的段落解释。",
+          "source": "fixture://room-a/message-3#v1",
+          "task": "task-1",
+          "revision": 2,
+          "backendId": "2ed4a006-be02-4c94-8cae-d7f025d1b7a0",
+          "score": 0.483014965953136
+        }
+      ],
+      "ms": 67
+    },
+    {
+      "name": "revision-history",
+      "layer": "backend",
+      "status": "pass",
+      "evidence": [
+        {
+          "id": 6,
+          "memory_id": "2ed4a006-be02-4c94-8cae-d7f025d1b7a0",
+          "previous_value": "User's name is Iris (鸢尾), and she prefers information presented in concise bullet lists",
+          "new_value": "Iris now prefers detailed paragraphs. 鸢尾现在偏好详细的段落解释。",
+          "action": "UPDATE",
+          "created_at": "2026-10-30T23:06:22.210Z",
+          "updated_at": "2026-10-30T23:06:27.909Z",
+          "is_deleted": 0
+        },
+        {
+          "id": 1,
+          "memory_id": "2ed4a006-be02-4c94-8cae-d7f025d1b7a0",
+          "previous_value": null,
+          "new_value": "User's name is Iris (鸢尾), and she prefers information presented in concise bullet lists",
+          "action": "ADD",
+          "created_at": "2026-10-30T23:06:22.210Z",
+          "updated_at": null,
+          "is_deleted": 0
+        }
+      ],
+      "ms": 0
+    },
+    {
+      "name": "extractor-cannot-edit-soul",
+      "layer": "application",
+      "status": "pass",
+      "evidence": {
+        "denied": true
+      },
+      "ms": 0
+    },
+    {
+      "name": "soul-survives-reopen",
+      "layer": "application",
+      "status": "pass",
+      "evidence": {
+        "agentId": "iris",
+        "name": "鸢尾",
+        "personality": "冷静、审慎，先核实证据。",
+        "expression": "简洁、直截了当。",
+        "workStyle": "先列风险，再给结论。",
+        "revision": 1
+      },
+      "ms": 2
+    },
+    {
+      "name": "explicit-soul-edit-is-local",
+      "layer": "application",
+      "status": "pass",
+      "evidence": {
+        "iris": {
+          "agentId": "iris",
+          "name": "鸢尾",
+          "personality": "冷静、审慎，先核实证据。",
+          "expression": "简洁，同时解释必要背景。",
+          "workStyle": "先列风险，再给结论。",
+          "revision": 2
+        },
+        "ember": {
+          "agentId": "ember",
+          "name": "余烬",
+          "personality": "热情、好奇，乐于探索。",
+          "expression": "温暖、生动，善用比喻。",
+          "workStyle": "先提出可能性，再做小实验。",
+          "revision": 1
+        }
+      },
+      "ms": 7
+    },
+    {
+      "name": "forget",
+      "layer": "backend",
+      "status": "pass",
+      "evidence": [],
+      "ms": 26
+    },
+    {
+      "name": "deleted-source-replay",
+      "layer": "backend",
+      "status": "fail",
+      "error": "Replaying old source resurrected deleted memory; application tombstone required",
+      "ms": 1152
+    }
+  ],
+  "timings": [
+    {
+      "name": "write-preference",
+      "ms": 1034
+    },
+    {
+      "name": "write-shared",
+      "ms": 999
+    },
+    {
+      "name": "write-distractor-0",
+      "ms": 924
+    },
+    {
+      "name": "write-distractor-1",
+      "ms": 980
+    },
+    {
+      "name": "write-distractor-2",
+      "ms": 2642
+    }
+  ],
   "limitations": [
     "Small functional comparison, not a statistical benchmark.",
     "Scope checks exercise trusted application contexts, not production multi-user authentication.",
@@ -16,13 +502,268 @@
     "model": "deepseek-flash",
     "usage": "Token usage not collected; latency only."
   },
-  "setup": {
-    "status": "blocked",
-    "error": "Cannot find module 'onnxruntime-node'\nRequire stack:\n- E:\\Repo\\ASCET\\agent-chat-desktop-memory-comparison\\experiments\\memory-comparison\\node_modules\\@huggingface\\transformers\\dist\\transformers.node.mjs"
+  "embedding": {
+    "model": "Xenova/paraphrase-multilingual-MiniLM-L12-v2",
+    "mode": "semantic",
+    "dimensions": 384,
+    "device": "cpu",
+    "loadMs": 742,
+    "requests": 48,
+    "revision": "2c4055b12046f11709e9df2c122e59ffbdc2f900",
+    "localFilesOnly": true
   },
-  "finishedAt": "2026-10-30T15:10:22.892Z",
+  "configuration": {
+    "package": "mem0ai@3.3.1",
+    "vectorStore": "memory provider (SQLite-backed in installed 3.3.1)",
+    "extraction": true,
+    "telemetry": false,
+    "correction": "explicit update; automatic contradiction reconciliation not assumed"
+  },
+  "retrievalProbe": {
+    "top1Correct": 8,
+    "total": 8,
+    "queries": [
+      {
+        "query": "持久化数据采用什么方案？",
+        "expectedId": "decision",
+        "correct": true,
+        "hits": [
+          {
+            "id": "decision",
+            "scope": "room:alpha",
+            "text": "User's project uses SQLite as its database (项目数据库选择 SQLite)",
+            "source": "fixture://room-a/message-2#v1",
+            "task": "task-1",
+            "revision": 1,
+            "backendId": "ebf5efb2-8254-42f4-84d1-68ce21a7b63b",
+            "score": 0.3273623153977474
+          },
+          {
+            "id": "distractor-2",
+            "scope": "room:alpha",
+            "text": "User's project release discussion/meeting is scheduled for Friday, October 30, 2026",
+            "source": "fixture://room-a/distractor-2#v1",
+            "task": "task-1",
+            "revision": 1,
+            "backendId": "701f5238-1c7a-42b3-98a0-11c50f253bbe",
+            "score": 0.2728164151535195
+          }
+        ]
+      },
+      {
+        "query": "Which technology keeps our records on disk?",
+        "expectedId": "decision",
+        "correct": true,
+        "hits": [
+          {
+            "id": "decision",
+            "scope": "room:alpha",
+            "text": "User's project uses SQLite as its database (项目数据库选择 SQLite)",
+            "source": "fixture://room-a/message-2#v1",
+            "task": "task-1",
+            "revision": 1,
+            "backendId": "ebf5efb2-8254-42f4-84d1-68ce21a7b63b",
+            "score": 0.11725838830630161
+          }
+        ]
+      },
+      {
+        "query": "界面视觉要用什么色调？",
+        "expectedId": "distractor-0",
+        "correct": true,
+        "hits": [
+          {
+            "id": "distractor-0",
+            "scope": "room:alpha",
+            "text": "User's project uses terracotta as its theme color (项目主题色是陶土色)",
+            "source": "fixture://room-a/distractor-0#v1",
+            "task": "task-1",
+            "revision": 1,
+            "backendId": "a4425e1e-3edf-4f7a-b3db-0e57ba454c30",
+            "score": 0.4476814884887794
+          },
+          {
+            "id": "distractor-1",
+            "scope": "room:alpha",
+            "text": "User's project uses TypeScript as its development language (项目开发语言是 TypeScript)",
+            "source": "fixture://room-a/distractor-1#v1",
+            "task": "task-1",
+            "revision": 1,
+            "backendId": "51fb60e0-cf25-47ab-8383-7a18fdf7a8d6",
+            "score": 0.26129852456467856
+          }
+        ]
+      },
+      {
+        "query": "What hue should the interface use?",
+        "expectedId": "distractor-0",
+        "correct": true,
+        "hits": [
+          {
+            "id": "distractor-0",
+            "scope": "room:alpha",
+            "text": "User's project uses terracotta as its theme color (项目主题色是陶土色)",
+            "source": "fixture://room-a/distractor-0#v1",
+            "task": "task-1",
+            "revision": 1,
+            "backendId": "a4425e1e-3edf-4f7a-b3db-0e57ba454c30",
+            "score": 0.2203796607248407
+          },
+          {
+            "id": "distractor-1",
+            "scope": "room:alpha",
+            "text": "User's project uses TypeScript as its development language (项目开发语言是 TypeScript)",
+            "source": "fixture://room-a/distractor-1#v1",
+            "task": "task-1",
+            "revision": 1,
+            "backendId": "51fb60e0-cf25-47ab-8383-7a18fdf7a8d6",
+            "score": 0.1580002417020896
+          },
+          {
+            "id": "distractor-2",
+            "scope": "room:alpha",
+            "text": "User's project release discussion/meeting is scheduled for Friday, October 30, 2026",
+            "source": "fixture://room-a/distractor-2#v1",
+            "task": "task-1",
+            "revision": 1,
+            "backendId": "701f5238-1c7a-42b3-98a0-11c50f253bbe",
+            "score": 0.05351869949971091
+          }
+        ]
+      },
+      {
+        "query": "代码用哪门语言编写？",
+        "expectedId": "distractor-1",
+        "correct": true,
+        "hits": [
+          {
+            "id": "distractor-1",
+            "scope": "room:alpha",
+            "text": "User's project uses TypeScript as its development language (项目开发语言是 TypeScript)",
+            "source": "fixture://room-a/distractor-1#v1",
+            "task": "task-1",
+            "revision": 1,
+            "backendId": "51fb60e0-cf25-47ab-8383-7a18fdf7a8d6",
+            "score": 0.4766877978740829
+          },
+          {
+            "id": "distractor-0",
+            "scope": "room:alpha",
+            "text": "User's project uses terracotta as its theme color (项目主题色是陶土色)",
+            "source": "fixture://room-a/distractor-0#v1",
+            "task": "task-1",
+            "revision": 1,
+            "backendId": "a4425e1e-3edf-4f7a-b3db-0e57ba454c30",
+            "score": 0.13375082027593793
+          }
+        ]
+      },
+      {
+        "query": "Which programming language should contributors use?",
+        "expectedId": "distractor-1",
+        "correct": true,
+        "hits": [
+          {
+            "id": "distractor-1",
+            "scope": "room:alpha",
+            "text": "User's project uses TypeScript as its development language (项目开发语言是 TypeScript)",
+            "source": "fixture://room-a/distractor-1#v1",
+            "task": "task-1",
+            "revision": 1,
+            "backendId": "51fb60e0-cf25-47ab-8383-7a18fdf7a8d6",
+            "score": 0.34175601798764754
+          },
+          {
+            "id": "decision",
+            "scope": "room:alpha",
+            "text": "User's project uses SQLite as its database (项目数据库选择 SQLite)",
+            "source": "fixture://room-a/message-2#v1",
+            "task": "task-1",
+            "revision": 1,
+            "backendId": "ebf5efb2-8254-42f4-84d1-68ce21a7b63b",
+            "score": 0.10376035612419346
+          },
+          {
+            "id": "distractor-2",
+            "scope": "room:alpha",
+            "text": "User's project release discussion/meeting is scheduled for Friday, October 30, 2026",
+            "source": "fixture://room-a/distractor-2#v1",
+            "task": "task-1",
+            "revision": 1,
+            "backendId": "701f5238-1c7a-42b3-98a0-11c50f253bbe",
+            "score": 0.09319729531874918
+          },
+          {
+            "id": "distractor-0",
+            "scope": "room:alpha",
+            "text": "User's project uses terracotta as its theme color (项目主题色是陶土色)",
+            "source": "fixture://room-a/distractor-0#v1",
+            "task": "task-1",
+            "revision": 1,
+            "backendId": "a4425e1e-3edf-4f7a-b3db-0e57ba454c30",
+            "score": 0.06917097037917737
+          }
+        ]
+      },
+      {
+        "query": "哪天开发布会议？",
+        "expectedId": "distractor-2",
+        "correct": true,
+        "hits": [
+          {
+            "id": "distractor-2",
+            "scope": "room:alpha",
+            "text": "User's project release discussion/meeting is scheduled for Friday, October 30, 2026",
+            "source": "fixture://room-a/distractor-2#v1",
+            "task": "task-1",
+            "revision": 1,
+            "backendId": "701f5238-1c7a-42b3-98a0-11c50f253bbe",
+            "score": 0.6969674832733734
+          },
+          {
+            "id": "distractor-0",
+            "scope": "room:alpha",
+            "text": "User's project uses terracotta as its theme color (项目主题色是陶土色)",
+            "source": "fixture://room-a/distractor-0#v1",
+            "task": "task-1",
+            "revision": 1,
+            "backendId": "a4425e1e-3edf-4f7a-b3db-0e57ba454c30",
+            "score": 0.10760123030433383
+          }
+        ]
+      },
+      {
+        "query": "On which day will we discuss the release?",
+        "expectedId": "distractor-2",
+        "correct": true,
+        "hits": [
+          {
+            "id": "distractor-2",
+            "scope": "room:alpha",
+            "text": "User's project release discussion/meeting is scheduled for Friday, October 30, 2026",
+            "source": "fixture://room-a/distractor-2#v1",
+            "task": "task-1",
+            "revision": 1,
+            "backendId": "701f5238-1c7a-42b3-98a0-11c50f253bbe",
+            "score": 0.4300214503382783
+          },
+          {
+            "id": "distractor-0",
+            "scope": "room:alpha",
+            "text": "User's project uses terracotta as its theme color (项目主题色是陶土色)",
+            "source": "fixture://room-a/distractor-0#v1",
+            "task": "task-1",
+            "revision": 1,
+            "backendId": "a4425e1e-3edf-4f7a-b3db-0e57ba454c30",
+            "score": 0.05130808188261027
+          }
+        ]
+      }
+    ]
+  },
+  "finishedAt": "2026-10-30T23:06:29.159Z",
   "summary": {
-    "pass": 0,
-    "fail": 0
+    "pass": 12,
+    "fail": 2
   }
 }

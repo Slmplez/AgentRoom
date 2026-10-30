@@ -1,10 +1,14 @@
 import { createServer } from 'node:http';
 import { resolve } from 'node:path';
 import { createHash } from 'node:crypto';
+import { existsSync } from 'node:fs';
+export const embeddingModel={id:'Xenova/paraphrase-multilingual-MiniLM-L12-v2',revision:'2c4055b12046f11709e9df2c122e59ffbdc2f900'};
+export const modelDirectory=resolve('runtime/models',embeddingModel.id,embeddingModel.revision);
 // Real multilingual ONNX embeddings shared by both candidates, never a mock vector.
 export async function embeddingServer(report:any) {
   const lexical=process.env.MEMORY_EMBEDDING_MODE==='lexical';
-  const model='Xenova/paraphrase-multilingual-MiniLM-L12-v2';
+  const model=embeddingModel.id;
+  const local=existsSync(resolve(modelDirectory,'download-manifest.json'));
   const started=performance.now();
   let embed:any;
   if(lexical){
@@ -17,9 +21,10 @@ export async function embeddingServer(report:any) {
     report.limitations.push('EXPLICIT lexical hashing mode: real SDK/storage/LLM integration, NOT a semantic embedding quality evaluation.');
   }else{
     const {pipeline,env}=await import('@huggingface/transformers');env.cacheDir=resolve('runtime/model-cache');
-    embed=await pipeline('feature-extraction',model,{dtype:'q8',device:'cpu'});
+    embed=await pipeline('feature-extraction',local?modelDirectory:model,{dtype:'q8',device:'cpu',revision:embeddingModel.revision,local_files_only:local});
   }
   report.embedding={model:lexical?'sha256-word-hashing-384':model,mode:lexical?'lexical':'semantic',dimensions:384,device:'cpu',loadMs:Math.round(performance.now()-started),requests:0};
+  if(!lexical)Object.assign(report.embedding,{revision:embeddingModel.revision,localFilesOnly:local});
   const server=createServer(async(req,res)=>{
     if(req.method!=='POST'||req.url!=='/v1/embeddings'){res.writeHead(404).end();return;}
     try{

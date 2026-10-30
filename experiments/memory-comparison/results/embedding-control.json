@@ -1,0 +1,577 @@
+{
+  "at": "2026-10-30T23:07:50.544Z",
+  "kind": "embedding-only-control",
+  "syntheticDataOnly": true,
+  "limitations": [
+    "Exact cosine ranking over four records, not a persistent database or production backend.",
+    "No LLM extraction in the original-text control. Extracted-text control reuses the prior real Mem0 run.",
+    "Small targeted query set; no held-out statistical evaluation."
+  ],
+  "embedding": {
+    "model": "Xenova/paraphrase-multilingual-MiniLM-L12-v2",
+    "mode": "semantic",
+    "dimensions": 384,
+    "device": "cpu",
+    "loadMs": 744,
+    "requests": 3,
+    "revision": "2c4055b12046f11709e9df2c122e59ffbdc2f900",
+    "localFilesOnly": true
+  },
+  "sourceRunAt": "2026-10-30T23:06:20.101Z",
+  "original": {
+    "gridTop1": 7,
+    "gridTotal": 8,
+    "allTop1": 9,
+    "allTotal": 10,
+    "queries": [
+      {
+        "query": "持久化数据采用什么方案？",
+        "expectedId": "decision",
+        "correct": true,
+        "hits": [
+          {
+            "id": "decision",
+            "text": "The project database is SQLite. 项目数据库选择 SQLite。",
+            "score": 0.24741906661549493
+          },
+          {
+            "id": "distractor-2",
+            "text": "The release meeting is Friday. 发布讨论安排在星期五。",
+            "score": 0.18105875318548792
+          },
+          {
+            "id": "distractor-0",
+            "text": "The project color is terracotta. 项目主题色是陶土色。",
+            "score": 0.03379330522590857
+          },
+          {
+            "id": "distractor-1",
+            "text": "The project language is TypeScript. 项目开发语言是 TypeScript。",
+            "score": 0.03299709790271961
+          }
+        ]
+      },
+      {
+        "query": "Which technology keeps our records on disk?",
+        "expectedId": "decision",
+        "correct": false,
+        "hits": [
+          {
+            "id": "distractor-2",
+            "text": "The release meeting is Friday. 发布讨论安排在星期五。",
+            "score": 0.11914830506222399
+          },
+          {
+            "id": "decision",
+            "text": "The project database is SQLite. 项目数据库选择 SQLite。",
+            "score": 0.08069995218780111
+          },
+          {
+            "id": "distractor-0",
+            "text": "The project color is terracotta. 项目主题色是陶土色。",
+            "score": -0.012542281954716435
+          },
+          {
+            "id": "distractor-1",
+            "text": "The project language is TypeScript. 项目开发语言是 TypeScript。",
+            "score": -0.03851739366112651
+          }
+        ]
+      },
+      {
+        "query": "界面视觉要用什么色调？",
+        "expectedId": "distractor-0",
+        "correct": true,
+        "hits": [
+          {
+            "id": "distractor-0",
+            "text": "The project color is terracotta. 项目主题色是陶土色。",
+            "score": 0.43022132877971025
+          },
+          {
+            "id": "distractor-1",
+            "text": "The project language is TypeScript. 项目开发语言是 TypeScript。",
+            "score": 0.219829047137211
+          },
+          {
+            "id": "decision",
+            "text": "The project database is SQLite. 项目数据库选择 SQLite。",
+            "score": 0.0809483741295203
+          },
+          {
+            "id": "distractor-2",
+            "text": "The release meeting is Friday. 发布讨论安排在星期五。",
+            "score": -0.023838518733923383
+          }
+        ]
+      },
+      {
+        "query": "What hue should the interface use?",
+        "expectedId": "distractor-0",
+        "correct": true,
+        "hits": [
+          {
+            "id": "distractor-0",
+            "text": "The project color is terracotta. 项目主题色是陶土色。",
+            "score": 0.38128317294912056
+          },
+          {
+            "id": "distractor-1",
+            "text": "The project language is TypeScript. 项目开发语言是 TypeScript。",
+            "score": 0.21482970379091654
+          },
+          {
+            "id": "decision",
+            "text": "The project database is SQLite. 项目数据库选择 SQLite。",
+            "score": 0.0354337195804903
+          },
+          {
+            "id": "distractor-2",
+            "text": "The release meeting is Friday. 发布讨论安排在星期五。",
+            "score": 0.022233264013300943
+          }
+        ]
+      },
+      {
+        "query": "代码用哪门语言编写？",
+        "expectedId": "distractor-1",
+        "correct": true,
+        "hits": [
+          {
+            "id": "distractor-1",
+            "text": "The project language is TypeScript. 项目开发语言是 TypeScript。",
+            "score": 0.483880758783061
+          },
+          {
+            "id": "distractor-0",
+            "text": "The project color is terracotta. 项目主题色是陶土色。",
+            "score": 0.16263195151308676
+          },
+          {
+            "id": "decision",
+            "text": "The project database is SQLite. 项目数据库选择 SQLite。",
+            "score": 0.06514078981550883
+          },
+          {
+            "id": "distractor-2",
+            "text": "The release meeting is Friday. 发布讨论安排在星期五。",
+            "score": -0.10072556357424195
+          }
+        ]
+      },
+      {
+        "query": "Which programming language should contributors use?",
+        "expectedId": "distractor-1",
+        "correct": true,
+        "hits": [
+          {
+            "id": "distractor-1",
+            "text": "The project language is TypeScript. 项目开发语言是 TypeScript。",
+            "score": 0.498982873052845
+          },
+          {
+            "id": "decision",
+            "text": "The project database is SQLite. 项目数据库选择 SQLite。",
+            "score": 0.2209433275890634
+          },
+          {
+            "id": "distractor-0",
+            "text": "The project color is terracotta. 项目主题色是陶土色。",
+            "score": 0.1524597890674277
+          },
+          {
+            "id": "distractor-2",
+            "text": "The release meeting is Friday. 发布讨论安排在星期五。",
+            "score": 0.048273386125603494
+          }
+        ]
+      },
+      {
+        "query": "哪天开发布会议？",
+        "expectedId": "distractor-2",
+        "correct": true,
+        "hits": [
+          {
+            "id": "distractor-2",
+            "text": "The release meeting is Friday. 发布讨论安排在星期五。",
+            "score": 0.6485721361324872
+          },
+          {
+            "id": "distractor-0",
+            "text": "The project color is terracotta. 项目主题色是陶土色。",
+            "score": 0.12269139911721888
+          },
+          {
+            "id": "decision",
+            "text": "The project database is SQLite. 项目数据库选择 SQLite。",
+            "score": 0.11537955159456877
+          },
+          {
+            "id": "distractor-1",
+            "text": "The project language is TypeScript. 项目开发语言是 TypeScript。",
+            "score": 0.025000493285377415
+          }
+        ]
+      },
+      {
+        "query": "On which day will we discuss the release?",
+        "expectedId": "distractor-2",
+        "correct": true,
+        "hits": [
+          {
+            "id": "distractor-2",
+            "text": "The release meeting is Friday. 发布讨论安排在星期五。",
+            "score": 0.6008881707383673
+          },
+          {
+            "id": "distractor-0",
+            "text": "The project color is terracotta. 项目主题色是陶土色。",
+            "score": 0.12754232823034556
+          },
+          {
+            "id": "decision",
+            "text": "The project database is SQLite. 项目数据库选择 SQLite。",
+            "score": 0.01800282687837797
+          },
+          {
+            "id": "distractor-1",
+            "text": "The project language is TypeScript. 项目开发语言是 TypeScript。",
+            "score": -0.03407286485606344
+          }
+        ]
+      },
+      {
+        "query": "我们用什么来持久化数据？",
+        "expectedId": "decision",
+        "correct": true,
+        "hits": [
+          {
+            "id": "decision",
+            "text": "The project database is SQLite. 项目数据库选择 SQLite。",
+            "score": 0.20461321033017493
+          },
+          {
+            "id": "distractor-2",
+            "text": "The release meeting is Friday. 发布讨论安排在星期五。",
+            "score": 0.16009900371634408
+          },
+          {
+            "id": "distractor-0",
+            "text": "The project color is terracotta. 项目主题色是陶土色。",
+            "score": 0.0375897443956448
+          },
+          {
+            "id": "distractor-1",
+            "text": "The project language is TypeScript. 项目开发语言是 TypeScript。",
+            "score": 0.007568283510928581
+          }
+        ]
+      },
+      {
+        "query": "storage technology selection",
+        "expectedId": "decision",
+        "correct": true,
+        "hits": [
+          {
+            "id": "decision",
+            "text": "The project database is SQLite. 项目数据库选择 SQLite。",
+            "score": 0.14457853666359544
+          },
+          {
+            "id": "distractor-0",
+            "text": "The project color is terracotta. 项目主题色是陶土色。",
+            "score": 0.09943527496041345
+          },
+          {
+            "id": "distractor-2",
+            "text": "The release meeting is Friday. 发布讨论安排在星期五。",
+            "score": 0.09553658401668372
+          },
+          {
+            "id": "distractor-1",
+            "text": "The project language is TypeScript. 项目开发语言是 TypeScript。",
+            "score": 0.032237453244771876
+          }
+        ]
+      }
+    ]
+  },
+  "extracted": {
+    "gridTop1": 8,
+    "gridTotal": 8,
+    "allTop1": 9,
+    "allTotal": 10,
+    "queries": [
+      {
+        "query": "持久化数据采用什么方案？",
+        "expectedId": "decision",
+        "correct": true,
+        "hits": [
+          {
+            "id": "decision",
+            "text": "User's project uses SQLite as its database (项目数据库选择 SQLite)",
+            "score": 0.3219200882232805
+          },
+          {
+            "id": "distractor-2",
+            "text": "User's project release discussion/meeting is scheduled for Friday, October 30, 2026",
+            "score": 0.2772003952342682
+          },
+          {
+            "id": "distractor-1",
+            "text": "User's project uses TypeScript as its development language (项目开发语言是 TypeScript)",
+            "score": 0.10759234222298843
+          },
+          {
+            "id": "distractor-0",
+            "text": "User's project uses terracotta as its theme color (项目主题色是陶土色)",
+            "score": 0.027006385468456618
+          }
+        ]
+      },
+      {
+        "query": "Which technology keeps our records on disk?",
+        "expectedId": "decision",
+        "correct": true,
+        "hits": [
+          {
+            "id": "decision",
+            "text": "User's project uses SQLite as its database (项目数据库选择 SQLite)",
+            "score": 0.11879539850325448
+          },
+          {
+            "id": "distractor-2",
+            "text": "User's project release discussion/meeting is scheduled for Friday, October 30, 2026",
+            "score": 0.07359128258701815
+          },
+          {
+            "id": "distractor-1",
+            "text": "User's project uses TypeScript as its development language (项目开发语言是 TypeScript)",
+            "score": -0.015860330809154763
+          },
+          {
+            "id": "distractor-0",
+            "text": "User's project uses terracotta as its theme color (项目主题色是陶土色)",
+            "score": -0.018754136385897204
+          }
+        ]
+      },
+      {
+        "query": "界面视觉要用什么色调？",
+        "expectedId": "distractor-0",
+        "correct": true,
+        "hits": [
+          {
+            "id": "distractor-0",
+            "text": "User's project uses terracotta as its theme color (项目主题色是陶土色)",
+            "score": 0.458031006296761
+          },
+          {
+            "id": "distractor-1",
+            "text": "User's project uses TypeScript as its development language (项目开发语言是 TypeScript)",
+            "score": 0.28207781119832964
+          },
+          {
+            "id": "decision",
+            "text": "User's project uses SQLite as its database (项目数据库选择 SQLite)",
+            "score": 0.09944859811854231
+          },
+          {
+            "id": "distractor-2",
+            "text": "User's project release discussion/meeting is scheduled for Friday, October 30, 2026",
+            "score": 0.07995570914014322
+          }
+        ]
+      },
+      {
+        "query": "What hue should the interface use?",
+        "expectedId": "distractor-0",
+        "correct": true,
+        "hits": [
+          {
+            "id": "distractor-0",
+            "text": "User's project uses terracotta as its theme color (项目主题色是陶土色)",
+            "score": 0.4201896621792899
+          },
+          {
+            "id": "distractor-1",
+            "text": "User's project uses TypeScript as its development language (项目开发语言是 TypeScript)",
+            "score": 0.26435446590042644
+          },
+          {
+            "id": "distractor-2",
+            "text": "User's project release discussion/meeting is scheduled for Friday, October 30, 2026",
+            "score": 0.09487428555240307
+          },
+          {
+            "id": "decision",
+            "text": "User's project uses SQLite as its database (项目数据库选择 SQLite)",
+            "score": 0.05992014878303912
+          }
+        ]
+      },
+      {
+        "query": "代码用哪门语言编写？",
+        "expectedId": "distractor-1",
+        "correct": true,
+        "hits": [
+          {
+            "id": "distractor-1",
+            "text": "User's project uses TypeScript as its development language (项目开发语言是 TypeScript)",
+            "score": 0.5053803185146369
+          },
+          {
+            "id": "distractor-0",
+            "text": "User's project uses terracotta as its theme color (项目主题色是陶土色)",
+            "score": 0.15423105005691307
+          },
+          {
+            "id": "decision",
+            "text": "User's project uses SQLite as its database (项目数据库选择 SQLite)",
+            "score": 0.07459566131596519
+          },
+          {
+            "id": "distractor-2",
+            "text": "User's project release discussion/meeting is scheduled for Friday, October 30, 2026",
+            "score": 0.06319764514446756
+          }
+        ]
+      },
+      {
+        "query": "Which programming language should contributors use?",
+        "expectedId": "distractor-1",
+        "correct": true,
+        "hits": [
+          {
+            "id": "distractor-1",
+            "text": "User's project uses TypeScript as its development language (项目开发语言是 TypeScript)",
+            "score": 0.5626518449187633
+          },
+          {
+            "id": "decision",
+            "text": "User's project uses SQLite as its database (项目数据库选择 SQLite)",
+            "score": 0.24136579937871394
+          },
+          {
+            "id": "distractor-2",
+            "text": "User's project release discussion/meeting is scheduled for Friday, October 30, 2026",
+            "score": 0.23374773773194454
+          },
+          {
+            "id": "distractor-0",
+            "text": "User's project uses terracotta as its theme color (项目主题色是陶土色)",
+            "score": 0.16982817948881868
+          }
+        ]
+      },
+      {
+        "query": "哪天开发布会议？",
+        "expectedId": "distractor-2",
+        "correct": true,
+        "hits": [
+          {
+            "id": "distractor-2",
+            "text": "User's project release discussion/meeting is scheduled for Friday, October 30, 2026",
+            "score": 0.700291624114502
+          },
+          {
+            "id": "distractor-0",
+            "text": "User's project uses terracotta as its theme color (项目主题色是陶土色)",
+            "score": 0.09466831058730012
+          },
+          {
+            "id": "decision",
+            "text": "User's project uses SQLite as its database (项目数据库选择 SQLite)",
+            "score": 0.03654188126597359
+          },
+          {
+            "id": "distractor-1",
+            "text": "User's project uses TypeScript as its development language (项目开发语言是 TypeScript)",
+            "score": -0.023510784537995624
+          }
+        ]
+      },
+      {
+        "query": "On which day will we discuss the release?",
+        "expectedId": "distractor-2",
+        "correct": true,
+        "hits": [
+          {
+            "id": "distractor-2",
+            "text": "User's project release discussion/meeting is scheduled for Friday, October 30, 2026",
+            "score": 0.6405986631676284
+          },
+          {
+            "id": "distractor-0",
+            "text": "User's project uses terracotta as its theme color (项目主题色是陶土色)",
+            "score": 0.11332732901678597
+          },
+          {
+            "id": "decision",
+            "text": "User's project uses SQLite as its database (项目数据库选择 SQLite)",
+            "score": -0.03898332074461422
+          },
+          {
+            "id": "distractor-1",
+            "text": "User's project uses TypeScript as its development language (项目开发语言是 TypeScript)",
+            "score": -0.04247085137360078
+          }
+        ]
+      },
+      {
+        "query": "我们用什么来持久化数据？",
+        "expectedId": "decision",
+        "correct": true,
+        "hits": [
+          {
+            "id": "decision",
+            "text": "User's project uses SQLite as its database (项目数据库选择 SQLite)",
+            "score": 0.28993684244250584
+          },
+          {
+            "id": "distractor-2",
+            "text": "User's project release discussion/meeting is scheduled for Friday, October 30, 2026",
+            "score": 0.22975719506344325
+          },
+          {
+            "id": "distractor-1",
+            "text": "User's project uses TypeScript as its development language (项目开发语言是 TypeScript)",
+            "score": 0.08089361894513367
+          },
+          {
+            "id": "distractor-0",
+            "text": "User's project uses terracotta as its theme color (项目主题色是陶土色)",
+            "score": 0.030412800900964446
+          }
+        ]
+      },
+      {
+        "query": "storage technology selection",
+        "expectedId": "decision",
+        "correct": false,
+        "hits": [
+          {
+            "id": "distractor-2",
+            "text": "User's project release discussion/meeting is scheduled for Friday, October 30, 2026",
+            "score": 0.14392039679433483
+          },
+          {
+            "id": "decision",
+            "text": "User's project uses SQLite as its database (项目数据库选择 SQLite)",
+            "score": 0.1396337044539691
+          },
+          {
+            "id": "distractor-1",
+            "text": "User's project uses TypeScript as its development language (项目开发语言是 TypeScript)",
+            "score": 0.06471021572159434
+          },
+          {
+            "id": "distractor-0",
+            "text": "User's project uses terracotta as its theme color (项目主题色是陶土色)",
+            "score": 0.05249799185458358
+          }
+        ]
+      }
+    ]
+  }
+}

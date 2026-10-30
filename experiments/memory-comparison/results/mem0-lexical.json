@@ -1,7 +1,7 @@
 {
   "kind": "mem0",
-  "runAt": "2026-10-30T15:23:47.028Z",
-  "dataDirectory": "E:\\Repo\\ASCET\\agent-chat-desktop-memory-comparison\\experiments\\memory-comparison\\runtime\\mem0-2026-10-30T15-23-47.024Z",
+  "runAt": "2026-10-30T23:06:35.512Z",
+  "dataDirectory": "E:\\Repo\\ASCET\\agent-chat-desktop-memory-comparison\\experiments\\memory-comparison\\runtime\\mem0-2026-10-30T23-06-35.506Z",
   "node": "v24.4.1",
   "platform": "win32",
   "syntheticDataOnly": true,
@@ -14,12 +14,12 @@
         {
           "id": "preference",
           "scope": "agent:iris",
-          "text": "User Iris (鸢尾) prefers concise bullet-point lists over long-form prose responses",
+          "text": "Iris prefers concise bullet lists for information presentation",
           "source": "fixture://room-a/message-1#v1",
           "task": "task-1",
           "revision": 1,
-          "backendId": "df78a84a-72e1-4ba7-b40c-79213e829af1",
-          "score": 0.3394406406675816
+          "backendId": "e8292519-b7bc-4136-b549-91eb88d2c462",
+          "score": 0.4390973424149435
         }
       ],
       "ms": 3
@@ -68,22 +68,33 @@
           {
             "id": "decision",
             "scope": "room:alpha",
-            "text": "User's project uses SQLite as the database (项目数据库选择 SQLite), as stated on October 30, 2026",
+            "text": "User's project database is SQLite (项目数据库选择 SQLite).",
             "source": "fixture://room-a/message-2#v1",
             "task": "task-1",
             "revision": 1,
-            "backendId": "f5c3e94d-a732-4f80-91e1-8935a39e0e8c",
-            "score": 0.39376281455444917
+            "backendId": "e9a0edf3-f27a-4566-b0b9-aa6a053032e4",
+            "score": 0.46993751628841157
           }
         ]
       },
-      "ms": 3
+      "ms": 2
     },
     {
       "name": "chinese-paraphrase",
       "layer": "retrieval-quality",
-      "status": "fail",
-      "error": "No relevant decision returned for Chinese paraphrase",
+      "status": "pass",
+      "evidence": [
+        {
+          "id": "decision",
+          "scope": "room:alpha",
+          "text": "User's project database is SQLite (项目数据库选择 SQLite).",
+          "source": "fixture://room-a/message-2#v1",
+          "task": "task-1",
+          "revision": 1,
+          "backendId": "e9a0edf3-f27a-4566-b0b9-aa6a053032e4",
+          "score": 0.1091089451179962
+        }
+      ],
       "ms": 1
     },
     {
@@ -92,6 +103,13 @@
       "status": "fail",
       "error": "Lexically different storage query did not rank database decision first",
       "ms": 2
+    },
+    {
+      "name": "multilingual-query-grid",
+      "layer": "retrieval-quality",
+      "status": "fail",
+      "error": "Top-1 5/8; see retrievalProbe for every ranking",
+      "ms": 12
     },
     {
       "name": "correction",
@@ -105,11 +123,11 @@
           "source": "fixture://room-a/message-3#v1",
           "task": "task-1",
           "revision": 2,
-          "backendId": "df78a84a-72e1-4ba7-b40c-79213e829af1",
+          "backendId": "e8292519-b7bc-4136-b549-91eb88d2c462",
           "score": 0.1817386713383295
         }
       ],
-      "ms": 53
+      "ms": 35
     },
     {
       "name": "revision-history",
@@ -118,21 +136,21 @@
       "evidence": [
         {
           "id": 6,
-          "memory_id": "df78a84a-72e1-4ba7-b40c-79213e829af1",
-          "previous_value": "User Iris (鸢尾) prefers concise bullet-point lists over long-form prose responses",
+          "memory_id": "e8292519-b7bc-4136-b549-91eb88d2c462",
+          "previous_value": "Iris prefers concise bullet lists for information presentation",
           "new_value": "Iris now prefers detailed paragraphs. 鸢尾现在偏好详细的段落解释。",
           "action": "UPDATE",
-          "created_at": "2026-10-30T15:23:48.977Z",
-          "updated_at": "2026-10-30T15:23:55.032Z",
+          "created_at": "2026-10-30T23:06:36.726Z",
+          "updated_at": "2026-10-30T23:06:42.063Z",
           "is_deleted": 0
         },
         {
           "id": 1,
-          "memory_id": "df78a84a-72e1-4ba7-b40c-79213e829af1",
+          "memory_id": "e8292519-b7bc-4136-b549-91eb88d2c462",
           "previous_value": null,
-          "new_value": "User Iris (鸢尾) prefers concise bullet-point lists over long-form prose responses",
+          "new_value": "Iris prefers concise bullet lists for information presentation",
           "action": "ADD",
-          "created_at": "2026-10-30T15:23:48.977Z",
+          "created_at": "2026-10-30T23:06:36.726Z",
           "updated_at": null,
           "is_deleted": 0
         }
@@ -160,7 +178,7 @@
         "workStyle": "先列风险，再给结论。",
         "revision": 1
       },
-      "ms": 2
+      "ms": 1
     },
     {
       "name": "explicit-soul-edit-is-local",
@@ -191,36 +209,36 @@
       "layer": "backend",
       "status": "pass",
       "evidence": [],
-      "ms": 23
+      "ms": 20
     },
     {
       "name": "deleted-source-replay",
       "layer": "backend",
       "status": "fail",
       "error": "Replaying old source resurrected deleted memory; application tombstone required",
-      "ms": 1460
+      "ms": 1124
     }
   ],
   "timings": [
     {
       "name": "write-preference",
-      "ms": 1459
+      "ms": 866
     },
     {
       "name": "write-shared",
-      "ms": 1012
+      "ms": 938
     },
     {
       "name": "write-distractor-0",
-      "ms": 885
+      "ms": 1018
     },
     {
       "name": "write-distractor-1",
-      "ms": 1050
+      "ms": 1358
     },
     {
       "name": "write-distractor-2",
-      "ms": 3041
+      "ms": 1950
     }
   ],
   "limitations": [
@@ -240,7 +258,7 @@
     "dimensions": 384,
     "device": "cpu",
     "loadMs": 0,
-    "requests": 36
+    "requests": 48
   },
   "configuration": {
     "package": "mem0ai@3.3.1",
@@ -249,9 +267,170 @@
     "telemetry": false,
     "correction": "explicit update; automatic contradiction reconciliation not assumed"
   },
-  "finishedAt": "2026-10-30T15:23:56.577Z",
+  "retrievalProbe": {
+    "top1Correct": 5,
+    "total": 8,
+    "queries": [
+      {
+        "query": "持久化数据采用什么方案？",
+        "expectedId": "decision",
+        "correct": true,
+        "hits": [
+          {
+            "id": "decision",
+            "scope": "room:alpha",
+            "text": "User's project database is SQLite (项目数据库选择 SQLite).",
+            "source": "fixture://room-a/message-2#v1",
+            "task": "task-1",
+            "revision": 1,
+            "backendId": "e9a0edf3-f27a-4566-b0b9-aa6a053032e4",
+            "score": 0.10206207261596575
+          }
+        ]
+      },
+      {
+        "query": "Which technology keeps our records on disk?",
+        "expectedId": "decision",
+        "correct": false,
+        "hits": []
+      },
+      {
+        "query": "界面视觉要用什么色调？",
+        "expectedId": "distractor-0",
+        "correct": true,
+        "hits": [
+          {
+            "id": "distractor-0",
+            "scope": "room:alpha",
+            "text": "User's project theme color is terracotta (项目主题色是陶土色).",
+            "source": "fixture://room-a/distractor-0#v1",
+            "task": "task-1",
+            "revision": 1,
+            "backendId": "0f126bb3-f8c4-45bf-b4c4-854f896b240a",
+            "score": 0.11952286093343939
+          }
+        ]
+      },
+      {
+        "query": "What hue should the interface use?",
+        "expectedId": "distractor-0",
+        "correct": false,
+        "hits": [
+          {
+            "id": "distractor-2",
+            "scope": "room:alpha",
+            "text": "The project's release meeting is scheduled for Friday, October 30, 2026 (发布讨论安排在星期五).",
+            "source": "fixture://room-a/distractor-2#v1",
+            "task": "task-1",
+            "revision": 1,
+            "backendId": "ce03cba3-9dff-46d0-a76d-f3cc37c5568b",
+            "score": 0.10206207261596577
+          }
+        ]
+      },
+      {
+        "query": "代码用哪门语言编写？",
+        "expectedId": "distractor-1",
+        "correct": true,
+        "hits": [
+          {
+            "id": "distractor-1",
+            "scope": "room:alpha",
+            "text": "User's project development language is TypeScript (项目开发语言是 TypeScript).",
+            "source": "fixture://room-a/distractor-1#v1",
+            "task": "task-1",
+            "revision": 1,
+            "backendId": "add4484e-9fa0-41f4-b0b0-04845faaacc2",
+            "score": 0.10540925533894599
+          },
+          {
+            "id": "distractor-2",
+            "scope": "room:alpha",
+            "text": "The project's release meeting is scheduled for Friday, October 30, 2026 (发布讨论安排在星期五).",
+            "source": "fixture://room-a/distractor-2#v1",
+            "task": "task-1",
+            "revision": 1,
+            "backendId": "ce03cba3-9dff-46d0-a76d-f3cc37c5568b",
+            "score": 0.10206207261596577
+          }
+        ]
+      },
+      {
+        "query": "Which programming language should contributors use?",
+        "expectedId": "distractor-1",
+        "correct": false,
+        "hits": [
+          {
+            "id": "distractor-0",
+            "scope": "room:alpha",
+            "text": "User's project theme color is terracotta (项目主题色是陶土色).",
+            "source": "fixture://room-a/distractor-0#v1",
+            "task": "task-1",
+            "revision": 1,
+            "backendId": "0f126bb3-f8c4-45bf-b4c4-854f896b240a",
+            "score": 0.1636634176769943
+          },
+          {
+            "id": "distractor-1",
+            "scope": "room:alpha",
+            "text": "User's project development language is TypeScript (项目开发语言是 TypeScript).",
+            "source": "fixture://room-a/distractor-1#v1",
+            "task": "task-1",
+            "revision": 1,
+            "backendId": "add4484e-9fa0-41f4-b0b0-04845faaacc2",
+            "score": 0.12055350926318646
+          },
+          {
+            "id": "decision",
+            "scope": "room:alpha",
+            "text": "User's project database is SQLite (项目数据库选择 SQLite).",
+            "source": "fixture://room-a/message-2#v1",
+            "task": "task-1",
+            "revision": 1,
+            "backendId": "e9a0edf3-f27a-4566-b0b9-aa6a053032e4",
+            "score": 0.05892556509887897
+          }
+        ]
+      },
+      {
+        "query": "哪天开发布会议？",
+        "expectedId": "distractor-2",
+        "correct": true,
+        "hits": [
+          {
+            "id": "distractor-2",
+            "scope": "room:alpha",
+            "text": "The project's release meeting is scheduled for Friday, October 30, 2026 (发布讨论安排在星期五).",
+            "source": "fixture://room-a/distractor-2#v1",
+            "task": "task-1",
+            "revision": 1,
+            "backendId": "ce03cba3-9dff-46d0-a76d-f3cc37c5568b",
+            "score": 0.1118033988749895
+          }
+        ]
+      },
+      {
+        "query": "On which day will we discuss the release?",
+        "expectedId": "distractor-2",
+        "correct": true,
+        "hits": [
+          {
+            "id": "distractor-2",
+            "scope": "room:alpha",
+            "text": "The project's release meeting is scheduled for Friday, October 30, 2026 (发布讨论安排在星期五).",
+            "source": "fixture://room-a/distractor-2#v1",
+            "task": "task-1",
+            "revision": 1,
+            "backendId": "ce03cba3-9dff-46d0-a76d-f3cc37c5568b",
+            "score": 0.11759291019675552
+          }
+        ]
+      }
+    ]
+  },
+  "finishedAt": "2026-10-30T23:06:43.249Z",
   "summary": {
-    "pass": 10,
+    "pass": 11,
     "fail": 3
   }
 }

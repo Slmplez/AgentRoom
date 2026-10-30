@@ -6,6 +6,7 @@
     "test": "node --test verify.ts",
     "soul-demo": "node soul-demo.ts",
     "preflight": "node preflight.ts",
+    "download-model": "node download-model.ts",
     "baseline": "node run.ts sqlite",
     "mem0": "node run.ts mem0",
     "hindsight": "node run.ts hindsight"

@@ -1,15 +1,17 @@
 {
-  "at": "2026-10-30T15:23:56.988Z",
-  "status": "pass",
+  "at": "2026-10-30T23:07:51.687Z",
+  "sourceRunAt": "2026-10-30T23:06:35.512Z",
   "freshProcess": true,
   "networkInference": false,
+  "limitations": [],
+  "status": "pass",
   "results": [
     {
-      "id": "f5c3e94d-a732-4f80-91e1-8935a39e0e8c",
-      "memory": "User's project uses SQLite as the database (项目数据库选择 SQLite), as stated on October 30, 2026",
-      "hash": "1150edf066ca674dc70a0c7ef7c14342",
-      "createdAt": "2026-10-30T15:23:50.010Z",
-      "updatedAt": "2026-10-30T15:23:50.010Z",
+      "id": "e9a0edf3-f27a-4566-b0b9-aa6a053032e4",
+      "memory": "User's project database is SQLite (项目数据库选择 SQLite).",
+      "hash": "08ea913b51d5208a90aa4816501d04b9",
+      "createdAt": "2026-10-30T23:06:37.649Z",
+      "updatedAt": "2026-10-30T23:06:37.649Z",
       "metadata": {
         "id": "decision",
         "scope": "room:alpha",
@@ -22,11 +24,11 @@
       "attributedTo": "user"
     },
     {
-      "id": "716f7f95-004f-444b-b5cc-b09094fca52c",
-      "memory": "User's project theme color is terracotta (项目主题色是陶土色), as stated on October 30, 2026",
-      "hash": "fa5ad671ade0db37195270941c409629",
-      "createdAt": "2026-10-30T15:23:50.866Z",
-      "updatedAt": "2026-10-30T15:23:50.866Z",
+      "id": "0f126bb3-f8c4-45bf-b4c4-854f896b240a",
+      "memory": "User's project theme color is terracotta (项目主题色是陶土色).",
+      "hash": "4662004452a47c14cca92ea102a544ea",
+      "createdAt": "2026-10-30T23:06:38.691Z",
+      "updatedAt": "2026-10-30T23:06:38.691Z",
       "metadata": {
         "id": "distractor-0",
         "scope": "room:alpha",
@@ -39,11 +41,11 @@
       "attributedTo": "user"
     },
     {
-      "id": "a801ae45-85b6-497d-a5aa-3fc9971e7f74",
-      "memory": "User's project development language is TypeScript (项目开发语言是 TypeScript), as stated on October 30, 2026",
-      "hash": "683aba44c321b3e0857610791bfd6199",
-      "createdAt": "2026-10-30T15:23:51.931Z",
-      "updatedAt": "2026-10-30T15:23:51.931Z",
+      "id": "add4484e-9fa0-41f4-b0b0-04845faaacc2",
+      "memory": "User's project development language is TypeScript (项目开发语言是 TypeScript).",
+      "hash": "5f6704d5640763980efaf1df00a9b6fe",
+      "createdAt": "2026-10-30T23:06:40.056Z",
+      "updatedAt": "2026-10-30T23:06:40.056Z",
       "metadata": {
         "id": "distractor-1",
         "scope": "room:alpha",
@@ -56,11 +58,11 @@
       "attributedTo": "user"
     },
     {
-      "id": "f819c797-51cd-4b22-8046-b7b200aa8b8c",
-      "memory": "User's project release discussion meeting is scheduled for Friday, as mentioned on October 30, 2026 (发布讨论安排在星期五)",
-      "hash": "597b592539f769b329dc343711ce7941",
-      "createdAt": "2026-10-30T15:23:54.981Z",
-      "updatedAt": "2026-10-30T15:23:54.981Z",
+      "id": "ce03cba3-9dff-46d0-a76d-f3cc37c5568b",
+      "memory": "The project's release meeting is scheduled for Friday, October 30, 2026 (发布讨论安排在星期五).",
+      "hash": "0d2b4d9ff7f2a5c239f4d02d7cb4843b",
+      "createdAt": "2026-10-30T23:06:42.012Z",
+      "updatedAt": "2026-10-30T23:06:42.012Z",
       "metadata": {
         "id": "distractor-2",
         "scope": "room:alpha",
