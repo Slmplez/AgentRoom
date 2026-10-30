@@ -1,5 +1,5 @@
 import { clientError } from '../../contracts/chat.mjs';
-import { persistenceBootstrapSchema, persistenceSnapshotSchema, persistenceReceiptSchema, persistenceFrameSchema, persistenceCommandSchema } from '../../contracts/persistence.mjs';
+import { persistenceBootstrapSchema, persistenceSnapshotSchema, persistenceReceiptSchema, persistenceFrameSchema, persistenceCommandSchema, persistenceHistorySchema } from '../../contracts/persistence.mjs';
 
 // A transport and an already-submitted-command journal, never a second message store.
 // backendId/localUserId are stable identities supplied by the trusted host, not a session token/port.
@@ -132,6 +132,15 @@ export function createPersistentTransport({ session, backendId, localUserId, sto
   }
   return {
     synchronize,
+    async history({ roomId, beforeSequence, upperBound, limit = 100 }) {
+      const context = active;
+      if (!context?.boot || context.controller.signal.aborted) throw clientError('unavailable', '连接尚未恢复。');
+      if (roomId !== context.scope.roomId) throw clientError('invalid_scope', '历史范围已变化。');
+      if (!Number.isInteger(limit) || limit < 1 || limit > 200) throw clientError('invalid_request', '每页消息数必须为 1–200。');
+      const data = await json(context, `/rooms/${encodeURIComponent(roomId)}/messages?` + new URLSearchParams({ beforeSequence, upperBound, limit }), persistenceHistorySchema);
+      if (data.databaseId !== context.boot.databaseId || data.roomId !== roomId || data.roomSequenceUpperBound !== upperBound || (data.beforeSequence !== null && data.beforeSequence >= beforeSequence) || data.messages.some(m => m.roomId !== roomId || m.sequence >= beforeSequence || m.sequence > upperBound)) throw clientError('invalid_response', '历史页范围不匹配。');
+      return data;
+    },
     async command(input) {
       const context = active;
       if (!context?.boot || context.controller.signal.aborted) throw clientError('unavailable', '连接尚未恢复。');

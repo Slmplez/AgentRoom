@@ -1,9 +1,10 @@
 # G2a persistent discussion backend
 
-This is the standalone #13/#14 backend. It does not replace the existing desktop
+This is the standalone #13–#15 backend. It does not replace the existing desktop
 service or load hcom, an agent CLI, a model gateway, or the React client.
 It supports authenticated HTTP/SSE and the public AgentRoomClient. Production UI
-integration remains #16; history paging in the client and event expiry remain #15.
+integration remains #16. History paging and event expiry are available through
+the existing public client; no additional chat UI or store is introduced.
 
 Requires Node.js >= 24.4.1 with `node:sqlite` (experimental in the validated
 24.4.1 runtime). Use a separate local data directory. Do not point this service
@@ -67,7 +68,43 @@ SQLite stores the room counter, message, committed event and receipt in one
 transaction. A crash before commit rolls them all back; a crash after commit
 leaves all queryable after restart. Queries authorize before reading each scope.
 Unknown schemas, foreign databases and initialization failures fail explicitly;
-there is no reset-to-empty recovery. Event retention/cleanup is not enabled yet.
+there is no reset-to-empty recovery. Messages and receipts do not expire.
+
+## History and event expiry (#15)
+
+`await client.loadOlderMessages({ limit: 100 })` loads the next older page into
+the existing projection and returns the number of messages read. The default is
+100 and maximum is 200. A second concurrent load rejects with `busy`; legacy
+transports without history return `unsupported`. `client.read()` exposes:
+
+- `beforeSequence`: exclusive next-page boundary, or `null` when history is exhausted.
+- `roomSequenceUpperBound`: snapshot's fixed history window; live events do not move it.
+- `historyLoading`: whether the current scope has a history request in progress.
+- `syncNotice`: a recovery notice after an expired/unavailable cursor required a new snapshot.
+
+History pages merge by message identity into the same message list and never
+advance the applied SSE cursor. Scope changes, reconnect and close invalidate
+late pages. An empty new client always starts from the bounded latest snapshot;
+older messages remain available through this API after event-log expiry.
+
+Events are eligible for deletion strictly after seven days. The runtime checks
+at startup and every minute. Only a contiguous expired prefix is deleted, in the
+same write transaction that advances `pruned_through`; clock rollback cannot
+cause an old-timestamp suffix to jump over a fresh prefix. This does not delete
+messages or idempotency receipts, nor reset/reuse global event positions.
+
+Resume below the floor returns `resync_required`; equality is valid. A replay
+overtaken by pruning receives an explicit SSE error and closes, including when
+part of a page was already delivered. The client clears its old resume cursor,
+loads a fresh bounded snapshot, and subscribes from its matching cursor. It does
+not change the room scope or own/clear UI drafts. #16 must keep using the same
+room-keyed draft state when rendering the recovery notice and history button;
+this backend slice does not claim a separate UI draft acceptance run.
+
+Clock and maintenance scheduling injection are trusted runtime/test seams only;
+HTTP cannot change retention, invoke deletion or set the clock. The test fixture
+uses IPC to control time and kill a real process before prune commit. A failed
+periodic cleanup rolls back and is retried; startup cleanup failure is explicit.
 
 ## Public client integration
 
@@ -134,7 +171,7 @@ offline execution queue or multi-user login implementation.
 ## Validation
 
 Run `node --test test/persistence-durable.test.cjs test/persistence-stream.test.cjs
-test/client.test.cjs test/client-sync.test.cjs`. Tests use real SQLite, HTTP/SSE,
+test/persistence-history.test.cjs test/client.test.cjs test/client-sync.test.cjs`. Tests use real SQLite, HTTP/SSE,
 two public clients, a disk-backed command journal, and child processes, including
 forced termination before and after commit. Streaming tests cover snapshot and
 backlog boundaries, missed wakeups, checkpoint filtering, duplicate events,

@@ -16,6 +16,7 @@ export function createAgentRoomClient(transport) {
   const watches = new Set();
   const listeners = new Set(), inFlight = new Set(), retired = new Set(), uncertain = new Map();
   let applied = null;
+  let historyRequest = 0;
   const publish = patch => { state = freeze({ ...state, ...patch }); for (const listener of listeners) listener(); };
   const scopeKey = () => JSON.stringify(scope);
   function acceptPersistence(event) {
@@ -50,7 +51,7 @@ export function createAgentRoomClient(transport) {
       publish({ pendingOperations: event.data.filter(item => item.roomId === scope.roomId) });
     } else if (event.type === 'persistence.ready') {
       attempts = 0; streamOffline = false;
-      publish({ instanceId: event.data.instanceId, connection: 'live', error: state.databaseChanged ? '后端数据库已更换，请重新确认；旧请求不会重发。' : '' });
+      publish({ instanceId: event.data.instanceId, connection: 'live', syncNotice: state.syncNotice ? '事件记录已不可续订，已重新加载消息；旧历史仍可分页读取。' : '', error: state.databaseChanged ? '后端数据库已更换，请重新确认；旧请求不会重发。' : '' });
     }
   }
   function accept(raw) {
@@ -89,7 +90,7 @@ export function createAgentRoomClient(transport) {
     unsubscribe?.(); unsubscribe = undefined; clearTimeout(retryTimer); retryTimer = undefined;
     const epoch = ++generation;
     streamOffline = false;
-    publish({ connection: state.instanceId ? 'resyncing' : 'connecting', error: '' });
+    publish({ connection: state.instanceId ? 'resyncing' : 'connecting', error: '', historyLoading: false });
     try {
       if (transport.synchronize) {
         const sync = transport.synchronize(scope, event => {
@@ -97,7 +98,7 @@ export function createAgentRoomClient(transport) {
           try {
             if (event.type.startsWith('persistence.')) acceptPersistence(event);
             else {
-              if (event.type === 'resync_required') applied = null;
+              if (event.type === 'resync_required') { applied = null; publish({ syncNotice: '事件记录已不可续订，正在重新加载消息；旧历史仍可分页读取。' }); }
               publish({ connection: 'offline', error: event.error?.message || '实时连接已断开。' }); retry(epoch);
             }
           } catch (error) { applied = null; unsubscribe?.(); publish({ connection: 'offline', error: error.message }); retry(epoch); }
@@ -118,7 +119,7 @@ export function createAgentRoomClient(transport) {
         } catch { publish({ connection: 'offline', error: '服务端数据不符合聊天契约。' }); retry(epoch); }
       }, scope);
       await refresh(epoch);
-    } catch (error) { if (epoch === generation) { if (error.code === 'resync_required') applied = null; unsubscribe?.(); publish({ connection: 'offline', error: error.message }); retry(epoch); } }
+    } catch (error) { if (epoch === generation) { if (error.code === 'resync_required') { applied = null; publish({ syncNotice: '事件记录已不可续订，正在重新加载消息；旧历史仍可分页读取。' }); } unsubscribe?.(); publish({ connection: 'offline', error: error.message }); retry(epoch); } }
   }
   async function query(input) {
       const parsed = querySchema.safeParse(input);
@@ -146,7 +147,7 @@ export function createAgentRoomClient(transport) {
     async open(nextScope = scope) {
       closed = false;
       const next = { ...(nextScope.workspaceId ? { workspaceId: String(nextScope.workspaceId) } : {}), ...(nextScope.roomId ? { roomId: String(nextScope.roomId) } : {}) };
-      if (JSON.stringify(next) !== scopeKey()) { scope = next; applied = null; publish({ ...empty(), scope, cursor: null, pendingOperations: [...uncertain.values()].filter(item => item.scope === scopeKey()) }); }
+      if (JSON.stringify(next) !== scopeKey()) { scope = next; applied = null; publish({ ...empty(), scope, cursor: null, syncNotice: '', beforeSequence: null, roomSequenceUpperBound: null, pendingOperations: [...uncertain.values()].filter(item => item.scope === scopeKey()) }); }
       return connect();
     },
     async dispatch(input) {
@@ -180,6 +181,22 @@ export function createAgentRoomClient(transport) {
     async checkOperation(key) {
       if (!transport.checkOperation) throw clientError('unsupported', '当前后端不支持回执核查。');
       return transport.checkOperation(key);
+    },
+    async loadOlderMessages({ limit = 100 } = {}) {
+      if (!transport.history) throw clientError('unsupported', '当前后端不支持历史分页。');
+      if (state.connection !== 'live') throw clientError('unavailable', '连接尚未恢复。');
+      if (state.historyLoading) throw clientError('busy', '历史消息正在加载。');
+      if (state.beforeSequence === null) return 0;
+      const epoch = generation, request = ++historyRequest;
+      const roomId = scope.roomId, beforeSequence = state.beforeSequence, upperBound = state.roomSequenceUpperBound;
+      publish({ historyLoading: true });
+      try {
+        const page = await transport.history({ roomId, beforeSequence, upperBound, limit });
+        if (closed || epoch !== generation || request !== historyRequest) throw clientError('stale_query', '历史范围已变化。');
+        const messages = [...new Map([...page.messages, ...state.messages].map(message => [message.id, message])).values()].sort((a, b) => a.sequence - b.sequence);
+        publish({ messages, beforeSequence: page.beforeSequence });
+        return page.messages.length;
+      } finally { if (epoch === generation && request === historyRequest) publish({ historyLoading: false }); }
     },
     close() { for (const dispose of [...watches]) dispose(); closed = true; ++generation; ++refreshNumber; clearTimeout(retryTimer); retryTimer = undefined; unsubscribe?.(); unsubscribe = undefined; publish({ connection: 'offline' }); },
   };

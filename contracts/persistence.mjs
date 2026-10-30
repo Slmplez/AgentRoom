@@ -37,6 +37,11 @@ export const persistenceSnapshotSchema = z.object({
   room: persistenceRoomSchema, messages: z.array(persistenceMessageSchema),
   roomSequenceUpperBound: counter, beforeSequence: counter.positive().nullable(),
 });
+export const persistenceHistorySchema = z.object({
+  schemaVersion: z.literal(1), databaseId: id, roomId: id,
+  messages: z.array(persistenceMessageSchema).max(200),
+  roomSequenceUpperBound: counter, beforeSequence: counter.positive().nullable(), cursor,
+});
 export const persistenceReceiptSchema = z.object({
   schemaVersion: z.literal(1), accepted: z.literal(true), operationId: id,
   roomId: id, messageId: id.nullable(), sequence: counter.nullable(), cursor: id,
