@@ -155,10 +155,12 @@ test('authentic v2 schema migration preserves reply chains, receipts, cursors an
   const receipt={schemaVersion:1,accepted:true,operationId:'operation',roomId:'room',messageId:'first',sequence:1,cursor:Buffer.from(JSON.stringify([1,'database','room',1])).toString('base64url')};
   db.prepare('INSERT INTO command_receipts VALUES(?,?,?,?,?,?,?,?,?,?,?)').run('operation','owner','workspace','sendDiscussion','old-key','hash',1,JSON.stringify(receipt),'room','first',new Date().toISOString());
   db.prepare('INSERT INTO events VALUES(?,?,?,?,?,?,?,?,?,?,?)').run(1,'event',1,'message.created','workspace','room','first',1,'operation',new Date().toISOString(),'{}');
-  const task={id:'task',roomId:'room',phase:'reviewing',result:'Already delivered'};
+  const task={id:'task',runId:'run',initiatorId:'owner',roomId:'room',ownerAgentId:'local-pi',goal:'Original task',revision:3,phase:'reviewing',result:'Already delivered',delivery:'none',question:null,history:[],nativeId:null,incarnation:'old-incarnation'};
   db.prepare('INSERT INTO local_tasks VALUES(?,?,?)').run('task','room',JSON.stringify(task));db.close();
   const {createApplicationRuntime}=await import('../lib/application-runtime/index.mjs');const runtime=await createApplicationRuntime({directory});t.after(()=>runtime.close());
   const snapshot=runtime.query({type:'snapshot',roomId:'room'},runtime.owner);
+  assert.equal(snapshot.localTasks[0].runId,task.runId);
+  assert.equal(snapshot.localTasks[0].result,task.result);
   assert.deepEqual(snapshot.messages.map(m=>[m.id,m.replyToId,m.artifactRefs]),[['first',null,[]],['reply','first',[]]]);
   assert.deepEqual(runtime.query({type:'receipt',workspaceId:'workspace',commandType:'sendDiscussion',key:'old-key'},runtime.owner),receipt);
   assert.equal(runtime.query({type:'events',roomId:'room',after:receipt.cursor},runtime.owner).events.length,0);
