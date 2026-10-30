@@ -1,4 +1,6 @@
 import { snapshotSchema, commandSchema, receiptSchema, clientError } from '../../contracts/chat.mjs';
+import { persistenceSnapshotSchema, persistenceFrameSchema, persistenceReceiptSchema } from '../../contracts/persistence.mjs';
+
 import { querySchema, queryResults } from '../../contracts/settings.mjs';
 
 function freeze(value) {
@@ -13,8 +15,44 @@ export function createAgentRoomClient(transport) {
   let generation = 0, unsubscribe, refreshNumber = 0, retryTimer, attempts = 0, closed = true, streamOffline = false, scope = {};
   const watches = new Set();
   const listeners = new Set(), inFlight = new Set(), retired = new Set(), uncertain = new Map();
+  let applied = null;
   const publish = patch => { state = freeze({ ...state, ...patch }); for (const listener of listeners) listener(); };
   const scopeKey = () => JSON.stringify(scope);
+  function acceptPersistence(event) {
+    if (event.type === 'persistence.identity') {
+      if (state.databaseId && state.databaseId !== event.data.databaseId) {
+        applied = null;
+        publish({ ...empty(), databaseId: event.data.databaseId, cursor: null, pendingOperations: [], databaseChanged: true, connection: 'resyncing', error: '后端数据库已更换，请重新确认；旧请求不会重发。' });
+      }
+    } else if (event.type === 'persistence.snapshot') {
+      const data = persistenceSnapshotSchema.parse(event.data), boot = event.boot;
+      if (data.room.id !== scope.roomId) throw clientError('invalid_scope', '快照范围不匹配。');
+      // The projection and applied cursor are published together; listeners never see a cursor ahead of data.
+      const next = snapshotSchema.parse({ instanceId: data.instanceId, revision: data.room.revision, agents: [], rooms: [{ ...data.room, type: 'group', memberIds: [boot.user.id] }], workspaces: [{ ...boot.workspace, directory: '' }], messages: data.messages, approvals: [], runs: [], capabilities: { tasks: false, idempotentSend: true } });
+      applied = { databaseId: data.databaseId, roomId: data.room.id, cursor: data.cursor };
+      publish({ ...next, messages: data.messages, databaseId: data.databaseId, cursor: data.cursor, roomSequenceUpperBound: data.roomSequenceUpperBound, beforeSequence: data.beforeSequence });
+    } else if (event.type === 'persistence.frame') {
+      if (!applied) throw clientError('resync_required', '需要先读取快照。');
+      const frame = persistenceFrameSchema.parse(event.data);
+      let messages = state.messages;
+      if (frame.type === 'event') {
+        const e = frame.data;
+        if (e.roomId !== scope.roomId || e.workspaceId !== state.rooms[0]?.workspaceId) throw clientError('invalid_scope', '事件范围不匹配。');
+        if (e.type === 'message.created') {
+          const previous = messages.find(m => m.id === e.entityId);
+          if (!previous || previous.revision < e.entityRevision) messages = [...messages.filter(m => m.id !== e.entityId), e.payload].sort((a, b) => a.sequence - b.sequence);
+        }
+      }
+      const cursor = frame.type === 'event' ? frame.data.cursor : frame.cursor;
+      applied = { ...applied, cursor };
+      publish({ messages, cursor });
+    } else if (event.type === 'persistence.pending') {
+      publish({ pendingOperations: event.data.filter(item => item.roomId === scope.roomId) });
+    } else if (event.type === 'persistence.ready') {
+      attempts = 0; streamOffline = false;
+      publish({ instanceId: event.data.instanceId, connection: 'live', error: state.databaseChanged ? '后端数据库已更换，请重新确认；旧请求不会重发。' : '' });
+    }
+  }
   function accept(raw) {
     const next = snapshotSchema.parse(raw);
     if (retired.has(next.instanceId) || (state.instanceId === next.instanceId && next.revision < state.revision)) return;
@@ -53,6 +91,21 @@ export function createAgentRoomClient(transport) {
     streamOffline = false;
     publish({ connection: state.instanceId ? 'resyncing' : 'connecting', error: '' });
     try {
+      if (transport.synchronize) {
+        const sync = transport.synchronize(scope, event => {
+          if (epoch !== generation || closed) return;
+          try {
+            if (event.type.startsWith('persistence.')) acceptPersistence(event);
+            else {
+              if (event.type === 'resync_required') applied = null;
+              publish({ connection: 'offline', error: event.error?.message || '实时连接已断开。' }); retry(epoch);
+            }
+          } catch (error) { applied = null; unsubscribe?.(); publish({ connection: 'offline', error: error.message }); retry(epoch); }
+        }, applied);
+        unsubscribe = () => sync.close();
+        await sync.ready;
+        return;
+      }
       unsubscribe = transport.subscribe(event => {
         if (epoch !== generation || closed) return;
         try {
@@ -65,11 +118,12 @@ export function createAgentRoomClient(transport) {
         } catch { publish({ connection: 'offline', error: '服务端数据不符合聊天契约。' }); retry(epoch); }
       }, scope);
       await refresh(epoch);
-    } catch (error) { if (epoch === generation) { publish({ connection: 'offline', error: error.message }); retry(epoch); } }
+    } catch (error) { if (epoch === generation) { if (error.code === 'resync_required') applied = null; unsubscribe?.(); publish({ connection: 'offline', error: error.message }); retry(epoch); } }
   }
   async function query(input) {
       const parsed = querySchema.safeParse(input);
       if (!parsed.success) throw clientError('invalid_query', '查询不符合公开契约。');
+      if (!transport.query) throw clientError('unsupported', '当前后端不支持此查询。');
       const epoch = generation;
       const result = await transport.query(parsed.data);
       if (epoch !== generation) throw clientError('stale_query', '查询范围已变化。');
@@ -92,7 +146,7 @@ export function createAgentRoomClient(transport) {
     async open(nextScope = scope) {
       closed = false;
       const next = { ...(nextScope.workspaceId ? { workspaceId: String(nextScope.workspaceId) } : {}), ...(nextScope.roomId ? { roomId: String(nextScope.roomId) } : {}) };
-      if (JSON.stringify(next) !== scopeKey()) { scope = next; publish({ ...empty(), scope, pendingOperations: [...uncertain.values()].filter(item => item.scope === scopeKey()) }); }
+      if (JSON.stringify(next) !== scopeKey()) { scope = next; applied = null; publish({ ...empty(), scope, cursor: null, pendingOperations: [...uncertain.values()].filter(item => item.scope === scopeKey()) }); }
       return connect();
     },
     async dispatch(input) {
@@ -108,19 +162,24 @@ export function createAgentRoomClient(transport) {
       const epoch = generation;
       const submittedInstance = state.instanceId, submittedScope = scopeKey();
       try {
-        const parsedReceipt = receiptSchema.safeParse(await transport.command(command));
+        const schema = transport.synchronize ? persistenceReceiptSchema : receiptSchema;
+        const parsedReceipt = schema.safeParse(await transport.command(command));
         if (!parsedReceipt.success) throw clientError('invalid_response', '操作回执不符合公开契约，请核查结果。', 'unknown');
         const receipt = parsedReceipt.data;
-        if (epoch === generation) await refresh(epoch);
+        if (epoch === generation && !transport.synchronize) await refresh(epoch);
         return receipt;
       } catch (error) {
-        if (error.outcome === 'unknown') {
+        if (error.outcome === 'unknown' && !transport.synchronize) {
           // Store identifiers only: credentials and user content never enter diagnostic state.
           uncertain.set(token, { key: token, type: command.type, target, scope: submittedScope, instanceId: submittedInstance, requestId: error.requestId || '', outcome: 'unknown' });
           if (!closed && submittedScope === scopeKey()) publish({ pendingOperations: [...uncertain.values()].filter(item => item.scope === scopeKey()) });
         }
         throw error;
       } finally { inFlight.delete(token); }
+    },
+    async checkOperation(key) {
+      if (!transport.checkOperation) throw clientError('unsupported', '当前后端不支持回执核查。');
+      return transport.checkOperation(key);
     },
     close() { for (const dispose of [...watches]) dispose(); closed = true; ++generation; ++refreshNumber; clearTimeout(retryTimer); retryTimer = undefined; unsubscribe?.(); unsubscribe = undefined; publish({ connection: 'offline' }); },
   };

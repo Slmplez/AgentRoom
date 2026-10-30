@@ -1,0 +1,166 @@
+import { clientError } from '../../contracts/chat.mjs';
+import { persistenceBootstrapSchema, persistenceSnapshotSchema, persistenceReceiptSchema, persistenceFrameSchema, persistenceCommandSchema } from '../../contracts/persistence.mjs';
+
+// A transport and an already-submitted-command journal, never a second message store.
+// backendId/localUserId are stable identities supplied by the trusted host, not a session token/port.
+export function createPersistentTransport({ session, backendId, localUserId, storage = globalThis.localStorage, fetch: fetcher = globalThis.fetch }) {
+  if (typeof session !== 'function' || !backendId || !localUserId || !storage?.getItem || !storage?.setItem || !storage?.removeItem || !storage?.key) throw new Error('Persistent transport requires a trusted session and durable user-scoped storage.');
+  let active;
+  const controllers = new Set();
+  const journalPrefix = boot => 'agentroom:submitted:v1:' + JSON.stringify([localUserId, backendId, boot.databaseId, boot.user.id]) + ':';
+  const journalKey = (boot, key) => journalPrefix(boot) + JSON.stringify(key);
+  function readJournal(boot) {
+    try {
+      const items = [], prefix = journalPrefix(boot);
+      for (let i = 0; i < storage.length; i++) {
+        const key = storage.key(i);
+        if (!key?.startsWith(prefix)) continue;
+        const raw = storage.getItem(key); if (raw === null) continue;
+        const item = JSON.parse(raw), parsed = persistenceCommandSchema.safeParse(item.command);
+        if (!parsed.success || item.command.type !== 'sendDiscussion' || item.databaseId !== boot.databaseId || item.command.workspaceId !== boot.workspace.id || key !== journalKey(boot, item.command.key) || !['unknown', 'not_found'].includes(item.outcome)) throw new Error('Invalid journal entry.');
+        items.push(item);
+      }
+      return items;
+    } catch { throw clientError('journal_invalid', '待核查记录不可读，已停止发送。'); }
+  }
+  function pending(context) {
+    if (active !== context || context.controller.signal.aborted) return;
+    context.emit({ type: 'persistence.pending', data: readJournal(context.boot).map(item => ({ key: item.command.key, type: 'send', roomId: item.command.roomId, databaseId: item.databaseId, outcome: item.outcome })) });
+  }
+  function update(context, key, value) {
+    // One durable key per submitted command: separate windows cannot overwrite each other's list.
+    try {
+      if (value) storage.setItem(journalKey(context.boot, key), JSON.stringify(value));
+      else storage.removeItem(journalKey(context.boot, key));
+    } catch { throw clientError('journal_unavailable', '无法保存待核查记录，请检查本地存储。'); }
+    pending(context);
+  }
+  async function response(context, route, { command, signal = context.controller.signal, stream = false } = {}) {
+    let res;
+    try {
+      res = await fetcher(context.credentials.origin + '/api/v1' + route, {
+        method: command ? 'POST' : 'GET',
+        redirect: 'error',
+        headers: { Authorization: 'Bearer ' + context.credentials.token, ...(command ? { 'Content-Type': 'application/json', 'Idempotency-Key': command.key } : {}) },
+        body: command ? JSON.stringify({ workspaceId: command.workspaceId, text: command.text, replyToId: command.replyToId, mentions: [] }) : undefined,
+        signal: stream ? signal : AbortSignal.any([signal, AbortSignal.timeout(15000)]),
+      });
+    } catch { throw clientError('transport_unavailable', '连接中断，请核查原请求。', command ? 'unknown' : 'rejected'); }
+    if (!res.ok) {
+      let data;
+      try { data = await res.json(); } catch { throw clientError('invalid_response', '服务端响应无效。', command ? 'unknown' : 'rejected'); }
+      throw clientError(data.code || 'unavailable', data.message || '请求失败。', command ? data.outcome || 'unknown' : 'rejected');
+    }
+    return res;
+  }
+  async function json(context, route, schema, options) {
+    const res = await response(context, route, options);
+    try { return schema.parse(await res.json()); }
+    catch { throw clientError('invalid_response', '服务端响应不符合持久消息契约。', options?.command ? 'unknown' : 'rejected'); }
+  }
+  async function check(context, key) {
+    const entry = readJournal(context.boot).find(item => item.command.key === key);
+    if (!entry) return null;
+    try {
+      const receipt = await json(context, '/operations?' + new URLSearchParams({ workspaceId: entry.command.workspaceId, commandType: 'sendDiscussion', key }), persistenceReceiptSchema);
+      update(context, key, null); return receipt;
+    } catch (error) {
+      if (error.code !== 'not_found') throw error;
+      update(context, key, { ...entry, outcome: 'not_found' }); return null;
+    }
+  }
+  async function consume(context, res) {
+    if (!res.headers.get('content-type')?.startsWith('text/event-stream')) { await res.body?.cancel(); throw clientError('invalid_response', '订阅响应无效。'); }
+    const reader = res.body.getReader(), decoder = new TextDecoder();
+    let buffer = '';
+    try {
+      while (!context.controller.signal.aborted) {
+        const { done, value } = await reader.read();
+        if (done) throw clientError('transport_unavailable', '实时连接已关闭。');
+        buffer += decoder.decode(value, { stream: true });
+        // The server bounds each message. Also bound an incomplete/untrusted frame.
+        if (buffer.length > 1024 * 1024) throw clientError('invalid_response', '订阅帧过大。');
+        let boundary;
+        while ((boundary = buffer.indexOf('\n\n')) >= 0) {
+          const frame = buffer.slice(0, boundary); buffer = buffer.slice(boundary + 2);
+          const lines = frame.split('\n'), data = lines.filter(line => line.startsWith('data:')).map(line => line.slice(5).trimStart()).join('\n');
+          if (!data) continue;
+          if (lines.includes('event: error')) throw clientError(JSON.parse(data).code, '订阅需要恢复。');
+          const parsed = persistenceFrameSchema.parse(JSON.parse(data));
+          if (!context.controller.signal.aborted) context.emit({ type: 'persistence.frame', data: parsed });
+        }
+      }
+    } finally { await reader.cancel().catch(() => {}); reader.releaseLock(); }
+  }
+  function synchronize(scope, emit, resume) {
+    active?.controller.abort();
+    const context = { controller: new AbortController(), emit, scope: { ...scope } };
+    active = context;
+    const ready = (async () => {
+      if (!scope.roomId) throw clientError('invalid_scope', '持久讨论同步需要明确房间。');
+      context.credentials = await session();
+      if (context.controller.signal.aborted) return;
+      const origin = new URL(context.credentials.origin);
+      if (origin.protocol !== 'http:' || origin.hostname !== '127.0.0.1' || origin.origin !== context.credentials.origin || !/^[a-f0-9]{64}$/.test(context.credentials.token)) throw clientError('invalid_session', '本机会话配置无效。');
+      context.boot = await json(context, '/bootstrap', persistenceBootstrapSchema);
+      if (context.controller.signal.aborted) return;
+      if (scope.workspaceId && scope.workspaceId !== context.boot.workspace.id) throw clientError('not_found', '工作区不可访问。');
+      const matching = resume?.databaseId === context.boot.databaseId && resume.roomId === scope.roomId;
+      emit({ type: 'persistence.identity', data: context.boot, changed: !!resume && !matching });
+      // Only query previous explicit submissions; never execute them during recovery.
+      for (const entry of readJournal(context.boot)) {
+        if (context.controller.signal.aborted) return;
+        await check(context, entry.command.key);
+      }
+      pending(context);
+      let cursor = matching ? resume.cursor : null;
+      if (!cursor) {
+        const data = await json(context, `/rooms/${encodeURIComponent(scope.roomId)}/snapshot`, persistenceSnapshotSchema);
+        if (context.controller.signal.aborted) return;
+        if (data.databaseId !== context.boot.databaseId || data.room.id !== scope.roomId || data.room.workspaceId !== context.boot.workspace.id) throw clientError('invalid_response', '快照范围不匹配。');
+        emit({ type: 'persistence.snapshot', data, boot: context.boot });
+        cursor = data.cursor;
+      }
+      const res = await response(context, '/events?' + new URLSearchParams({ roomId: scope.roomId, after: cursor }), { stream: true });
+      if (context.controller.signal.aborted) { await res.body?.cancel(); return; }
+      emit({ type: 'persistence.ready', data: context.boot });
+      void consume(context, res).catch(error => {
+        if (!context.controller.signal.aborted) { context.controller.abort(); emit({ type: error.code === 'resync_required' ? 'resync_required' : 'offline', error }); }
+      });
+    })();
+    return { ready, close() { context.controller.abort(); if (active === context) { active = undefined; for (const controller of controllers) controller.abort(); } } };
+  }
+  return {
+    synchronize,
+    async command(input) {
+      const context = active;
+      if (!context?.boot || context.controller.signal.aborted) throw clientError('unavailable', '连接尚未恢复。');
+      if (input.type !== 'send' || input.mode !== 'discussion' || input.mentions?.length || input.ownerAgentId) throw clientError('unsupported', '持久后端仅支持普通讨论消息。');
+      if (input.roomId !== context.scope.roomId) throw clientError('invalid_scope', '只能向当前房间发送。');
+      const command = { type: 'sendDiscussion', key: input.key, workspaceId: context.boot.workspace.id, roomId: input.roomId, text: input.text, replyToId: null };
+      const previous = readJournal(context.boot).find(item => item.command.key === command.key);
+      if (previous) {
+        if (JSON.stringify(previous.command) !== JSON.stringify(command)) throw clientError('idempotency_conflict', '待核查请求内容不能改变。');
+        const receipt = await check(context, command.key);
+        if (receipt) return receipt;
+      }
+      const entry = { databaseId: context.boot.databaseId, command, outcome: 'unknown' };
+      // Save before network submission, including the page/process-crash window.
+      update(context, command.key, entry);
+      const controller = new AbortController(); controllers.add(controller);
+      try {
+        const receipt = await json(context, `/rooms/${encodeURIComponent(command.roomId)}/messages`, persistenceReceiptSchema, { command, signal: controller.signal });
+        try { update(context, command.key, null); }
+        catch { throw clientError('journal_unavailable', '消息已提交，但本地回执未保存；请核查原请求。', 'unknown'); }
+        return receipt;
+      } catch (error) {
+        if (error.outcome !== 'unknown') update(context, command.key, null);
+        throw error;
+      } finally { controllers.delete(controller); }
+    },
+    async checkOperation(key) {
+      if (!active?.boot || active.controller.signal.aborted) throw clientError('unavailable', '连接尚未恢复。');
+      return check(active, key);
+    },
+  };
+}
