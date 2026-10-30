@@ -1,0 +1,21 @@
+.artifact-panel { overflow-wrap: anywhere; }
+.artifact-panel .result-heading { align-items: start; }
+.artifact-panel .result-heading > div { min-width: 0; }
+.artifact-panel .result-heading > button { flex-shrink: 0; }
+.artifact-version-controls { display: flex; flex-wrap: wrap; gap: 10px; padding: 0 20px 16px; border-bottom: 1px solid var(--line); }
+.artifact-version-controls label { display: flex; align-items: center; gap: 8px; width: 100%; font-size: 12px; }
+.artifact-version-controls select { min-width: 0; flex: 1; padding: 7px; border: 1px solid var(--line); border-radius: 6px; color: var(--ink); background: var(--surface-1); }
+.artifact-version-controls p, .artifact-version-controls [role=status] { margin: 0; width: 100%; font-size: 12px; }
+.artifact-new-version { width: 100%; }
+.artifact-source { font-size: 12px; color: var(--text-secondary); margin-bottom: 24px; }
+.artifact-source summary { cursor: pointer; padding-bottom: 8px; }
+.artifact-source dl { display: grid; grid-template-columns: 70px minmax(0, 1fr); gap: 8px; }
+.artifact-source dd { margin: 0; }
+.artifact-panel .result-metrics { grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); }
+.artifact-panel .result-metrics dd { font-size: 24px; }
+.artifact-panel .result-chart { margin-inline: 0; }
+.artifact-panel .result-bar > div:first-child { gap: 12px; }
+.artifact-panel .result-table-wrap td { max-width: 340px; }
+.artifact-links { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.artifact-links button { max-width: 100%; text-align: left; white-space: normal; overflow-wrap: anywhere; }
+@media (max-width: 759px) { .artifact-panel .result-content { padding: 18px; } }

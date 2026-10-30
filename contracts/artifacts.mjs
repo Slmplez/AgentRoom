@@ -1,6 +1,7 @@
 import { z } from 'zod';
 const id = z.string().min(1).max(300);
 const short = z.string().max(200), text = z.string().max(4000);
+/** @template {import('zod').ZodRawShape} T @param {T} shape */
 const item = shape => z.object(shape).strict();
 const props = {
   Section: item({ title: short, description: text }),
