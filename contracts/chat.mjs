@@ -5,12 +5,14 @@ import { managementCommands } from './management.mjs';
 import { capabilityCommands } from './capabilities.mjs';
 import { collaborationQuestionSchema, questionCommands } from './questions.mjs';
 import { localTaskSchema, localExecutionCommandSchema } from './local-execution.mjs';
+import { memoryCommandSchema } from './agent-memory.mjs';
 
 const id = z.string().min(1).max(300);
 const question = z.object({ id, title: z.string(), multiple: z.boolean(), options: z.array(z.string()) });
 export const runSchema = z.object({ id, agentId: id, roomId: id, messageId: id.nullable(), status: z.enum(['queued', 'running', 'cancel_requested', 'complete', 'cancelled', 'failed', 'unknown']), queuePosition: z.number().int().nonnegative().default(0), canCancel: z.boolean(), error: z.string().default('') });
 export const toolSchema = z.object({ id, name: z.string(), status: z.string(), detail: z.string(), output: z.string(), patches: z.array(z.string()).default([]), runId: id.nullable().default(null), detailRef: id.nullable().default(null), hasDiff: z.boolean().default(false), truncated: z.boolean().default(false) });
 export const messageSchema = z.object({
+  revision: z.number().int().positive().optional(),
   id, roomId: id, sequence: z.number(), authorId: id, authorName: z.string(), role: z.enum(['user', 'assistant']),
   text: z.string(), status: z.enum(['running', 'complete', 'failed', 'cancelled', 'unknown']),
   createdAt: z.string(), tools: z.array(toolSchema).default([]),
@@ -27,6 +29,7 @@ export const approvalSchema = z.object({
   scopeLabel: z.string(), directory: z.string(), questions: z.array(question).default([]), options: z.array(z.string()).default([]),
 });
 export const snapshotSchema = z.object({
+  knownAgents: z.array(id).default([]),
   instanceId: id, revision: z.number().int().nonnegative(),
   agents: z.array(z.object({ id, name: z.string(), displayName: z.string(), engine: z.string(), engineId: z.string().default(''), tag: z.string().default(''), directory: z.string().default(''), status: z.string(), workspaceId: id })),
   rooms: z.array(z.object({ id, title: z.string(), type: z.enum(['group', 'dm']), workspaceId: id, memberIds: z.array(id), ownerAgentId: z.string().nullable().default(null), pinned: z.boolean().default(false), description: z.string().default('') })),
@@ -34,9 +37,10 @@ export const snapshotSchema = z.object({
   messages: z.array(messageSchema), approvals: z.array(approvalSchema), runs: z.array(runSchema).default([]), approvalHistory: z.array(approvalSchema).default([]),
   currentUserId: id.nullable().default(null), questions: z.array(collaborationQuestionSchema).default([]),
   localTasks: z.array(localTaskSchema).default([]), localAgentId: id.nullable().default(null),
-  capabilities: z.object({ tasks: z.boolean(), idempotentSend: z.boolean().default(false), collaborationQuestions: z.boolean().default(false), questionAdvice: z.boolean().default(false), localExecution: z.boolean().default(false), readOnlyArtifacts: z.boolean().default(false), artifactPublishing: z.boolean().default(false) }),
+  capabilities: z.object({ tasks: z.boolean(), idempotentSend: z.boolean().default(false), collaborationQuestions: z.boolean().default(false), questionAdvice: z.boolean().default(false), localExecution: z.boolean().default(false), readOnlyArtifacts: z.boolean().default(false), artifactPublishing: z.boolean().default(false), agentMemory: z.boolean().default(false) }),
 });
 export const commandSchema = z.discriminatedUnion('type', [
+  ...memoryCommandSchema.options,
   z.object({ type: z.literal('cancelRun'), key: id, runId: id }),
   ...localExecutionCommandSchema.options,
   ...connectionCommands,

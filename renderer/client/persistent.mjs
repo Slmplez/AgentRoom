@@ -1,4 +1,6 @@
 import { localExecutionCommandSchema } from '../../contracts/local-execution.mjs';
+import { memoryCommandSchema, memoryCommandTypes, memoryQuerySchema, memoryQueryResults, memoryQueryTypes, memoryReceiptSchema, scopeForMemory, sameMemoryScope } from '../../contracts/agent-memory.mjs';
+import { taskContextQuerySchema, taskContextResultSchema } from '../../contracts/run-context.mjs';
 import { clientError } from '../../contracts/chat.mjs';
 import { persistenceBootstrapSchema, persistenceSnapshotSchema, persistenceReceiptSchema, persistenceFrameSchema, persistenceCommandSchema, persistenceHistorySchema } from '../../contracts/persistence.mjs';
 
@@ -7,10 +9,16 @@ import { persistenceBootstrapSchema, persistenceSnapshotSchema, persistenceRecei
 export function createPersistentTransport({ session, backendId, localUserId, storage = globalThis.localStorage, fetch: fetcher = globalThis.fetch }) {
   if (typeof session !== 'function' || !backendId || !localUserId || !storage?.getItem || !storage?.setItem || !storage?.removeItem || !storage?.key) throw new Error('Persistent transport requires a trusted session and durable user-scoped storage.');
   let active;
-  const parseCommand = value => { const original = persistenceCommandSchema.safeParse(value); return original.success ? original : localExecutionCommandSchema.safeParse(value); };
-  const routeFor = command => `/rooms/${encodeURIComponent(command.roomId)}/` + (command.type === 'sendDiscussion' ? 'messages' : command.type === 'createLocalTask' ? 'local-tasks' : `local-tasks/${encodeURIComponent(command.taskId)}/answers`);
-  function commandBody(command) { const { type, key, roomId, taskId, ...body } = command; return body; }
+  const isMemory = command => memoryCommandTypes.includes(command?.type);
+  const receiptFor = command => isMemory(command) ? memoryReceiptSchema : persistenceReceiptSchema;
+  const parseCommand = value => { if (isMemory(value)) return memoryCommandSchema.safeParse(value); const original = persistenceCommandSchema.safeParse(value); return original.success ? original : localExecutionCommandSchema.safeParse(value); };
+  const routeFor = command => isMemory(command) ? '/agent-memory/commands' : `/rooms/${encodeURIComponent(command.roomId)}/` + (command.type === 'sendDiscussion' ? 'messages' : command.type === 'createLocalTask' ? 'local-tasks' : `local-tasks/${encodeURIComponent(command.taskId)}/answers`);
+  function commandBody(command) { if (isMemory(command)) { const { key, ...body } = command; return body; } const { type, key, roomId, taskId, ...body } = command; return body; }
   function validateReceipt(command, receipt) {
+    if (isMemory(command)) {
+      if (!sameMemoryScope(scopeForMemory(command), receipt.scope) || receipt.entityKind !== (command.type === 'editAgentSoul' ? 'soul' : 'memory') || (command.agentId && receipt.entityId !== command.agentId) || (command.memoryId && receipt.entityId !== command.memoryId) || receipt.status !== (command.type === 'forgetExplicitMemory' ? 'deleted' : 'active') || (command.expectedRevision !== undefined && receipt.revision !== command.expectedRevision + 1)) throw clientError('invalid_response', '记忆回执范围或版本不匹配。', 'unknown');
+      return;
+    }
     if (receipt.roomId !== command.roomId || (command.taskId && receipt.taskId !== command.taskId) || (command.type !== 'sendDiscussion' && !receipt.taskId)) throw clientError('invalid_response', '回执范围不匹配。', 'unknown');
   }
 
@@ -25,7 +33,7 @@ export function createPersistentTransport({ session, backendId, localUserId, sto
         if (!key?.startsWith(prefix)) continue;
         const raw = storage.getItem(key); if (raw === null) continue;
         const item = JSON.parse(raw), parsed = parseCommand(item.command);
-        if (!parsed.success || !['sendDiscussion', 'createLocalTask', 'answerLocalQuestion'].includes(item.command.type) || item.databaseId !== boot.databaseId || item.command.workspaceId !== boot.workspace.id || key !== journalKey(boot, item.command.key) || !['unknown', 'not_found'].includes(item.outcome)) throw new Error('Invalid journal entry.');
+        if (!parsed.success || !['sendDiscussion', 'createLocalTask', 'answerLocalQuestion', ...memoryCommandTypes].includes(item.command.type) || item.databaseId !== boot.databaseId || item.command.workspaceId !== boot.workspace.id || key !== journalKey(boot, item.command.key) || !['unknown', 'not_found'].includes(item.outcome)) throw new Error('Invalid journal entry.');
         items.push(item);
       }
       return items;
@@ -33,7 +41,7 @@ export function createPersistentTransport({ session, backendId, localUserId, sto
   }
   function pending(context) {
     if (active !== context || context.controller.signal.aborted) return;
-    context.emit({ type: 'persistence.pending', data: readJournal(context.boot).map(item => ({ key: item.command.key, type: item.command.type === 'sendDiscussion' ? 'send' : item.command.type, taskId: item.command.taskId, roomId: item.command.roomId, databaseId: item.databaseId, outcome: item.outcome })) });
+    context.emit({ type: 'persistence.pending', data: readJournal(context.boot).map(item => ({ key: item.command.key, type: item.command.type === 'sendDiscussion' ? 'send' : item.command.type, taskId: item.command.taskId, roomId: item.command.roomId, memoryScope: isMemory(item.command) ? scopeForMemory(item.command) : undefined, entityId: item.command.memoryId || item.command.agentId, databaseId: item.databaseId, outcome: item.outcome })) });
   }
   function update(context, key, value) {
     // One durable key per submitted command: separate windows cannot overwrite each other's list.
@@ -43,15 +51,15 @@ export function createPersistentTransport({ session, backendId, localUserId, sto
     } catch { throw clientError('journal_unavailable', '无法保存待核查记录，请检查本地存储。'); }
     pending(context);
   }
-  async function response(context, route, { command, signal = context.controller.signal, stream = false } = {}) {
+  async function response(context, route, { command, query, signal = context.controller.signal, stream = false } = {}) {
     let res;
     try {
       res = await fetcher(context.credentials.origin + '/api/v1' + route, {
-        method: command ? 'POST' : 'GET',
+        method: command || query ? 'POST' : 'GET',
         redirect: 'error',
         credentials: 'same-origin',
-        headers: { ...(context.credentials.authentication === 'cookie' ? {} : { Authorization: 'Bearer ' + context.credentials.token }), ...(command ? { 'Content-Type': 'application/json', 'Idempotency-Key': command.key } : {}) },
-        body: command ? JSON.stringify(commandBody(command)) : undefined,
+        headers: { ...(context.credentials.authentication === 'cookie' ? {} : { Authorization: 'Bearer ' + context.credentials.token }), ...(command || query ? { 'Content-Type': 'application/json' } : {}), ...(command ? { 'Idempotency-Key': command.key } : {}) },
+        body: command || query ? JSON.stringify(command ? commandBody(command) : query) : undefined,
         signal: stream ? signal : AbortSignal.any([signal, AbortSignal.timeout(15000)]),
       });
     } catch { throw clientError('transport_unavailable', '连接中断，请核查原请求。', command ? 'unknown' : 'rejected'); }
@@ -67,10 +75,11 @@ export function createPersistentTransport({ session, backendId, localUserId, sto
     try { return schema.parse(await res.json()); }
     catch { throw clientError('invalid_response', '服务端响应不符合持久消息契约。', options?.command ? 'unknown' : 'rejected'); }
   }
-  async function check(context, key) {
+  async function check(context, key, commandType = 'sendDiscussion') {
+    if (!['sendDiscussion', 'createLocalTask', 'answerLocalQuestion', ...memoryCommandTypes].includes(commandType)) throw clientError('invalid_command', '未知的请求类型。');
     const entry = readJournal(context.boot).find(item => item.command.key === key);
     try {
-      const receipt = await json(context, '/operations?' + new URLSearchParams({ workspaceId: entry?.command.workspaceId || context.boot.workspace.id, commandType: entry?.command.type || 'sendDiscussion', key }), persistenceReceiptSchema);
+      const receipt = await json(context, '/operations?' + new URLSearchParams({ workspaceId: entry?.command.workspaceId || context.boot.workspace.id, commandType: entry?.command.type || commandType, key }), receiptFor(entry?.command || { type: commandType }));
       if (entry) validateReceipt(entry.command, receipt);
       if (entry) update(context, key, null); return receipt;
     } catch (error) {
@@ -146,6 +155,20 @@ export function createPersistentTransport({ session, backendId, localUserId, sto
     async query(input) {
       const context = active;
       if (!context?.boot || context.controller.signal.aborted) throw clientError('unavailable', '连接尚未恢复。');
+      if (memoryQueryTypes.includes(input.type) || input.type === 'taskContextSnapshot') {
+        if (!context.boot.capabilities.agentMemory) throw clientError('unsupported', '当前后端不支持记忆管理。');
+        const task = input.type === 'taskContextSnapshot';
+        const q = (task ? taskContextQuerySchema : memoryQuerySchema).parse(input);
+        if (task ? q.roomId !== context.scope.roomId : q.workspaceId !== context.boot.workspace.id || (q.scope?.kind === 'room' && q.scope.roomId !== context.scope.roomId) || ((q.agentId || q.scope?.agentId) && !context.boot.knownAgents.includes(q.agentId || q.scope.agentId))) throw clientError('invalid_scope', '记忆读取范围不匹配。');
+        const data = await json(context, task ? `/rooms/${encodeURIComponent(q.roomId)}/local-tasks/${encodeURIComponent(q.taskId)}/context` : '/agent-memory/query', task ? taskContextResultSchema : memoryQueryResults[q.type], task ? undefined : { query: q });
+        if (active !== context || context.controller.signal.aborted) throw clientError('stale_query', '记忆读取范围已变化。');
+        const bad = task ? (data.status === 'available' ? data.snapshot.taskId !== q.taskId || data.snapshot.roomId !== q.roomId : data.taskId !== q.taskId)
+          : q.agentId ? data.agentId !== q.agentId
+          : q.type === 'explicitMemories' ? !sameMemoryScope(data.scope, q.scope) || data.memories.some(m => !sameMemoryScope(m.scope, q.scope) || m.status !== 'active')
+          : data.current.id !== q.memoryId || !sameMemoryScope(data.current.scope, q.scope);
+        if (bad) throw clientError('invalid_response', '记忆结果范围不匹配。');
+        return data;
+      }
       if (!['artifact', 'artifactVersions'].includes(input.type) || !context.boot.capabilities.readOnlyArtifacts) throw clientError('unsupported', '当前后端不支持报告读取。');
       if (input.roomId !== context.scope.roomId) throw clientError('invalid_scope', '报告不属于当前房间。');
       const { artifactQuerySchema, artifactVersionSchema, artifactVersionsSchema } = await import('../../contracts/artifacts.mjs');
@@ -171,11 +194,19 @@ export function createPersistentTransport({ session, backendId, localUserId, sto
       const context = active;
       if (!context?.boot || context.controller.signal.aborted) throw clientError('unavailable', '连接尚未恢复。');
       const local = ['createLocalTask', 'answerLocalQuestion'].includes(input.type);
+      const memory = isMemory(input);
+      if (memory && !context.boot.capabilities.agentMemory) throw clientError('unsupported', '当前后端未启用记忆管理。');
       if (local && !context.boot.capabilities.localExecution) throw clientError('unsupported', '本机执行尚未启用。');
-      if (!local && (input.type !== 'send' || input.mode !== 'discussion' || input.mentions?.length || input.ownerAgentId)) throw clientError('unsupported', '持久后端仅支持普通讨论消息。');
-      if (input.roomId !== context.scope.roomId) throw clientError('invalid_scope', '只能向当前房间发送。');
-      const command = local ? localExecutionCommandSchema.parse(input) : { type: 'sendDiscussion', key: input.key, workspaceId: context.boot.workspace.id, roomId: input.roomId, text: input.text, replyToId: null };
+      if (!memory && !local && (input.type !== 'send' || input.mode !== 'discussion' || input.mentions?.length || input.ownerAgentId)) throw clientError('unsupported', '持久后端仅支持普通讨论消息。');
+      if (!memory && input.roomId !== context.scope.roomId) throw clientError('invalid_scope', '只能向当前房间发送。');
+      const command = memory ? memoryCommandSchema.parse(input) : local ? localExecutionCommandSchema.parse(input) : { type: 'sendDiscussion', key: input.key, workspaceId: context.boot.workspace.id, roomId: input.roomId, text: input.text, replyToId: null };
       if (command.workspaceId !== context.boot.workspace.id) throw clientError('invalid_scope', '工作区已变化。');
+      if (memory) {
+        const scope = scopeForMemory(command);
+        if (scope.kind === 'room' ? scope.roomId !== context.scope.roomId : !context.boot.knownAgents.includes(scope.agentId)) throw clientError('invalid_scope', '记忆归属不匹配。');
+        // Serialize unresolved writes within one memory scope, including across reloads/windows.
+        if (readJournal(context.boot).some(e => e.command.key !== command.key && isMemory(e.command) && sameMemoryScope(scopeForMemory(e.command), scope))) throw clientError('outcome_unknown', '此前记忆请求结果待核查，不能换标识重复提交。', 'unknown');
+      }
       if (local && readJournal(context.boot).some(e => e.command.key !== command.key && e.command.type !== 'sendDiscussion' && e.command.roomId === command.roomId && (command.type === 'createLocalTask' || e.command.type === 'createLocalTask' || command.taskId === e.command.taskId))) throw clientError('outcome_unknown', '此前任务请求结果待核查，不能换标识重复提交。', 'unknown');
       const previous = readJournal(context.boot).find(item => item.command.key === command.key);
       if (previous) {
@@ -188,7 +219,7 @@ export function createPersistentTransport({ session, backendId, localUserId, sto
       update(context, command.key, entry);
       const controller = new AbortController(); controllers.add(controller);
       try {
-        const receipt = await json(context, routeFor(command), persistenceReceiptSchema, { command, signal: controller.signal });
+        const receipt = await json(context, routeFor(command), receiptFor(command), { command, signal: controller.signal });
         validateReceipt(command, receipt);
         try { update(context, command.key, null); }
         catch { throw clientError('journal_unavailable', '消息已提交，但本地回执未保存；请核查原请求。', 'unknown'); }
@@ -198,16 +229,16 @@ export function createPersistentTransport({ session, backendId, localUserId, sto
         throw error;
       } finally { controllers.delete(controller); }
     },
-    async checkOperation(key) {
+    async checkOperation(key, commandType) {
       if (!active?.boot || active.controller.signal.aborted) throw clientError('unavailable', '连接尚未恢复。');
-      return check(active, key);
+      return check(active, key, commandType);
     },
     async retryOperation(key) {
       const context = active;
       if (!context?.boot || context.controller.signal.aborted) throw clientError('unavailable', '连接尚未恢复。');
       const entry = readJournal(context.boot).find(item => item.command.key === key);
       if (!entry) throw clientError('not_found', '没有待重试的原请求，请先核查消息记录。');
-      if (entry.command.roomId !== context.scope.roomId) throw clientError('invalid_scope', '原请求不属于当前房间。');
+      if (!isMemory(entry.command) && entry.command.roomId !== context.scope.roomId) throw clientError('invalid_scope', '原请求不属于当前房间。');
       if (entry.outcome !== 'not_found') throw clientError('outcome_unknown', '请先核查原请求。', 'unknown');
       if (entry.command.type !== 'sendDiscussion') return this.command(entry.command);
       return this.command({ type: 'send', key, roomId: entry.command.roomId, text: entry.command.text, mode: 'discussion', mentions: [], ownerAgentId: null });

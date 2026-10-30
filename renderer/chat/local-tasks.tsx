@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import type { ChatClient, Snapshot } from './types';
 import './local-tasks.css';
+import { TaskMemoryContext } from './memory-panel';
 const labels: Record<string, string> = { queued: '已记录，等待派发', dispatching: '正在启动', running: '执行中', awaiting_input: '需要你回答', answer_pending: '答复已记录，等待投递', submitting: '正在投递答复', reviewing: '执行已结束，待验收', failed: '执行失败', unknown: '执行结果未知，需核查', paused: '已暂停，未自动启动' };
 type Draft = { revision: number; optionIds: string[]; text: string };
 type LocalDrafts = { goal: string; answers: Record<string, Draft> };
@@ -59,6 +60,7 @@ export function LocalTasks({ client, state, roomId }: { client: ChatClient; stat
           </details>}
           {task.history.length > 0 && <details><summary>已处理的问题 · {task.history.length}</summary>{task.history.map(item => <p key={item.id}><strong>{item.title}</strong> · {item.response ? [...item.response.optionIds.map(id => item.options.find(o => o.id === id)?.label), item.response.text].filter(Boolean).join('，') : '未答复，原请求已失效'}</p>)}</details>}
           {task.delivery !== 'none' && <p className="local-task-note">答复投递：{({ pending: '已记录，等待提交', attempting: '正在提交，结果尚未确认', submitted: '已提交到原引擎管道', unknown: '结果未知，不会自动重发' })[task.delivery]}</p>}
+          {state.capabilities.agentMemory && <TaskMemoryContext client={client} roomId={roomId} taskId={task.id} />}
           {task.result && <pre className="local-task-result">{task.result}</pre>}
           {task.phase === 'reviewing' && <p className="local-task-note">轮次结束，尚未通过任务验收。</p>}
         </article>;

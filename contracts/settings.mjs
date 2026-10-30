@@ -5,6 +5,8 @@ import { telemetryQueries, telemetryQueryResults } from './telemetry.mjs';
 import { questionQueries, questionQueryResults } from './questions.mjs';
 import { modelDiscoverySchema } from './models.mjs';
 import { artifactQuerySchema, artifactVersionSchema, artifactVersionsSchema } from './artifacts.mjs';
+import { memoryQuerySchema, memoryQueryResults } from './agent-memory.mjs';
+import { taskContextQuerySchema, taskContextResultSchema } from './run-context.mjs';
 
 const id = z.string().min(1).max(300);
 const text = z.string().max(2048);
@@ -22,6 +24,7 @@ export const connectionCommands = [
   z.object({ type: z.literal('removeConnection'), key: id, id }),
 ];
 export const querySchema = z.discriminatedUnion('type', [
+  ...memoryQuerySchema.options, taskContextQuerySchema,
   ...artifactQuerySchema.options,
   z.object({ type: z.literal('toolDetails'), ref: id }),
   ...questionQueries,
@@ -32,6 +35,7 @@ export const querySchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('modelCatalog'), connectionId: id, model: z.string().max(200).optional() }),
 ]);
 export const queryResults = {
+  ...memoryQueryResults, taskContextSnapshot: taskContextResultSchema,
   artifact: artifactVersionSchema, artifactVersions: artifactVersionsSchema,
   ...questionQueryResults,
   toolDetails: z.object({ id, runId: id.nullable(), output: z.string().max(16000), patches: z.array(z.string()), truncated: z.boolean() }),

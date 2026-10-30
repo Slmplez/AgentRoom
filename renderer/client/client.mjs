@@ -1,13 +1,14 @@
 import { snapshotSchema, commandSchema, receiptSchema, clientError } from '../../contracts/chat.mjs';
 import { persistenceSnapshotSchema, persistenceFrameSchema, persistenceReceiptSchema } from '../../contracts/persistence.mjs';
 
+import { memoryCommandTypes, memoryReceiptSchema } from '../../contracts/agent-memory.mjs';
 import { querySchema, queryResults } from '../../contracts/settings.mjs';
 
 function freeze(value) {
   if (value && typeof value === 'object' && !Object.isFrozen(value)) { Object.freeze(value); Object.values(value).forEach(freeze); }
   return value;
 }
-const empty = () => ({ instanceId: '', revision: -1, agents: [], rooms: [], workspaces: [], messages: [], approvals: [], approvalHistory: [], runs: [], localTasks: [], localAgentId: null, currentUserId: null, capabilities: { tasks: false, idempotentSend: false, localExecution: false } });
+const empty = () => ({ instanceId: '', revision: -1, agents: [], rooms: [], workspaces: [], messages: [], approvals: [], approvalHistory: [], runs: [], localTasks: [], localAgentId: null, knownAgents: [], currentUserId: null, capabilities: { tasks: false, idempotentSend: false, localExecution: false } });
 
 // The client owns the single projection, its subscription, recovery and uncertain operations.
 export function createAgentRoomClient(transport) {
@@ -34,7 +35,7 @@ export function createAgentRoomClient(transport) {
       const data = persistenceSnapshotSchema.parse(event.data), boot = event.boot;
       if (data.room.id !== scope.roomId) throw clientError('invalid_scope', '快照范围不匹配。');
       // The projection and applied cursor are published together; listeners never see a cursor ahead of data.
-      const next = snapshotSchema.parse({ instanceId: data.instanceId, revision: data.room.revision, agents: [], rooms: [{ ...data.room, type: 'group', memberIds: [boot.user.id] }], workspaces: [{ ...boot.workspace, directory: '' }], messages: data.messages, approvals: [], runs: [], currentUserId: boot.user.id, localTasks: data.localTasks, localAgentId: boot.localAgentId || null, capabilities: { tasks: false, idempotentSend: true, localExecution: boot.capabilities.localExecution, readOnlyArtifacts: boot.capabilities.readOnlyArtifacts, artifactPublishing: boot.capabilities.artifactPublishing } });
+      const next = snapshotSchema.parse({ instanceId: data.instanceId, revision: data.room.revision, agents: [], rooms: [{ ...data.room, type: 'group', memberIds: [boot.user.id] }], workspaces: [{ ...boot.workspace, directory: '' }], messages: data.messages, approvals: [], runs: [], currentUserId: boot.user.id, localTasks: data.localTasks, localAgentId: boot.localAgentId || null, knownAgents: boot.knownAgents, capabilities: { tasks: false, idempotentSend: true, localExecution: boot.capabilities.localExecution, readOnlyArtifacts: boot.capabilities.readOnlyArtifacts, artifactPublishing: boot.capabilities.artifactPublishing, agentMemory: boot.capabilities.agentMemory } });
       applied = { databaseId: data.databaseId, roomId: data.room.id, cursor: data.cursor };
       publish({ ...next, messages: data.messages, databaseId: data.databaseId, cursor: data.cursor, roomSequenceUpperBound: data.roomSequenceUpperBound, beforeSequence: data.beforeSequence });
     } else if (event.type === 'persistence.frame') {
@@ -58,10 +59,10 @@ export function createAgentRoomClient(transport) {
       applied = { ...applied, cursor };
       publish({ messages, localTasks, cursor });
     } else if (event.type === 'persistence.pending') {
-      publish({ pendingOperations: event.data.filter(item => item.roomId === scope.roomId) });
+      publish({ pendingOperations: event.data.filter(item => item.roomId === scope.roomId || item.memoryScope?.kind === 'agent' || item.memoryScope?.roomId === scope.roomId) });
     } else if (event.type === 'persistence.ready') {
       attempts = 0; streamOffline = false;
-      publish({ instanceId: event.data.instanceId, currentUserId: event.data.user?.id ?? state.currentUserId, localAgentId: event.data.capabilities ? event.data.localAgentId || null : state.localAgentId, capabilities: { ...state.capabilities, localExecution: event.data.capabilities?.localExecution ?? state.capabilities.localExecution, readOnlyArtifacts: event.data.capabilities?.readOnlyArtifacts ?? state.capabilities.readOnlyArtifacts, artifactPublishing: event.data.capabilities?.artifactPublishing ?? state.capabilities.artifactPublishing }, connection: 'live', syncNotice: state.syncNotice ? '事件记录已不可续订，已重新加载消息；旧历史仍可分页读取。' : '', error: state.databaseChanged ? '后端数据库已更换，请重新确认；旧请求不会重发。' : '' });
+      publish({ knownAgents: event.data.knownAgents ?? state.knownAgents, instanceId: event.data.instanceId, currentUserId: event.data.user?.id ?? state.currentUserId, localAgentId: event.data.capabilities ? event.data.localAgentId || null : state.localAgentId, capabilities: { ...state.capabilities, agentMemory: event.data.capabilities?.agentMemory ?? state.capabilities.agentMemory, localExecution: event.data.capabilities?.localExecution ?? state.capabilities.localExecution, readOnlyArtifacts: event.data.capabilities?.readOnlyArtifacts ?? state.capabilities.readOnlyArtifacts, artifactPublishing: event.data.capabilities?.artifactPublishing ?? state.capabilities.artifactPublishing }, connection: 'live', syncNotice: state.syncNotice ? '事件记录已不可续订，已重新加载消息；旧历史仍可分页读取。' : '', error: state.databaseChanged ? '后端数据库已更换，请重新确认；旧请求不会重发。' : '' });
     }
   }
   function accept(raw) {
@@ -171,6 +172,7 @@ export function createAgentRoomClient(transport) {
       const parsed = commandSchema.safeParse(input);
       if (!parsed.success) throw clientError('invalid_command', '请求不符合聊天契约。');
       const command = parsed.data;
+      if (memoryCommandTypes.includes(command.type) && (!transport.synchronize || !state.capabilities.agentMemory)) throw clientError('unsupported', '当前模式没有真实记忆存储。');
       if (['createLocalTask', 'answerLocalQuestion'].includes(command.type) && !state.capabilities.localExecution) throw clientError('unsupported', '当前后端未启用本机只读执行。');
       if (command.type === 'answerQuestion' && !state.capabilities.collaborationQuestions) throw clientError('unsupported', '当前后端不支持协作问题。');
       if (['requestQuestionAdvice', 'adoptQuestionAdvice'].includes(command.type) && (!state.capabilities.collaborationQuestions || !state.capabilities.questionAdvice)) throw clientError('unsupported', '当前后端不支持 Agent 建议。');
@@ -182,7 +184,7 @@ export function createAgentRoomClient(transport) {
       const epoch = generation;
       const submittedInstance = state.instanceId, submittedScope = scopeKey();
       try {
-        const schema = transport.synchronize ? persistenceReceiptSchema : receiptSchema;
+        const schema = memoryCommandTypes.includes(command.type) ? memoryReceiptSchema : transport.synchronize ? persistenceReceiptSchema : receiptSchema;
         const parsedReceipt = schema.safeParse(await transport.command(command));
         if (!parsedReceipt.success) throw clientError('invalid_response', '操作回执不符合公开契约，请核查结果。', 'unknown');
         const receipt = parsedReceipt.data;
@@ -197,9 +199,9 @@ export function createAgentRoomClient(transport) {
         throw error;
       } finally { inFlight.delete(token); }
     },
-    async checkOperation(key) {
+    async checkOperation(key, commandType) {
       if (!transport.checkOperation) throw clientError('unsupported', '当前后端不支持回执核查。');
-      return transport.checkOperation(key);
+      return transport.checkOperation(key, commandType);
     },
     async retryOperation(key) {
       if (!transport.retryOperation) throw clientError('unsupported', '当前后端不支持原请求重试。');
@@ -207,7 +209,8 @@ export function createAgentRoomClient(transport) {
       if (inFlight.has(key)) throw clientError('busy', '原请求正在提交。');
       inFlight.add(key);
       try {
-        const receipt = persistenceReceiptSchema.safeParse(await transport.retryOperation(key));
+        const result = await transport.retryOperation(key);
+        const receipt = (result.entityKind ? memoryReceiptSchema : persistenceReceiptSchema).safeParse(result);
         if (!receipt.success) throw clientError('invalid_response', '原请求回执无效，请再次核查。', 'unknown');
         return receipt.data;
       } finally { inFlight.delete(key); }

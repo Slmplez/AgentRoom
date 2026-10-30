@@ -36,3 +36,15 @@ export const memoryReceiptSchema = z.object({
   entityKind: z.enum(['soul', 'memory']), entityId: id, scope: memoryScopeSchema,
   revision: revision.positive(), status: z.enum(['active', 'deleted']),
 }).strict();
+
+const soulView = z.object({ agentId: id, configured: z.boolean(), revision, ...soulFields, authorId: id.nullable(), updatedAt: z.string().nullable() }).strict();
+const memoryVersion = { revision: revision.positive(), status: z.enum(['active', 'deleted']), text, sourceIds: z.array(id).min(1), authorId: id };
+const memoryView = z.object({ id, scope: memoryScopeSchema, ...memoryVersion, updatedAt: z.string() }).strict();
+export const memoryQueryResults = {
+  agentSoul: soulView,
+  agentSoulHistory: z.object({ agentId: id, revisions: z.array(z.object({ revision: revision.positive(), ...soulFields, authorId: id, createdAt: z.string() }).strict()), beforeRevision: revision.positive().nullable() }).strict(),
+  explicitMemories: z.object({ scope: memoryScopeSchema, memories: z.array(memoryView).max(MEMORY_LIMITS.perScope), limits: z.object({ perScope: z.literal(16), text: z.literal(256), soul: z.literal(2048) }).strict() }).strict(),
+  explicitMemoryHistory: z.object({ current: memoryView, revisions: z.array(z.object({ ...memoryVersion, createdAt: z.string() }).strict()), sources: z.array(z.object({ id, kind: z.enum(['owner-note', 'message']), text: z.string(), authorId: id, occurredAt: z.string(), recordedAt: z.string(), roomId: id.nullable(), messageId: id.nullable(), messageRevision: revision.positive().nullable() }).strict()), beforeRevision: revision.positive().nullable() }).strict(),
+};
+export const scopeForMemory = command => command.type === 'editAgentSoul' ? { kind: 'agent', agentId: command.agentId } : command.scope;
+export const sameMemoryScope = (a, b) => a?.kind === b?.kind && (a?.kind === 'agent' ? a.agentId === b.agentId : a?.kind === 'room' && a.roomId === b.roomId);

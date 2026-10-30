@@ -1,6 +1,6 @@
-# 独立 Soul、明确记忆与任务启动快照（M1 / M2）
+# 独立 Soul、明确记忆与任务启动快照
 
-对应规格 [#30](https://github.com/Slmplez/AgentRoom/issues/30)、持久管理 [#31](https://github.com/Slmplez/AgentRoom/issues/31) 和固定加载 [#32](https://github.com/Slmplez/AgentRoom/issues/32)。已实现真实持久 API 与任务启动快照。产品管理界面、快照展示及桌面/Web 宿主代理的新路由属于 #33，尚未在本阶段实现。
+对应规格 [#30](https://github.com/Slmplez/AgentRoom/issues/30)、持久管理 [#31](https://github.com/Slmplez/AgentRoom/issues/31)、固定加载 [#32](https://github.com/Slmplez/AgentRoom/issues/32) 和管理界面 [#33](https://github.com/Slmplez/AgentRoom/issues/33)。真实持久 API、任务启动快照、桌面/Web 管理界面均已实现。
 
 不使用 RAG、向量、全文检索、模型抽取或自动写入。Soul 按稳定 Agent ID 保存；个人记忆与房间记忆分别保存。改变显示名或模型不改变身份。
 
@@ -83,7 +83,25 @@ M1 将 schema 从 3 迁移到 4，M2 在 schema 5 添加启动快照表；保留
 
 记忆事件只有实体标识、scope、revision 和状态，没有正文。现有 Room SSE/事件查询不发送新记忆事件，仍正常推进 checkpoint；管理能力依靠成功回执和显式重读，不承诺多窗口实时同步。没有第二个数据库、独立事务拥有者或后台模型调用。
 
-## 验证
+## 桌面与 Web 管理（M3）
+
+持久模式的设置中选择“管理 Agent Soul 与记忆”，或从房间标题旁选择“Room 记忆”。归属选择器只使用后端 `knownAgents` 和当前真实 Room，不把演示成员映射为持久身份。无记忆能力的模式不显示入口，Client 拒绝通过 Mock 保存真实记忆。
+
+Soul 三个字段分别编辑；记忆支持手动记录，以及选择当前已加载的讨论消息作为来源，明确填写短文本后保存。更正保留旧版本，停用前显示对未来任务的影响。来源与历史按需分页读取，最近选中的记忆历史在刷新后仍可打开，包括已经停用的记忆。当前有效列表不展示旧版本。
+
+所有业务读写通过 AgentRoomClient。草稿按 backend/database/owner/workspace/scope/entity/revision 保存在界面本地；已提交命令仍由 Persistent Adapter 的独立持久日志管理。网络提交前写日志，刷新只查询原回执。草稿保留原请求标识，核查成功后重新读取当前状态；历史回执不会重新启用记忆。未找到原请求时，用户可明确重试原内容和原 key。版本冲突保留草稿；读取当前版本后必须明确选择继续编辑旧草稿或使用当前内容。
+
+面板打开、重新连接和本窗口操作成功后查询当前配置。其他窗口使用“刷新当前状态”，没有新增记忆 SSE 或轮询 Store。任务卡片的“任务启动时的 Soul 与记忆”按需读取冻结快照，列出版本、来源引用和实际发送的完整提示；来源历史也可按需读取。当前管理配置与已启动快照分别展示。
+
+## 界面验证
+
+`test/agent-memory-client.test.cjs` 通过公开 Client、真实 SQLite 和认证 HTTP 验证两个 Agent/两个 Room、版本冲突、消息来源分页、更正停用、容量/Unicode、重启及旧回执不复活记忆。
+
+`electron scripts/verify-agent-memory-ui.cjs --disable-gpu` 使用真实 cookie 宿主及桌面/Web 界面，验证 Soul 与记忆编辑、两个登记 Agent/两个 Room 的草稿隔离、来源原文、双窗口冲突、响应丢失、停用后核查、刷新/重启、Unicode/IME/焦点和明暗主题窄屏。第二 Room 由测试夹具选择 bootstrap 房间，不扩展生产房间管理入口。
+
+该脚本还启动已安装 Pi CLI，等待原生 input 期间修改 Soul/停用记忆，再答复并逐字比较模型请求和界面展示的冻结 prompt。推理使用本机回环夹具，每次验证 1 次本地请求、0 付费请求；它验证真实 CLI 协议与上下文传递，不评估外部模型的个性遵从能力。
+
+## 后端验证
 
 `npm test` 覆盖真实 SQLite、authenticated HTTP、双 Agent/双 Room、来源保真、Unicode/容量、并发修订冲突、幂等回执、重启和删除重放。12 项子进程故障测试在 save/correct/forget 的 entity/event/receipt/commit 节点强制终止后端，验证全有或全无以及原 key 核查。
 
