@@ -11,6 +11,6 @@ async function boot() {
   const client = (scenario ? createAgentRoomClient(scenario.transport) : createDefaultChatClient()) as unknown as ChatClient;
   const platform = mock ? createMockPlatformClient() : createPlatformClient();
   window.addEventListener('beforeunload', () => { client.close(); scenario?.control.dispose(); }, { once: true });
-  createRoot(document.querySelector('#chat-root')!).render(<App client={client} control={scenario?.control} platform={{ desktop: platform.capabilities.windowControls, windowAction: action => { platform.windowAction(action); }, openWorkbench: section => { void platform.openWorkbench(section); } }} />);
+  createRoot(document.querySelector('#chat-root')!).render(<App client={client} control={scenario?.control} platform={{ desktop: platform.capabilities.windowControls, capabilities: platform.capabilities, chooseDirectory: () => platform.chooseDirectory(), chooseCertificate: kind => platform.chooseCertificate(kind), windowAction: action => { platform.windowAction(action); }, openWorkbench: section => { void platform.openWorkbench(section); } }} />);
 }
 void boot().catch(error => { document.querySelector('#chat-root')!.textContent = `界面启动失败：${error.message}`; });

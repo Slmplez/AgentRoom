@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
-import type { ChatClient, QueryResult } from './types';
+import type { ChatClient, PlatformClient, QueryResult } from './types';
+import { PathField } from './path-field';
 import { formText, requestKey, useSettingsQuery, type SettingsActions } from './settings-data';
 
 type Profile = QueryResult<'connections'>['profiles'][number];
@@ -9,18 +10,18 @@ const protocols = { multi: '多协议网关', responses: 'OpenAI Responses', cha
 export function Field({ label, children }: { label: string; children: React.ReactNode }) { return <label className="settings-field"><span>{label}</span>{children}</label>; }
 export function QueryState({ loading, error, refresh }: { loading: boolean; error: string; refresh(): void }) { return <>{loading && <p role="status" className="settings-note">正在读取…</p>}{error && <p role="alert">{error} <button className="button" onClick={refresh}>重试</button></p>}</>; }
 
-export function ConnectionSettings({ client, active, actions }: { client: ChatClient; active: boolean; actions: SettingsActions }) {
+export function ConnectionSettings({ client, platform, active, actions }: { client: ChatClient; platform: PlatformClient; active: boolean; actions: SettingsActions }) {
   const query = useSettingsQuery(client, 'connections', active), [editing, setEditing] = useState(''), [revision, setRevision] = useState(0);
   const selected = query.data?.profiles.find(p => p.id === editing);
   return <>
     <QueryState {...query} />
     {query.data && <><div className="settings-list">{query.data.profiles.map(p => <button className="settings-row" aria-pressed={editing === p.id} disabled={actions.busy} key={p.id} onClick={() => setEditing(p.id)}><span><strong>{p.name}</strong><small>{p.model} · {protocols[p.protocol]}</small></span><span>编辑</span></button>)}</div>
       <button className="button" disabled={actions.busy} onClick={() => { setEditing(''); setRevision(v => v + 1); }}>新建连接</button>
-      <ConnectionEditor key={`${editing}:${revision}`} profile={selected} client={client} active={active} actions={actions} secure={query.data.secureStorageAvailable} saved={() => { query.refresh(); if (!editing) setRevision(v => v + 1); }} removed={() => { setEditing(''); query.refresh(); }} />
+      <ConnectionEditor key={`${editing}:${revision}`} profile={selected} client={client} platform={platform} active={active} actions={actions} secure={query.data.secureStorageAvailable} saved={() => { query.refresh(); if (!editing) setRevision(v => v + 1); }} removed={() => { setEditing(''); query.refresh(); }} />
     </>}
   </>;
 }
-function ConnectionEditor({ profile, client, active, secure, actions, saved, removed }: { profile?: Profile; client: ChatClient; active: boolean; secure: boolean; actions: SettingsActions; saved(): void; removed(): void }) {
+function ConnectionEditor({ profile, client, platform, active, secure, actions, saved, removed }: { profile?: Profile; client: ChatClient; platform: PlatformClient; active: boolean; secure: boolean; actions: SettingsActions; saved(): void; removed(): void }) {
   const form = useRef<HTMLFormElement>(null), epoch = useRef(0), testingRef = useRef(false);
   const [testing, setTesting] = useState(false), [result, setResult] = useState(''), [models, setModels] = useState<string[]>([]), [deleting, setDeleting] = useState(false);
   const operation = `connection:${profile?.id || 'new'}`, blocked = actions.blocked(operation) || testing;
@@ -52,7 +53,7 @@ function ConnectionEditor({ profile, client, active, secure, actions, saved, rem
       {!secure && <p className="settings-note">当前环境不能保存密钥，可使用桌面版配置。</p>}
       <Field label="默认模型 ID"><input name="model" required maxLength={200} defaultValue={profile?.model} list="settings-models" /><datalist id="settings-models">{models.map(m => <option key={m}>{m}</option>)}</datalist></Field>
       <details><summary>证书与模型参数</summary><div className="settings-advanced">
-        {(['caPath', 'clientCertPath', 'clientKeyPath'] as const).map((name, i) => <Field key={name} label={['CA 证书路径', '客户端证书路径', '客户端私钥路径'][i]}><input name={name} maxLength={2048} defaultValue={profile?.[name]} /></Field>)}
+        {(['caPath', 'clientCertPath', 'clientKeyPath'] as const).map((name, i) => <PathField key={name} platform={platform} active={active} label={['CA 证书路径', '客户端证书路径', '客户端私钥路径'][i]} name={name} kind={i === 2 ? 'key' : 'cert'} value={profile?.[name]} />)}
         <Field label={profile?.hasPassphrase ? '私钥口令 · 留空保留' : '私钥口令'}><input name="passphrase" type="password" autoComplete="new-password" disabled={!secure} /></Field>
         {profile?.hasPassphrase && <label className="settings-check"><input type="checkbox" name="clear-passphrase" />清除已保存的口令</label>}
         <Field label="上下文 tokens"><input type="number" name="contextWindow" required min={1024} max={10000000} defaultValue={profile?.contextWindow || 128000} /></Field>

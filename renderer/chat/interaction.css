@@ -47,8 +47,15 @@
 .composer-option-fields label > span { display: none; }
 .composer-option-fields select { max-width: 190px; }
 .composer-owner-hint { max-width: 90px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+@container composer (min-width: 521px) {
+  .composer-option-fields label:has(select[aria-label="消息类型"]) { position: relative; }
+  .chat-app .composer-option-fields select[aria-label="消息类型"] { appearance: none; border: 0; background: transparent; color: var(--text-secondary); height: 30px; padding: 5px 22px 5px 8px; border-radius: 6px; cursor: pointer; }
+  .composer-option-fields label:has(select[aria-label="消息类型"])::after { content: ''; position: absolute; right: 9px; top: 11px; width: 5px; height: 5px; border-right: 1.2px solid var(--text-secondary); border-bottom: 1.2px solid var(--text-secondary); transform: rotate(45deg); pointer-events: none; }
+  .chat-app .composer-option-fields select[aria-label="消息类型"]:hover { background: var(--hover); color: var(--ink); }
+}
 @container composer (max-width: 520px) {
-  .composer-options > summary { display: flex; align-items: center; gap: 8px; padding: 7px 9px; border-radius: 7px; font-size: 12px; cursor: pointer; background: var(--surface-0); list-style: none; }
+  .composer-options > summary { display: flex; align-items: center; gap: 8px; padding: 7px 9px; border-radius: 6px; font-size: 12px; color: var(--text-secondary); cursor: pointer; background: transparent; list-style: none; }
+  .composer-options > summary:hover, .composer-options[open] > summary { background: var(--hover); color: var(--ink); }
   .composer-options:not([open]) > .composer-option-fields { display: none; }
   .composer-options[open] > .composer-option-fields { position: absolute; bottom: calc(100% + 10px); left: 0; width: 200px; max-width: calc(100cqw - 32px); z-index: 12; display: grid; padding: 14px; border-radius: 10px; background: var(--surface-2); box-shadow: var(--shadow); }
   .composer-option-fields label { display: grid; gap: 7px; font-size: 12px; color: var(--text-secondary); }

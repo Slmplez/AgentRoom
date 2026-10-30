@@ -17,7 +17,12 @@ export interface ChatClient {
   close(): void;
   dispatch(command: Command): Promise<{ accepted: boolean; operationId?: string; entityId?: string }>;
 }
-export interface PlatformClient { desktop: boolean; windowAction(action: string): void; openWorkbench(section?: string): void }
+export interface PlatformClient {
+  desktop: boolean; windowAction(action: string): void; openWorkbench(section?: string): void;
+  capabilities?: { chooseDirectory: boolean; chooseCertificate: boolean };
+  chooseDirectory?(): Promise<string | null>;
+  chooseCertificate?(kind: 'cert' | 'key'): Promise<string | null>;
+}
 declare global {
   interface Window {
     icon(name: string): string;

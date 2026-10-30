@@ -17,23 +17,23 @@ export function useSettingsQuery<T extends 'connections' | 'capabilities' | 'cat
 
 export function useSettingsActions(client: ChatClient, live: boolean) {
   const pending = useRef(false), unknown = useRef(new Set<string>());
-  const [busy, setBusy] = useState(false), [message, setMessage] = useState('');
+  const [busy, setBusy] = useState(false), [notices, setNotices] = useState<Record<string, string>>({});
   const blocked = (operation: string) => !live || busy || unknown.current.has(operation);
   async function run(operation: string, command: Command) {
     if (pending.current || blocked(operation)) return;
-    pending.current = true; setBusy(true); setMessage('');
+    pending.current = true; setBusy(true); setNotices(old => Object.fromEntries(Object.entries(old).filter(([id]) => unknown.current.has(id))));
     try {
       const receipt = await client.dispatch(command);
       if (!receipt.accepted) throw new Error('操作未被接受，请检查当前状态。');
-      setMessage('已保存。');
+      setNotices(old => ({ ...old, [operation]: '已保存。' }));
       return receipt;
     } catch (error) {
       const failure = error as Error & { outcome?: string };
       if (failure.outcome === 'unknown') unknown.current.add(operation);
-      setMessage(failure.outcome === 'unknown' ? '操作结果尚未确认，已暂停此操作的重复提交。请核查列表中的实际状态。' : failure.message);
+      setNotices(old => ({ ...old, [operation]: failure.outcome === 'unknown' ? '操作结果尚未确认，已暂停此操作的重复提交。请核查列表中的实际状态。' : failure.message }));
     } finally { pending.current = false; setBusy(false); }
   }
-  return { busy, message, run, blocked, unknown };
+  return { busy, notices, run, blocked, unknown };
 }
 export type SettingsActions = ReturnType<typeof useSettingsActions>;
 export const requestKey = () => crypto.randomUUID();

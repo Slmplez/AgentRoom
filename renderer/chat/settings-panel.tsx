@@ -1,14 +1,17 @@
 import React, { useEffect, useRef, useState } from 'react';
-import type { ChatClient, Snapshot } from './types';
+import type { ChatClient, PlatformClient, Snapshot } from './types';
 import { ConnectionSettings } from './connection-settings';
-import { CapabilitySettings, CreationSettings, UsageSettings, WorkspaceSettings } from './management-settings';
+import { CapabilitySettings, CreationSettings, WorkspaceSettings } from './management-settings';
 import { useSettingsActions } from './settings-data';
 import { useEntrance } from './motion';
+import { UsageSettings } from './usage-settings';
+import { MemberSettings } from './member-settings';
 
-export type SettingsSection = 'connections' | 'capabilities' | 'permissions' | 'workspaces' | 'usage' | 'launch' | 'new-room';
-const sections = { connections: '连接与模型', capabilities: '工具与技能', permissions: '权限', workspaces: '工作区', usage: '用量', launch: '添加 Agent', 'new-room': '新建群聊' };
-export function SettingsPanel({ client, state, section, select, close, workspaceId, selectWorkspace, created, openRequest, mock }: {
-  client: ChatClient; state: Snapshot; section: SettingsSection | null; select(section: SettingsSection): void; close(): void;
+export type SettingsSection = 'connections' | 'capabilities' | 'permissions' | 'workspaces' | 'usage' | 'launch' | 'new-room' | 'members';
+const sections = { connections: '连接与模型', capabilities: '工具与技能', permissions: '权限', workspaces: '工作区', usage: '用量', launch: '添加 Agent', 'new-room': '新建群聊', members: '房间成员' };
+export function SettingsPanel({ client, platform, state, section, select, close, workspaceId, selectWorkspace, created, openRequest, mock, memberRoomId, editMembers }: {
+  client: ChatClient; platform: PlatformClient; state: Snapshot; section: SettingsSection | null; select(section: SettingsSection): void; close(): void;
+  memberRoomId: string; editMembers(id: string): void;
   workspaceId: string; selectWorkspace(id: string): void; created(kind: 'launch' | 'new-room', id?: string): void; openRequest(id: string): void; mock: boolean;
 }) {
   const dialog = useRef<HTMLDialogElement>(null), actions = useSettingsActions(client, state.connection === 'live');
@@ -24,19 +27,21 @@ export function SettingsPanel({ client, state, section, select, close, workspace
     return () => { node?.close(); if (previous?.isConnected) previous.focus(); };
   }, [open]);
   useEntrance(dialog, open, 'dialog');
-  const props = { client, actions, state, workspaceId };
+  const props = { client, platform, actions, state, workspaceId };
+  const noticePrefixes = section === 'connections' ? ['connection:'] : section === 'capabilities' ? ['server:', 'skill:', 'bindings:', 'remove:'] : section === 'workspaces' ? ['workspace:'] : section === 'members' ? [`members:${memberRoomId}`] : section === 'launch' || section === 'new-room' ? [`${section}:${workspaceId}`] : [];
   return <dialog ref={dialog} className="settings-dialog" aria-labelledby="settings-title" onCancel={e => { e.preventDefault(); if (!actions.busy) close(); }}>
     <header className="settings-heading"><div><h2 id="settings-title" tabIndex={-1}>{title}</h2>{mock && <span className="settings-note">演示模式 · 配置仅用于模拟</span>}</div><button className="icon-button" aria-label="关闭设置" disabled={actions.busy} onClick={close}>×</button></header>
-    <div className="settings-layout"><nav aria-label="设置分类">{(Object.keys(sections) as SettingsSection[]).filter(s => !['launch', 'new-room'].includes(s)).map(s => <button key={s} disabled={actions.busy} aria-current={section === s ? 'page' : undefined} onClick={() => select(s)}>{sections[s]}{s === 'permissions' && state.approvals.length > 0 && <span className="settings-count">{state.approvals.length}</span>}</button>)}</nav>
+    <div className="settings-layout"><nav aria-label="设置分类">{(Object.keys(sections) as SettingsSection[]).filter(s => !['launch', 'new-room', 'members'].includes(s)).map(s => <button key={s} disabled={actions.busy} aria-current={section === s ? 'page' : undefined} onClick={() => select(s)}>{sections[s]}{s === 'permissions' && state.approvals.length > 0 && <span className="settings-count">{state.approvals.length}</span>}</button>)}</nav>
       <div className="settings-body">
         {state.connection !== 'live' && <p role="status" className="settings-notice">连接已断开，恢复后才能保存配置。</p>}
-        {actions.message && <p role="status" className="settings-notice">{actions.message}</p>}
+        {Object.entries(actions.notices).filter(([operation]) => noticePrefixes.some(prefix => operation.startsWith(prefix))).map(([operation, message]) => <p role="status" className="settings-notice" key={operation}>{message}</p>)}
         {actions.busy && <p role="status">正在提交，请稍候…</p>}
         {visited.map(s => <section key={s} hidden={section !== s} aria-label={sections[s]}>
           {s === 'connections' && <ConnectionSettings {...props} active={section === s} />}
           {s === 'capabilities' && <CapabilitySettings {...props} active={section === s} />}
           {s === 'usage' && <UsageSettings {...props} active={section === s} />}
-          {s === 'workspaces' && <WorkspaceSettings {...props} active={section === s} selectWorkspace={selectWorkspace} />}
+          {s === 'workspaces' && <WorkspaceSettings {...props} active={section === s} selectWorkspace={selectWorkspace} editMembers={editMembers} />}
+          {s === 'members' && <MemberSettings key={memberRoomId} state={state} roomId={memberRoomId} actions={actions} />}
           {(s === 'launch' || s === 'new-room') && <CreationSettings {...props} active={section === s} kind={s} created={id => created(s, id)} />}
           {s === 'permissions' && <>
             <p className="settings-note">每个请求按引擎提供的范围授权。当前接口暂不支持修改全局授权策略。</p>
