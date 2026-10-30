@@ -41,7 +41,8 @@ export function createPersistentTransport({ session, backendId, localUserId, sto
       res = await fetcher(context.credentials.origin + '/api/v1' + route, {
         method: command ? 'POST' : 'GET',
         redirect: 'error',
-        headers: { Authorization: 'Bearer ' + context.credentials.token, ...(command ? { 'Content-Type': 'application/json', 'Idempotency-Key': command.key } : {}) },
+        credentials: 'same-origin',
+        headers: { ...(context.credentials.authentication === 'cookie' ? {} : { Authorization: 'Bearer ' + context.credentials.token }), ...(command ? { 'Content-Type': 'application/json', 'Idempotency-Key': command.key } : {}) },
         body: command ? JSON.stringify({ workspaceId: command.workspaceId, text: command.text, replyToId: command.replyToId, mentions: [] }) : undefined,
         signal: stream ? signal : AbortSignal.any([signal, AbortSignal.timeout(15000)]),
       });
@@ -101,7 +102,8 @@ export function createPersistentTransport({ session, backendId, localUserId, sto
       context.credentials = await session();
       if (context.controller.signal.aborted) return;
       const origin = new URL(context.credentials.origin);
-      if (origin.protocol !== 'http:' || origin.hostname !== '127.0.0.1' || origin.origin !== context.credentials.origin || !/^[a-f0-9]{64}$/.test(context.credentials.token)) throw clientError('invalid_session', '本机会话配置无效。');
+      const cookieSession = context.credentials.authentication === 'cookie' && origin.origin === globalThis.location?.origin;
+      if (origin.protocol !== 'http:' || origin.hostname !== '127.0.0.1' || origin.origin !== context.credentials.origin || !(cookieSession || /^[a-f0-9]{64}$/.test(context.credentials.token))) throw clientError('invalid_session', '本机会话配置无效。');
       context.boot = await json(context, '/bootstrap', persistenceBootstrapSchema);
       if (context.controller.signal.aborted) return;
       if (scope.workspaceId && scope.workspaceId !== context.boot.workspace.id) throw clientError('not_found', '工作区不可访问。');

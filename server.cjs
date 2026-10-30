@@ -1,3 +1,6 @@
+if (process.argv.includes('--persistent')) {
+  require('./scripts/serve-persistence.cjs');
+} else {
 // Local preview uses the same service as Electron; the desktop app needs no HTTP server.
 const http = require('node:http');
 const fs = require('node:fs/promises');
@@ -39,3 +42,4 @@ async function shutdown() {
 }
 process.on('SIGINT', () => { void shutdown(); });
 process.on('SIGTERM', () => { void shutdown(); });
+}

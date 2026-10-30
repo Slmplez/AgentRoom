@@ -33,7 +33,12 @@
     "verify:management-ui": "electron scripts/verify-management-ui.cjs --disable-gpu",
     "verify:chat-interactions": "electron scripts/verify-chat-interactions.cjs --disable-gpu",
     "verify:chat-regressions": "electron scripts/verify-chat-regressions.cjs --disable-gpu",
-    "verify:chat-polish": "electron scripts/verify-chat-polish.cjs --disable-gpu"
+    "verify:chat-polish": "electron scripts/verify-chat-polish.cjs --disable-gpu",
+    "dev:persistent": "node server.cjs --persistent --data-dir .data/persistent",
+    "predev:persistent": "npm run build:renderer",
+    "desktop:persistent": "electron . --persistent",
+    "predesktop:persistent": "npm run build:renderer",
+    "verify:persistence-ui": "electron scripts/verify-persistence-ui.cjs --disable-gpu"
   },
   "devDependencies": {
     "@types/react": "19.3.0",

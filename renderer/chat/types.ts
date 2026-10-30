@@ -3,7 +3,7 @@ import type { snapshotSchema, messageSchema, approvalSchema, commandSchema } fro
 import type { querySchema, queryResults } from '../../contracts/settings.mjs';
 export type Query = z.input<typeof querySchema>;
 export type QueryResult<T extends Query['type']> = z.infer<(typeof queryResults)[T]>;
-export type Snapshot = z.infer<typeof snapshotSchema> & { connection: string; error: string };
+export type Snapshot = z.infer<typeof snapshotSchema> & { connection: string; error: string; databaseId?: string; beforeSequence?: number | null; historyLoading?: boolean; syncNotice?: string; pendingOperations?: { key: string; outcome: string }[] };
 export type Message = z.infer<typeof messageSchema>;
 export type Approval = z.infer<typeof approvalSchema>;
 export type Command = z.infer<typeof commandSchema>;
@@ -15,6 +15,8 @@ export interface ChatClient {
   subscribe(listener: () => void): () => void;
   open(): Promise<void>;
   close(): void;
+  loadOlderMessages?(options?: { limit?: number }): Promise<number>;
+  checkOperation?(key: string): Promise<{ accepted: boolean; messageId?: string | null } | null>;
   dispatch(command: Command): Promise<{ accepted: boolean; operationId?: string; entityId?: string }>;
 }
 export interface PlatformClient {

@@ -1,6 +1,7 @@
 import { createAgentRoomClient } from './client.mjs';
 import { createChatTransport, createHttpChannel } from './transport.mjs';
 import { clientError } from '../../contracts/chat.mjs';
+import { createPersistentTransport } from './persistent.mjs';
 
 export function createPlatformClient(host = globalThis.agentRoomPlatform) {
   return {
@@ -34,4 +35,17 @@ export function createMockPlatformClient() {
 }
 export function createDefaultChatClient(channel = globalThis.agentRoomChat || createHttpChannel()) {
   return createAgentRoomClient(createChatTransport(channel));
+}
+export async function createPersistentChatClient() {
+  async function session() {
+    const response = await globalThis.fetch('/api/persistence/session', { credentials: 'same-origin', redirect: 'error', signal: AbortSignal.timeout(15000) });
+    if (!response.ok) throw clientError('unavailable', '持久服务不可用，请启动本机持久服务后刷新。');
+    const value = await response.json();
+    if (value.origin !== globalThis.location.origin || value.authentication !== 'cookie' || !value.backendId || !value.localUserId || !value.roomId || value.token) throw clientError('invalid_session', '持久会话引导无效。');
+    return value;
+  }
+  const initial = await session();
+  const client = createAgentRoomClient(createPersistentTransport({ session, backendId: initial.backendId, localUserId: initial.localUserId }));
+  await client.open({ roomId: initial.roomId });
+  return client;
 }

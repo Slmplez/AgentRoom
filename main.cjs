@@ -2,6 +2,15 @@ const { app, BrowserWindow, ipcMain, shell, dialog, Menu, safeStorage, Tray, nat
 const path = require('node:path');
 const { HcomService } = require('./lib/hcom-service.cjs');
 const { RpcRuntime } = require('./lib/rpc-runtime.cjs');
+const persistent = process.argv.includes('--persistent');
+let persistentOrigin;
+if (persistent) {
+  const index = process.argv.indexOf('--persistent-url');
+  const url = new URL(index < 0 ? 'http://127.0.0.1:4319' : process.argv[index + 1]);
+  if (url.protocol !== 'http:' || url.hostname !== '127.0.0.1' || url.username || url.password || url.search || url.hash || url.pathname !== '/') throw new Error('Persistent mode requires a plain loopback URL, for example http://127.0.0.1:4319.');
+  persistentOrigin = url.origin;
+  app.setPath('userData', path.join(app.getPath('appData'), 'AgentRoom-persistent-ui'));
+}
 
 app.setName('Agent Room');
 if (process.platform === 'win32') app.setAppUserModelId(process.argv.includes('--ui-preview') ? 'com.agentroom.desktop.preview' : 'com.agentroom.desktop');
@@ -32,7 +41,7 @@ function createWindow() {
     width: 1460, height: 990, minWidth: 1030, minHeight: 720, show: false,
     title: 'Agent Room', backgroundColor: '#fcfcfb', titleBarStyle: 'hidden',
     icon: path.join(__dirname, 'assets', 'brand', 'app.png'),
-    webPreferences: { preload: path.join(__dirname, 'preload.cjs'), contextIsolation: true, nodeIntegration: false, sandbox: true },
+    webPreferences: { preload: path.join(__dirname, 'preload.cjs'), contextIsolation: true, nodeIntegration: false, sandbox: true, additionalArguments: persistent ? ['--persistent-ui'] : [] },
   });
   Menu.setApplicationMenu(null);
   window.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
@@ -41,9 +50,20 @@ function createWindow() {
   window.on('close', event => {
     if (!quitting && (service?.gateways.size || service?.runtime?.activeSessions)) { event.preventDefault(); keepGatewayInTray(); window.hide(); }
   });
-  window.loadFile(path.join(__dirname, 'renderer', process.argv.includes('--chat-ui') ? 'chat.html' : 'index.html'));
+  if (persistent) window.loadURL(persistentOrigin).catch(error => console.error('Start the persistent Node service first:', error.message));
+  else window.loadFile(path.join(__dirname, 'renderer', process.argv.includes('--chat-ui') ? 'chat.html' : 'index.html'));
 }
 if (single) app.whenReady().then(async () => {
+  if (persistent) {
+    ipcMain.on('platform:window', (_, action) => {
+      if (action === 'minimize') window.minimize();
+      if (action === 'maximize') window.isMaximized() ? window.unmaximize() : window.maximize();
+      if (action === 'close') window.close();
+    });
+    ipcMain.handle('platform:open-source', () => shell.openExternal('https://github.com/Slmplez/AgentRoom'));
+    createWindow();
+    return;
+  }
   const dataDir = app.isPackaged || process.argv.includes('--ui-preview') ? app.getPath('userData') : path.join(__dirname, '.data');
   // Preview isolates UI preferences and data, but keeps the same background session host.
   // Never switch the Add Agent button back to the external terminal launcher.
