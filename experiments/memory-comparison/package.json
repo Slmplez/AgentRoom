@@ -1,0 +1,21 @@
+{
+  "name": "agent-room-memory-comparison",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test verify.ts",
+    "soul-demo": "node soul-demo.ts",
+    "preflight": "node preflight.ts",
+    "baseline": "node run.ts sqlite",
+    "mem0": "node run.ts mem0",
+    "hindsight": "node run.ts hindsight"
+  },
+  "dependencies": {
+    "mem0ai": "3.3.1",
+    "@vectorize-io/hindsight-client": "1.1.0",
+    "better-sqlite3": "12.6.2"
+  },
+  "optionalDependencies": {
+    "@huggingface/transformers": "4.3.2"
+  }
+}

@@ -1,0 +1,76 @@
+{
+  "at": "2026-10-30T15:23:56.988Z",
+  "status": "pass",
+  "freshProcess": true,
+  "networkInference": false,
+  "results": [
+    {
+      "id": "f5c3e94d-a732-4f80-91e1-8935a39e0e8c",
+      "memory": "User's project uses SQLite as the database (项目数据库选择 SQLite), as stated on October 30, 2026",
+      "hash": "1150edf066ca674dc70a0c7ef7c14342",
+      "createdAt": "2026-10-30T15:23:50.010Z",
+      "updatedAt": "2026-10-30T15:23:50.010Z",
+      "metadata": {
+        "id": "decision",
+        "scope": "room:alpha",
+        "text": "The project database is SQLite. 项目数据库选择 SQLite。",
+        "source": "fixture://room-a/message-2#v1",
+        "task": "task-1",
+        "revision": 1
+      },
+      "user_id": "room:alpha",
+      "attributedTo": "user"
+    },
+    {
+      "id": "716f7f95-004f-444b-b5cc-b09094fca52c",
+      "memory": "User's project theme color is terracotta (项目主题色是陶土色), as stated on October 30, 2026",
+      "hash": "fa5ad671ade0db37195270941c409629",
+      "createdAt": "2026-10-30T15:23:50.866Z",
+      "updatedAt": "2026-10-30T15:23:50.866Z",
+      "metadata": {
+        "id": "distractor-0",
+        "scope": "room:alpha",
+        "text": "The project color is terracotta. 项目主题色是陶土色。",
+        "source": "fixture://room-a/distractor-0#v1",
+        "task": "task-1",
+        "revision": 1
+      },
+      "user_id": "room:alpha",
+      "attributedTo": "user"
+    },
+    {
+      "id": "a801ae45-85b6-497d-a5aa-3fc9971e7f74",
+      "memory": "User's project development language is TypeScript (项目开发语言是 TypeScript), as stated on October 30, 2026",
+      "hash": "683aba44c321b3e0857610791bfd6199",
+      "createdAt": "2026-10-30T15:23:51.931Z",
+      "updatedAt": "2026-10-30T15:23:51.931Z",
+      "metadata": {
+        "id": "distractor-1",
+        "scope": "room:alpha",
+        "text": "The project language is TypeScript. 项目开发语言是 TypeScript。",
+        "source": "fixture://room-a/distractor-1#v1",
+        "task": "task-1",
+        "revision": 1
+      },
+      "user_id": "room:alpha",
+      "attributedTo": "user"
+    },
+    {
+      "id": "f819c797-51cd-4b22-8046-b7b200aa8b8c",
+      "memory": "User's project release discussion meeting is scheduled for Friday, as mentioned on October 30, 2026 (发布讨论安排在星期五)",
+      "hash": "597b592539f769b329dc343711ce7941",
+      "createdAt": "2026-10-30T15:23:54.981Z",
+      "updatedAt": "2026-10-30T15:23:54.981Z",
+      "metadata": {
+        "id": "distractor-2",
+        "scope": "room:alpha",
+        "text": "The release meeting is Friday. 发布讨论安排在星期五。",
+        "source": "fixture://room-a/distractor-2#v1",
+        "task": "task-1",
+        "revision": 1
+      },
+      "user_id": "room:alpha",
+      "attributedTo": "user"
+    }
+  ]
+}

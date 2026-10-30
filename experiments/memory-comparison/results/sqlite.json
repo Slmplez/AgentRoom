@@ -1,0 +1,239 @@
+{
+  "kind": "sqlite",
+  "runAt": "2026-10-30T15:24:33.756Z",
+  "dataDirectory": "E:\\Repo\\ASCET\\agent-chat-desktop-memory-comparison\\experiments\\memory-comparison\\runtime\\sqlite-2026-10-30T15-24-33.752Z",
+  "node": "v24.4.1",
+  "platform": "win32",
+  "syntheticDataOnly": true,
+  "checks": [
+    {
+      "name": "cross-task-preference",
+      "layer": "backend",
+      "status": "pass",
+      "evidence": [
+        {
+          "id": "preference",
+          "scope": "agent:iris",
+          "text": "Iris prefers concise bullet lists. 鸢尾喜欢简洁的要点列表。",
+          "source": "fixture://room-a/message-1#v1",
+          "task": "task-1",
+          "revision": 1,
+          "score": 3.1268883529382006
+        }
+      ],
+      "ms": 0
+    },
+    {
+      "name": "source-reference",
+      "layer": "backend",
+      "status": "pass",
+      "evidence": [
+        {
+          "id": "preference",
+          "source": "fixture://room-a/message-1#v1"
+        }
+      ],
+      "ms": 0
+    },
+    {
+      "name": "private-scope",
+      "layer": "backend",
+      "status": "pass",
+      "evidence": [],
+      "ms": 0
+    },
+    {
+      "name": "shared-knowledge-independent-souls",
+      "layer": "application",
+      "status": "pass",
+      "evidence": {
+        "iris": {
+          "agentId": "iris",
+          "name": "鸢尾",
+          "personality": "冷静、审慎，先核实证据。",
+          "expression": "简洁、直截了当。",
+          "workStyle": "先列风险，再给结论。",
+          "revision": 1
+        },
+        "ember": {
+          "agentId": "ember",
+          "name": "余烬",
+          "personality": "热情、好奇，乐于探索。",
+          "expression": "温暖、生动，善用比喻。",
+          "workStyle": "先提出可能性，再做小实验。",
+          "revision": 1
+        },
+        "shared": [
+          {
+            "id": "decision",
+            "scope": "room:alpha",
+            "text": "The project database is SQLite. 项目数据库选择 SQLite。",
+            "source": "fixture://room-a/message-2#v1",
+            "task": "task-1",
+            "revision": 1,
+            "score": 1.5350292733217688
+          }
+        ]
+      },
+      "ms": 0
+    },
+    {
+      "name": "chinese-paraphrase",
+      "layer": "retrieval-quality",
+      "status": "pass",
+      "evidence": [
+        {
+          "id": "decision",
+          "scope": "room:alpha",
+          "text": "The project database is SQLite. 项目数据库选择 SQLite。",
+          "source": "fixture://room-a/message-2#v1",
+          "task": "task-1",
+          "revision": 1,
+          "score": 1.1246548977936928
+        }
+      ],
+      "ms": 0
+    },
+    {
+      "name": "semantic-top1-with-distractors",
+      "layer": "retrieval-quality",
+      "status": "fail",
+      "error": "Lexically different storage query did not rank database decision first",
+      "ms": 0
+    },
+    {
+      "name": "correction",
+      "layer": "backend",
+      "status": "pass",
+      "evidence": [
+        {
+          "id": "preference",
+          "scope": "agent:iris",
+          "text": "Iris now prefers detailed paragraphs. 鸢尾现在偏好详细的段落解释。",
+          "source": "fixture://room-a/message-3#v1",
+          "task": "task-1",
+          "revision": 2,
+          "score": 2.028207302156511
+        }
+      ],
+      "ms": 2
+    },
+    {
+      "name": "revision-history",
+      "layer": "backend",
+      "status": "pass",
+      "evidence": [
+        {
+          "id": "preference",
+          "scope": "agent:iris",
+          "text": "Iris prefers concise bullet lists. 鸢尾喜欢简洁的要点列表。",
+          "source": "fixture://room-a/message-1#v1",
+          "task": "task-1",
+          "revision": 1
+        },
+        {
+          "id": "preference",
+          "scope": "agent:iris",
+          "text": "Iris now prefers detailed paragraphs. 鸢尾现在偏好详细的段落解释。",
+          "source": "fixture://room-a/message-3#v1",
+          "task": "task-1",
+          "revision": 2
+        }
+      ],
+      "ms": 0
+    },
+    {
+      "name": "extractor-cannot-edit-soul",
+      "layer": "application",
+      "status": "pass",
+      "evidence": {
+        "denied": true
+      },
+      "ms": 0
+    },
+    {
+      "name": "soul-survives-reopen",
+      "layer": "application",
+      "status": "pass",
+      "evidence": {
+        "agentId": "iris",
+        "name": "鸢尾",
+        "personality": "冷静、审慎，先核实证据。",
+        "expression": "简洁、直截了当。",
+        "workStyle": "先列风险，再给结论。",
+        "revision": 1
+      },
+      "ms": 1
+    },
+    {
+      "name": "explicit-soul-edit-is-local",
+      "layer": "application",
+      "status": "pass",
+      "evidence": {
+        "iris": {
+          "agentId": "iris",
+          "name": "鸢尾",
+          "personality": "冷静、审慎，先核实证据。",
+          "expression": "简洁，同时解释必要背景。",
+          "workStyle": "先列风险，再给结论。",
+          "revision": 2
+        },
+        "ember": {
+          "agentId": "ember",
+          "name": "余烬",
+          "personality": "热情、好奇，乐于探索。",
+          "expression": "温暖、生动，善用比喻。",
+          "workStyle": "先提出可能性，再做小实验。",
+          "revision": 1
+        }
+      },
+      "ms": 7
+    },
+    {
+      "name": "forget",
+      "layer": "backend",
+      "status": "pass",
+      "evidence": [],
+      "ms": 2
+    },
+    {
+      "name": "deleted-source-replay",
+      "layer": "backend",
+      "status": "pass",
+      "evidence": [],
+      "ms": 0
+    }
+  ],
+  "timings": [
+    {
+      "name": "write-preference",
+      "ms": 3
+    },
+    {
+      "name": "write-shared",
+      "ms": 2
+    },
+    {
+      "name": "write-distractor-0",
+      "ms": 2
+    },
+    {
+      "name": "write-distractor-1",
+      "ms": 2
+    },
+    {
+      "name": "write-distractor-2",
+      "ms": 2
+    }
+  ],
+  "limitations": [
+    "Small functional comparison, not a statistical benchmark.",
+    "Scope checks exercise trusted application contexts, not production multi-user authentication.",
+    "Soul tests validate application state assembly, not model personality adherence."
+  ],
+  "finishedAt": "2026-10-30T15:24:33.834Z",
+  "summary": {
+    "pass": 12,
+    "fail": 1
+  }
+}

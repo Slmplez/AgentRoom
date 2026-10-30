@@ -1,0 +1,37 @@
+{
+  "kind": "hindsight",
+  "runAt": "2026-10-30T15:21:36.490Z",
+  "node": "v24.4.1",
+  "platform": "win32",
+  "syntheticDataOnly": true,
+  "checks": [],
+  "timings": [],
+  "limitations": [
+    "Small functional comparison, not a statistical benchmark.",
+    "Scope checks exercise trusted application contexts, not production multi-user authentication.",
+    "Soul tests validate application state assembly, not model personality adherence.",
+    "EXPLICIT lexical hashing mode: real SDK/storage/LLM integration, NOT a semantic embedding quality evaluation."
+  ],
+  "model": {
+    "provider": "DeepSeek",
+    "model": "deepseek-flash",
+    "usage": "Token usage not collected; latency only."
+  },
+  "embedding": {
+    "model": "sha256-word-hashing-384",
+    "mode": "lexical",
+    "dimensions": 384,
+    "device": "cpu",
+    "loadMs": 0,
+    "requests": 0
+  },
+  "setup": {
+    "status": "blocked",
+    "error": "spawn E:\\Repo\\ASCET\\agent-chat-desktop-memory-comparison\\experiments\\memory-comparison\\.venv\\Scripts\\hindsight-api.exe ENOENT"
+  },
+  "finishedAt": "2026-10-30T15:21:37.036Z",
+  "summary": {
+    "pass": 0,
+    "fail": 0
+  }
+}

@@ -1,0 +1,31 @@
+{
+  "at": "2026-10-30T15:20:50.132Z",
+  "node": "v24.4.1",
+  "platform": "win32",
+  "checks": [
+    {
+      "name": "mem0ai/oss",
+      "status": "importable"
+    },
+    {
+      "name": "@vectorize-io/hindsight-client",
+      "status": "importable"
+    },
+    {
+      "name": "@huggingface/transformers",
+      "status": "blocked",
+      "reason": "Cannot find package 'onnxruntime-common' imported from E:\\Repo\\ASCET\\agent-chat-desktop-memory-comparison\\experiments\\memory-comparison\\node_modules\\@huggingface\\transformers\\dist\\transformers.node.mjs"
+    },
+    {
+      "name": "hindsight-api-slim",
+      "status": "blocked",
+      "reason": "Traceback (most recent call last):\r\n  File \"<string>\", line 1, in <module>\r\nModuleNotFoundError: No module named 'hindsight_api'\r\n"
+    },
+    {
+      "name": "better-sqlite3 artifact download",
+      "status": "blocked",
+      "reason": "TimeoutError",
+      "ms": 22233
+    }
+  ]
+}
