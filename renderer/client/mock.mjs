@@ -52,6 +52,8 @@ export function createMockTransport({ manual = false } = {}) {
       m.text = job.step === 1 ? job.text.slice(0, Math.ceil(job.text.length / 2)) : job.text;
       if (job.step >= 2) { m.status = run.status = 'complete'; run.canCancel = false; pending.delete(id); }
     }
+    const positions = new Map();
+    for (const run of state.runs) if (run.status === 'queued') { const position = (positions.get(run.agentId) || 0) + 1; positions.set(run.agentId, position); run.queuePosition = position; }
     publish();
     if (!pending.size) { clearInterval(timer); timer = undefined; }
   }

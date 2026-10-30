@@ -17,6 +17,7 @@ export function App({ client, platform, control }: { client: ChatClient; platfor
   const [active, setActive] = useState(''), [workspace, setWorkspace] = useState(''), [query, setQuery] = useState('');
   const [sidebar, setSidebar] = useState(true), [details, setDetails] = useState(false), [error, setError] = useState('');
   const [drafts, setDrafts] = useState<Record<string, Draft>>(() => readLocal(`${prefix}drafts`, {}) as Record<string, Draft>);
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [diff, setDiff] = useState<string[] | null>(null);
   const avatarStore = useMemo(() => window.AgentAvatars.create({ saved: readLocal(mock ? 'ar-mock-agent-avatars' : 'ar-agent-avatars', {}) }), [mock]);
   useEffect(() => { void client.open(); return () => client.close(); }, [client]);
@@ -57,7 +58,7 @@ export function App({ client, platform, control }: { client: ChatClient; platfor
         <header className="conversation-header"><div className="header-location"><button className="icon-button" aria-label="切换侧栏" onClick={() => setSidebar(!sidebar)}><Icon name="panel-left" /></button><div><h1 className="header-title">{room?.title || 'Agent Room'}</h1><div className="room-subtitle">{room?.type === 'dm' ? members[0]?.engine : `${members.length} 位成员`}</div></div></div><button className="icon-button" aria-label="查看成员" aria-expanded={details} onClick={() => setDetails(!details)}><Icon name="agents" /></button></header>
         {state.connection !== 'live' && <div className="connection-alert" role="status">{state.error || connectionLabel}</div>}
         <RunPanel client={client} state={state} roomId={room?.id} />
-        <ChatThread key={`thread:${room?.id || 'empty'}`} messages={messages} agents={state.agents} portrait={portrait} showDiff={setDiff} />
+        <ChatThread key={`thread:${room?.id || 'empty'}`} messages={messages} agents={state.agents} portrait={portrait} showDiff={setDiff} expanded={expanded} onExpanded={(id, value) => setExpanded(old => old[id] === value ? old : { ...old, [id]: value })} />
         {error && <div className="chat-error" role="alert">{error}<button aria-label="关闭提示" onClick={() => setError('')}>×</button></div>}
         {room && <Composer key={`composer:${room.id}`} client={client} room={room} agents={members} draft={drafts[room.id] || { text: '', mentions: [] }} updateDraft={draft => setDrafts(old => ({ ...old, [room.id]: draft }))} live={state.connection === 'live'} tasks={state.capabilities.tasks} mock={mock} onError={setError} />}
       </main>

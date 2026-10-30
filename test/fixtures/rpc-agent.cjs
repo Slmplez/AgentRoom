@@ -5,8 +5,8 @@ const tool = process.env.RPC_FIXTURE_TOOL;
 const send = record => process.stdout.write(JSON.stringify(record) + '\n');
 let count = 0, waiting;
 function finish(text = 'fixture reply 你好\u2028continued') {
-  if (tool === 'codex') { send({ method: 'item/agentMessage/delta', params: { threadId: 'thread-1', itemId: 'a', delta: text } }); send({ method: 'item/completed', params: { item: { id: 'a', type: 'agentMessage', text } } }); send({ method: 'turn/completed', params: { turn: { status: 'completed' } } }); }
-  if (tool === 'pi') { send({ type: 'message_end', message: { role: 'assistant', content: [{ type: 'text', text }] } }); send({ type: 'agent_end' }); setTimeout(() => send({ type: 'agent_settled' }), 35); }
+  if (tool === 'codex') { send({ method: 'item/agentMessage/delta', params: { threadId: 'thread-1', itemId: 'a', delta: text } }); send({ method: 'item/completed', params: { item: { id: 'a', type: 'agentMessage', text } } }); send({ method: 'turn/completed', params: { turn: { status: text === 'interrupted' ? 'interrupted' : 'completed' } } }); }
+  if (tool === 'pi') { send({ type: 'message_end', message: { role: 'assistant', stopReason: text === 'interrupted' ? 'aborted' : 'stop', content: [{ type: 'text', text }] } }); send({ type: 'agent_end' }); setTimeout(() => send({ type: 'agent_settled' }), 35); }
   if (tool === 'claude') { send({ type: 'assistant', message: { id: 'a', content: [{ type: 'text', text }] } }); send({ type: 'result', result: text, is_error: false }); }
 }
 if (tool !== 'opencode') {

@@ -7,7 +7,7 @@ function freeze(value) {
 
 // The public module owns projections and synchronization. Transports never mutate the UI.
 export function createAgentRoomClient(transport) {
-  let state = freeze({ instanceId: '', revision: -1, agents: [], rooms: [], workspaces: [], messages: [], approvals: [], runs: [], capabilities: { tasks: false, idempotentSend: false }, connection: 'connecting', error: '' });
+  let state = freeze({ instanceId: '', revision: -1, agents: [], rooms: [], workspaces: [], messages: [], approvals: [], approvalHistory: [], runs: [], capabilities: { tasks: false, idempotentSend: false }, connection: 'connecting', error: '' });
   let generation = 0, unsubscribe, refreshNumber = 0;
   const listeners = new Set(), inFlight = new Set();
   const publish = patch => { state = freeze({ ...state, ...patch }); for (const listener of listeners) listener(); };

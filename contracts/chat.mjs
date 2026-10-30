@@ -13,6 +13,7 @@ export const messageSchema = z.object({
 export const approvalSchema = z.object({
   id, agentId: id, roomId: z.string(), revision: z.number().int().nonnegative(),
   kind: z.enum(['permission', 'questions', 'input']), title: z.string(), summary: z.string(),
+  status: z.enum(['pending', 'submitting', 'allowed', 'denied', 'expired', 'unknown']).default('pending'),
   scopeLabel: z.string(), directory: z.string(), questions: z.array(question).default([]), options: z.array(z.string()).default([]),
 });
 export const snapshotSchema = z.object({
@@ -20,7 +21,7 @@ export const snapshotSchema = z.object({
   agents: z.array(z.object({ id, name: z.string(), displayName: z.string(), engine: z.string(), status: z.string(), workspaceId: id })),
   rooms: z.array(z.object({ id, title: z.string(), type: z.enum(['group', 'dm']), workspaceId: id, memberIds: z.array(id), ownerAgentId: z.string().nullable().default(null), pinned: z.boolean().default(false), description: z.string().default('') })),
   workspaces: z.array(z.object({ id, title: z.string(), directory: z.string() })),
-  messages: z.array(messageSchema), approvals: z.array(approvalSchema), runs: z.array(runSchema).default([]),
+  messages: z.array(messageSchema), approvals: z.array(approvalSchema), runs: z.array(runSchema).default([]), approvalHistory: z.array(approvalSchema).default([]),
   capabilities: z.object({ tasks: z.boolean(), idempotentSend: z.boolean().default(false) }),
 });
 export const commandSchema = z.discriminatedUnion('type', [

@@ -27,6 +27,7 @@ for (const tool of ['codex', 'pi', 'claude', 'opencode']) {
     assert.match(await reply, /decline|false|deny|reject/);
     const pending = engine.prompt('wait');
     await new Promise(r => setTimeout(r, 40)); await engine.cancel(); assert.match(await pending, /interrupted/);
+    if (['codex', 'pi'].includes(tool)) assert.equal(engine.lastOutcome, 'cancelled');
     await assert.rejects(engine.respond(r.id, { allow: true }), /失效/);
     assert.deepEqual(failures, []);
   });

@@ -56,6 +56,9 @@ app.whenReady().then(async () => {
   await run('document.querySelector(".tool-trace > summary").click(); document.querySelectorAll(".tool-step > summary")[1].click()');
   await clickText('推进流式输出');
   assert.equal(await run('document.querySelector(".tool-trace").open'), true);
+  await run('document.querySelector("[data-room=room-code]").click()');
+  await run('document.querySelector("[data-room=room-design]").click()');
+  assert.equal(await run('document.querySelector(".tool-trace").open'), true, 'Expansion survives room switches');
   await clickText('查看文件差异');
   await until('Boolean(document.querySelector("diffs-container")?.shadowRoot?.textContent.includes("一起完成下一件事"))');
   await clickText('并排');

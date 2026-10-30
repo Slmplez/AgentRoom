@@ -57,6 +57,7 @@
   let mentionItems = [];
   let drafts = {};
   let expanded = new Set();
+  const expandedTools = new Set();
   let renderedMessageKey = '';
   let lastSeen = storage.get('ar-seen', {});
   let modalReturnFocus;
@@ -199,6 +200,7 @@
     if (!tools.length) return '';
     return `<details class="tool-trace" data-tool-trace="${esc(key)}"><summary>工具使用 · ${tools.length} 次</summary>${tools.map(t => `<details class="tool-step" data-tool-step="${esc(agent.id + ':' + t.id)}"><summary>${esc(t.kind)} <span>${esc(toolStatus(t.status))}</span></summary><pre>${esc(t.detail)}</pre>${t.output ? `<pre>${esc(t.output)}</pre>` : ''}${t.diffs?.some(d => d.unavailable) ? '<p class="form-hint">部分差异超过预览限制</p>' : ''}${t.diffs?.some(d => d.patch) ? `<button class="button" ${messageId ? `data-message-tool="${esc(messageId)}"` : ''} data-diff-agent="${esc(agent.id)}" data-tool-diff="${esc(t.id)}">查看文件差异</button>` : ''}</details>`).join('')}</details>`;
   }
+  $('#messages').addEventListener('toggle', event => { const key = event.target.dataset.toolTrace || event.target.dataset.toolStep; if (key) { if (event.target.open) expandedTools.add(key); else expandedTools.delete(key); } }, true);
   function renderMessages() {
     const room = currentRoom();
     const messages = messagesOf(room);
@@ -209,7 +211,7 @@
     const changedRoom = !renderedMessageKey.startsWith(`${active}:`);
     renderedMessageKey = key;
     if (!messages.length) { container.innerHTML = welcome(room); return; }
-    const openTools = new Set([...container.querySelectorAll('details[open]')].map(el => el.dataset.toolTrace || el.dataset.toolStep));
+    const openTools = expandedTools;
     let lastDate = '';
     container.innerHTML = messages.map(message => {
       const date = new Date(message.timestamp);
@@ -364,6 +366,7 @@
       if (!$('#rpc-status')) return;
       const runs = chat.read().runs.filter(r => r.agentId === agent.id), current = runs.find(r => r.canCancel);
       $('#rpc-status').textContent = runs.map(r => `${labels[r.status]}${r.queuePosition ? ` · 排队 ${r.queuePosition}` : ''}`).join(' / ') || '当前没有执行';
+      html('#rpc-history', chat.read().approvalHistory.filter(r => r.agentId === agent.id).map(r => `<p>${esc(r.title)} · ${esc(({ allowed: '已提交允许', denied: '已提交拒绝', expired: '已过期', unknown: '投递结果未知' })[r.status] || r.status)} · ${esc(r.roomId)}</p>`).join('') + chat.read().messages.filter(m => m.authorId === agent.id && m.tools.length).map(messageToolTrace).join(''));
       $('#rpc-error').textContent = runs.map(r => r.error).filter(Boolean).join(' · ');
       $('#rpc-cancel').disabled = !current || chat.read().connection !== 'live';
       $('#rpc-cancel').onclick = async () => { try { await chat.dispatch({ type: 'cancelRun', key: crypto.randomUUID(), runId: current.id }); } catch (e) { toast(e.message); } };
