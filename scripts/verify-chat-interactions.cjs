@@ -60,6 +60,7 @@ app.whenReady().then(async () => {
   await until(`Math.abs(document.querySelector('.result-panel').getBoundingClientRect().width-document.querySelector('main.conversation').getBoundingClientRect().width)<2`);
   await capture('chat-interactions-split.png');
   // Close/reopen preserves a local form draft and the adjusted width.
+  await click('完整');
   await run(`document.querySelector('#result-tab-form').click()`); await until('Boolean(document.querySelector(".result-field input"))');
   await run(`document.querySelector('.result-field input').focus()`);
   await win.webContents.insertText('保留布局与头像'); const chosenWidth=(await rect('.result-panel')).width;

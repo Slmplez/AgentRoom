@@ -6,6 +6,7 @@ import { z } from 'zod';
 import { artifactVersionSchema, artifactVersionsSchema, reportSchema } from '../../contracts/artifacts.mjs';
 import { useEntrance } from './motion';
 import './artifact-view.css';
+import { PreviewMode, ReportSummary } from './preview-mode';
 
 type Report = z.infer<typeof artifactVersionSchema>;
 type Version = z.infer<typeof artifactVersionsSchema>['versions'][number];
@@ -31,6 +32,7 @@ function errorText(error: unknown) {
 }
 
 export default function ArtifactView({ client, selection, latestVersion, mock = false, close }: { client: Reader; selection: ArtifactSelection; latestVersion: number; mock?: boolean; close(): void }) {
+  const [full, setFull] = useState(false);
   const [version, setVersion] = useState(selection.version), [attempt, retry] = useState(0);
   const [body, setBody] = useState<{ version: number; report?: Report; error?: string } | null>(null);
   const [versions, setVersions] = useState<Version[]>([]), [before, setBefore] = useState<number | null>(null);
@@ -69,6 +71,7 @@ export default function ArtifactView({ client, selection, latestVersion, mock = 
   const spec = report && reportSchema.safeParse(report.spec).success ? report.spec as Spec : null;
   return <aside ref={panel} id="result-preview-panel" className="result-panel artifact-panel" aria-label="任务报告" onKeyDown={e => { if (e.key === 'Escape') { e.stopPropagation(); close(); } }}>
     <div className="result-heading"><div><h2 ref={heading} tabIndex={-1}>{source?.title || selection.title}</h2><p>{mock ? '模拟报告 · 演示数据' : '任务报告 · 只读'} · 版本 {version}</p></div><button className="button" onClick={close} aria-label="返回报告原消息">返回对话</button></div>
+    <PreviewMode full={full} change={setFull} />
     <div className="artifact-version-controls"><label>查看版本 <select aria-label="报告版本" value={version} onChange={e => setVersion(Number(e.target.value))}>{!versions.some(v => v.version === version) && <option value={version}>版本 {version}</option>}{versions.map(v => <option key={v.version} value={v.version}>版本 {v.version} · {v.title}</option>)}</select></label><button className="button" disabled={listLoading} onClick={() => void loadVersions()}>刷新版本</button>{before !== null && <button className="button" disabled={listLoading} onClick={() => void loadVersions(before)}>更早版本</button>}
       {listLoading && <span role="status">正在读取版本…</span>}{listError && <p role="alert">{listError}</p>}
       {latest > version && <button className="button artifact-new-version" onClick={() => setVersion(latest)}>有新版本 {latest}，点击查看</button>}
@@ -77,7 +80,8 @@ export default function ArtifactView({ client, selection, latestVersion, mock = 
       {source && <details className="artifact-source"><summary>来源与发布时间</summary><dl><dt>任务</dt><dd>{source.taskId}</dd><dt>执行</dt><dd>{source.runId}</dd><dt>Agent</dt><dd>{source.producerAgentId}</dd><dt>发布时间</dt><dd><time dateTime={source.createdAt}>{new Date(source.createdAt).toLocaleString()}</time></dd></dl></details>}
       {!current && <p role="status">正在读取报告…</p>}
       {current?.error && <div role="alert"><p>{current.error}</p><button className="button" onClick={() => retry(n => n + 1)}>重新读取</button></div>}
-      {spec && <JSONUIProvider registry={registry}><Renderer spec={spec} registry={registry} /></JSONUIProvider>}
+      {spec && !full && <ReportSummary spec={spec} />}
+      {spec && full && <JSONUIProvider registry={registry}><Renderer spec={spec} registry={registry} /></JSONUIProvider>}
     </div>
   </aside>;
 }

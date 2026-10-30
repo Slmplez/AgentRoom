@@ -42,7 +42,7 @@ app.whenReady().then(async () => {
   await input('#message-input', '@nobody'); key('Return');
   assert.equal(await run('document.querySelectorAll(".message[data-message-id]").length'), 4, 'Empty mention results must not accidentally submit');
   await input('#message-input', '');
-  await click('结果示例'); await until('Boolean(document.querySelector(".result-chart"))');
+  await click('结果示例'); await until('Boolean(document.querySelector(".preview-mode"))'); await click('完整'); await until('Boolean(document.querySelector(".result-chart"))');
   assert.ok(await run('document.querySelector(".result-panel").contains(document.activeElement)'));
   async function contrast() {
     const readings = await run(`(() => {

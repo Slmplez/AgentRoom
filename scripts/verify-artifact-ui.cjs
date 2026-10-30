@@ -12,7 +12,7 @@ const versionGate = new Promise(r => { releaseVersion = r; });
 const delay = ms => new Promise(r => setTimeout(r, ms));
 const until = async (win, expression) => { const end = Date.now() + 30000; while (!await win.webContents.executeJavaScript(expression).catch(e => { throw Error(`${expression}: ${e.message}`); })) { if (Date.now() > end) throw Error('UI timed out: ' + expression); await delay(30); } };
 const run = (win, code) => win.webContents.executeJavaScript(code).catch(error => { throw Error(`${code}: ${error.message}`); });
-const openFirst = win => run(win, 'Array.from(document.querySelectorAll("[data-artifact-version]")).find(el=>el.dataset.artifactVersion==="1").focus();Array.from(document.querySelectorAll("[data-artifact-version]")).find(el=>el.dataset.artifactVersion==="1").click()');
+const openFirst = async win => { await run(win, 'Array.from(document.querySelectorAll("[data-artifact-version]")).find(el=>el.dataset.artifactVersion==="1").focus();Array.from(document.querySelectorAll("[data-artifact-version]")).find(el=>el.dataset.artifactVersion==="1").click()'); await until(win, 'Boolean(document.querySelector(".artifact-panel"))'); await run(win, 'Array.from(document.querySelectorAll(".artifact-panel button")).find(b=>b.textContent==="完整").click()'); };
 const report = version => ({ root: 'root', elements: {
   root: { type: 'Section', props: { title: `发布结果 ${version}`, description: `真实任务正文 V${version} · <script>window.reportInjected=true</script>` }, children: ['metrics', 'bars', 'table'] },
   metrics: { type: 'Metrics', props: { items: [{ label: '检查项', value: String(version), detail: '真实 Pi 发布' }] }, children: [] },

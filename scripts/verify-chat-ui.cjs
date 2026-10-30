@@ -68,6 +68,7 @@ app.whenReady().then(async () => {
   await run('document.querySelector("[data-room=room-design]").click()');
   assert.equal(await run('document.querySelector(".tool-trace").open'), true, 'Expansion survives room switches');
   await clickText('查看文件差异');
+  await clickText('完整');
   await until('Boolean(document.querySelector("diffs-container")?.shadowRoot?.textContent.includes("一起完成下一件事"))');
   assert.match(await run('getComputedStyle(document.querySelector("diffs-container").shadowRoot.querySelector("code")).fontFamily'), /JetBrains Mono/, 'Diff code must use the shared monospace font');
   await clickText('并排');
@@ -76,7 +77,8 @@ app.whenReady().then(async () => {
   await clickText('关闭');
   await clickText('无效差异');
   await run('(() => { const trace=[...document.querySelectorAll(".tool-trace")].at(-1); trace.querySelector("summary").click(); trace.querySelectorAll(".tool-step > summary")[1].click(); [...trace.querySelectorAll("button")].find(b=>b.textContent.includes("查看文件差异")).click(); })()');
-  await until('Boolean(document.querySelector(".chat-diff-dialog [role=alert]")?.textContent.includes("无法显示差异"))');
+  await clickText('完整');
+  await until('Boolean(document.querySelector(".diff-preview [role=alert]")?.textContent.includes("无法显示差异"))');
   await clickText('关闭');
   await clickText('输出过期');
   await run('[...document.querySelectorAll(".tool-trace")].at(-1).querySelector("button").click()');

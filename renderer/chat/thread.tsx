@@ -2,12 +2,13 @@ import React, { createContext, useContext, useEffect, useMemo, useRef, useState 
 import { AssistantRuntimeProvider, MessagePrimitive, ThreadPrimitive, useAuiState, useExternalStoreRuntime, type ThreadMessageLike } from '@assistant-ui/react';
 import { MarkdownTextPrimitive } from '@assistant-ui/react-markdown';
 import type { Agent, Message, ChatClient } from './types';
+import { PreviewMode } from './preview-mode';
 import { useEntrance } from './motion';
 
 const toolStatus = (status: string) => ({ completed: '已完成', running: '执行中', failed: '失败', cancelled: '已中断', ended: '已结束', unknown: '结果未知' } as Record<string, string>)[status] || '等待中';
 const brief = (text: string) => { const line = text.trim().split(/\r?\n/)[0] || ''; return line.length > 100 ? `${line.slice(0, 100)}…` : line; };
 
-const ThreadContext = createContext<{ client?: ChatClient; suppressWelcome?: boolean; renderQuestions?(messageId: string): React.ReactNode; renderArtifacts?(message: Message): React.ReactNode; group?: boolean; statusMessageIds?: string[]; messages: Message[]; agents: Agent[]; portrait(agent: Agent): string; showDiff(patches: string[]): void; expanded?: Record<string, boolean>; onExpanded?(id: string, value: boolean): void }>({ messages: [], agents: [], portrait: () => '', showDiff: () => {} });
+const ThreadContext = createContext<{ client?: ChatClient; suppressWelcome?: boolean; renderQuestions?(messageId: string): React.ReactNode; renderArtifacts?(message: Message): React.ReactNode; group?: boolean; statusMessageIds?: string[]; messages: Message[]; agents: Agent[]; portrait(agent: Agent): string; showDiff(patches: string[], trigger?: HTMLElement): void; expanded?: Record<string, boolean>; onExpanded?(id: string, value: boolean): void }>({ messages: [], agents: [], portrait: () => '', showDiff: () => {} });
 const convertMessage = (message: ThreadMessageLike) => message;
 const MarkdownText = () => <MarkdownTextPrimitive />;
 export function ChatThread({ client, renderQuestions, renderArtifacts, suppressWelcome = false, group = false, statusMessageIds = [], messages, agents, portrait, showDiff, expanded = {}, onExpanded }: React.ContextType<typeof ThreadContext>) {
@@ -64,6 +65,7 @@ function MessageChanges({ tools, context }: { tools: Message['tools']; context: 
   useEffect(() => { active.current = true; return () => { active.current = false; }; }, []);
   async function open() {
     if (pending.current) return;
+    const trigger = document.activeElement as HTMLElement;
     pending.current = true; setBusy(true); setError(''); setNotice('');
     try {
       const results = await Promise.all(tools.filter(t => t.hasDiff || t.patches.length > 0).map(t => t.detailRef && context.client ? context.client.query({ type: 'toolDetails', ref: t.detailRef }) : Promise.resolve({ patches: t.patches, truncated: t.truncated })));
@@ -71,7 +73,7 @@ function MessageChanges({ tools, context }: { tools: Message['tools']; context: 
       const patches = results.flatMap(r => r.patches);
       if (!patches.length) throw new Error('当前没有可用变更，请展开过程核查。');
       if (results.some(r => r.truncated)) setNotice('部分内容超过预览范围，可展开过程查看详情。');
-      context.showDiff(patches);
+      context.showDiff(patches, trigger);
     } catch (e) { if (active.current) setError((e as Error).message); }
     finally { pending.current = false; if (active.current) setBusy(false); }
   }
@@ -83,12 +85,13 @@ function ToolRow({ tool, messageId, context }: { tool: Message['tools'][number];
   const active = useRef(true);
   useEffect(() => { active.current = true; return () => { active.current = false; }; }, []);
   const load = async (diff: boolean) => {
+    const trigger = document.activeElement as HTMLElement;
     setError(''); setLoading(true);
     try {
       const result = tool.detailRef && context.client ? await context.client.query({ type: 'toolDetails', ref: tool.detailRef }) : { output: tool.output, patches: tool.patches, truncated: tool.truncated };
       if (!active.current) return;
       setOutput(result.output + (result.truncated ? '\n部分输出或差异超过预览限制。' : ''));
-      if (diff) { if (result.patches.length) context.showDiff(result.patches); else setError('没有可用差异。'); }
+      if (diff) { if (result.patches.length) context.showDiff(result.patches, trigger); else setError('没有可用差异。'); }
     } catch (e) { if (active.current) setError((e as Error).message); }
     finally { if (active.current) setLoading(false); }
   };
@@ -103,12 +106,18 @@ function ToolRow({ tool, messageId, context }: { tool: Message['tools'][number];
   </details>;
 }
 
-export function DiffDialog({ patches, close, theme }: { patches: string[]; close(): void; theme: string }) {
-  const dialog = useRef<HTMLDialogElement>(null), container = useRef<HTMLDivElement>(null);
+export function DiffPreview({ patches, close, theme, returnFocus }: { patches: string[]; close(): void; theme: string; returnFocus?: HTMLElement | null }) {
+  const dialog = useRef<HTMLElement>(null), container = useRef<HTMLDivElement>(null);
+  const [full, setFull] = useState(false);
+  const lines = patches.join('\n').split('\n');
+  const files = lines.filter(line => line.startsWith('diff --git ')).map(line => line.replace(/^diff --git /, ''));
+  const added = lines.filter(line => line.startsWith('+') && !line.startsWith('+++')).length;
+  const removed = lines.filter(line => line.startsWith('-') && !line.startsWith('---')).length;
   const [style, setStyle] = useState<'unified' | 'split'>('unified'), [error, setError] = useState(''), [loading, setLoading] = useState(true);
-  useEffect(() => { const previous = document.activeElement as HTMLElement | null; dialog.current?.showModal(); return () => { dialog.current?.close(); previous?.isConnected && previous.focus(); }; }, []);
-  useEntrance(dialog, true, 'dialog');
+  useEffect(() => { const previous = returnFocus || document.activeElement as HTMLElement | null; dialog.current?.querySelector<HTMLElement>('h2')?.focus(); return () => { previous?.isConnected && previous.focus(); }; }, []);
+  useEntrance(dialog, true, 'panel');
   useEffect(() => {
+    if (!full) return;
     let active = true; const views: { cleanUp(): void }[] = []; setError(''); setLoading(true);
     const host = container.current!; host.replaceChildren();
     // Keep the large highlighter split from the chat entry and use the same local Pierre build.
@@ -125,10 +134,13 @@ export function DiffDialog({ patches, close, theme }: { patches: string[]; close
       setLoading(false);
     }).catch(e => { if (active) { views.forEach(v => v.cleanUp()); host.replaceChildren(); setError(e.message); setLoading(false); } });
     return () => { active = false; views.forEach(v => v.cleanUp()); host.replaceChildren(); };
-  }, [patches, style, theme]);
-  return <dialog ref={dialog} className="chat-diff-dialog" aria-labelledby="diff-title" onCancel={e => { e.preventDefault(); close(); }}><div className="permission-heading"><h2 id="diff-title">文件变更</h2><button className="button" onClick={close}>关闭</button></div>
-    <div className="diff-controls">{(['unified', 'split'] as const).map(value => <button className="button" key={value} aria-pressed={style === value} onClick={() => setStyle(value)}>{value === 'unified' ? '合并' : '并排'}</button>)}<span>只读预览</span></div>
+  }, [patches, style, theme, full]);
+  return <aside ref={dialog} className="result-panel diff-preview" aria-labelledby="diff-title" onKeyDown={e => { if (e.key === 'Escape') { e.stopPropagation(); close(); } }}><div className="result-heading"><h2 id="diff-title" tabIndex={-1}>文件变更</h2><button className="button" onClick={close}>关闭</button></div>
+    <PreviewMode full={full} change={setFull} />
+    {!full && <div className="result-content preview-summary"><h3>变更摘要</h3><p>新增 {added} 行 · 删除 {removed} 行</p>{files.length > 0 ? <ul>{files.slice(0, 5).map((file, i) => <li key={i}>{file}</li>)}</ul> : <p>补丁摘要；完整视图将解析文件差异。</p>}{files.length > 5 && <p>共 {files.length} 个文件，完整视图可查看全部。</p>}<p>此面板仅供查看，不执行写入。</p></div>}
+    <div hidden={!full} className="result-content"><div className="diff-controls">{(['unified', 'split'] as const).map(value => <button className="button" key={value} aria-pressed={style === value} onClick={() => setStyle(value)}>{value === 'unified' ? '合并' : '并排'}</button>)}<span>只读预览</span></div>
     {loading && <p role="status">正在加载差异…</p>}{error && <><p role="alert">无法显示差异：{error}</p><pre>{patches.join('\n')}</pre></>}
     <div ref={container} />
-  </dialog>;
+    </div>
+  </aside>;
 }

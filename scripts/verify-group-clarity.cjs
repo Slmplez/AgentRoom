@@ -28,7 +28,7 @@ app.whenReady().then(async()=>{
   assert.equal(await run('document.querySelectorAll(".message-result-link").length'),1);
   await run('document.querySelector(".message-results").scrollIntoView({block:"center"})');
   await new Promise(r=>setTimeout(r,250));await fs.writeFile(path.resolve(__dirname,'../artifacts/group-clarity.png'),(await win.webContents.capturePage()).toPNG());
-  await click('查看变更');await until('Boolean(document.querySelector(".chat-diff-dialog diffs-container"))');
+  await click('查看变更');await until('Boolean(document.querySelector(".diff-preview"))');await click('完整');await until('Boolean(document.querySelector(".diff-preview diffs-container"))');
   assert.equal(await run('document.querySelector(".tool-trace").open'),false,'Direct result access does not require opening process');
   await click('关闭');await run('document.querySelector(".message-process-menu > summary").click();document.querySelector(".tool-trace > summary").click()');await until('document.querySelector(".tool-trace").open');
   await run(`document.querySelector('.message-process-menu > summary').dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true}))`);
@@ -40,7 +40,7 @@ app.whenReady().then(async()=>{
   assert.equal(await run('document.querySelectorAll(".tool-step").length'),2);
   await run('document.querySelector(".tool-trace > summary").click();document.querySelector(".dev-controls").open=true');await click('输出过期');await click('查看变更');
   await until('document.querySelector(".message-results [role=alert]")?.textContent.includes("过期")');
-  assert.equal(await run('Boolean(document.querySelector(".chat-diff-dialog"))'),false);
+  assert.equal(await run('Boolean(document.querySelector(".diff-preview"))'),false);
   await click('工具失败');await until('Boolean(document.querySelector(".process-attention"))');
   assert.ok(await run('document.querySelector(".process-attention").checkVisibility()'),'Failed tool remains visible without opening process');
   await run('document.querySelector(".dev-controls").open=false;document.documentElement.dataset.theme="dark"');

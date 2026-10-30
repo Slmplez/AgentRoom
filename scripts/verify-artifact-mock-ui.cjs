@@ -15,7 +15,7 @@ app.whenReady().then(async () => {
   for (let i = 0; i < 25; i++) await click('发布模拟报告');
   await run('document.querySelector(".dev-controls").open=false;document.querySelector("[data-artifact-version]").scrollIntoView({block:"center"})');
   const position = await run('document.querySelector("#messages").scrollTop');
-  await run('document.querySelector("[data-artifact-version]").click()'); await until('Boolean(document.querySelector(".artifact-panel .result-section"))');
+  await run('document.querySelector("[data-artifact-version]").click()'); await until('Boolean(document.querySelector(".artifact-panel .preview-summary"))'); await click('完整'); await until('Boolean(document.querySelector(".artifact-panel .result-section"))');
   assert.ok(await run('document.querySelector(".artifact-panel").textContent.includes("模拟报告 · 演示数据")'));
   assert.ok(await run('document.querySelector(".artifact-panel .result-section").textContent.includes("模拟检查报告 1")'));
   await click('更早版本'); await until('document.querySelectorAll("[aria-label=报告版本] option").length===25');

@@ -3,6 +3,7 @@ import { defineCatalog, type Spec } from '@json-render/core';
 import { schema } from '@json-render/react/schema';
 import { defineRegistry, JSONUIProvider, Renderer } from '@json-render/react';
 import { z } from 'zod';
+import { PreviewMode, ReportSummary } from './preview-mode';
 import { useEntrance } from './motion';
 
 // Local UI examples only. No transport, model output or application command is accepted here.
@@ -55,6 +56,7 @@ for (const spec of Object.values(examples)) {
 }
 const tabs = [{ id: 'dashboard', label: '概览' }, { id: 'table', label: '表格' }, { id: 'form', label: '表单' }];
 export default function ResultPanel({ roomId, roomTitle, open, close }: { roomId: string; roomTitle: string; open: boolean; close(): void }) {
+  const [full, setFull] = useState(false);
   const [tab, setTab] = useState('dashboard'), [drafts, setDrafts] = useState<Record<string, Values>>({}), [saved, setSaved] = useState<Record<string, boolean>>({});
   const heading = useRef<HTMLHeadingElement>(null), previous = useRef<HTMLElement | null>(null);
   const panel = useRef<HTMLElement>(null);
@@ -64,18 +66,20 @@ export default function ResultPanel({ roomId, roomTitle, open, close }: { roomId
   const change = (name: keyof Values, value: string) => { setDrafts(old => ({ ...old, [roomId]: { ...values, [name]: value } })); setSaved(old => ({ ...old, [roomId]: false })); };
   return <aside ref={panel} id="result-preview-panel" className="result-panel" hidden={!open} aria-label="结果预览" onKeyDown={e => { if (e.key === 'Escape') { e.stopPropagation(); close(); } }}>
     <div className="result-heading"><div><h2 ref={heading} tabIndex={-1}>结果预览</h2><p>{roomTitle}</p></div><button className="button" aria-label="关闭结果面板" onClick={close}>关闭</button></div>
+    <PreviewMode full={full} change={setFull} />
     <p className="result-preview-label">本地示例 · 不代表实际任务结果</p>
     <div className="result-tabs" role="tablist" aria-label="结果视图">{tabs.map((item, index) => <button key={item.id} role="tab" id={`result-tab-${item.id}`} aria-controls="result-content" aria-selected={tab === item.id} tabIndex={tab === item.id ? 0 : -1} onClick={() => setTab(item.id)} onKeyDown={e => {
       const next = e.key === 'ArrowRight' ? (index + 1) % tabs.length : e.key === 'ArrowLeft' ? (index + tabs.length - 1) % tabs.length : e.key === 'Home' ? 0 : e.key === 'End' ? tabs.length - 1 : -1;
       if (next >= 0) { e.preventDefault(); setTab(tabs[next].id); document.getElementById(`result-tab-${tabs[next].id}`)?.focus(); }
     }}>{item.label}</button>)}</div>
     <div className="result-content" id="result-content" role="tabpanel" aria-labelledby={`result-tab-${tab}`} tabIndex={0}>
-      <DraftContext.Provider value={{ values, change }}><JSONUIProvider registry={registry}>
+      {!full && <ReportSummary spec={examples[tab]} />}
+      <div hidden={!full}><DraftContext.Provider value={{ values, change }}><JSONUIProvider registry={registry}>
         <form onSubmit={e => { e.preventDefault(); if (values.title.trim()) setSaved(old => ({ ...old, [roomId]: true })); }}>
           <Renderer spec={examples[tab]} registry={registry} />
           {tab === 'form' && <div className="result-form-actions"><button className="button primary" disabled={!values.title.trim()} type="submit">保存本地草稿</button><span role="status">{saved[roomId] ? '已保存在本页，刷新后清除' : '尚未保存'}</span></div>}
         </form>
-      </JSONUIProvider></DraftContext.Provider>
+      </JSONUIProvider></DraftContext.Provider></div>
     </div>
   </aside>;
 }
