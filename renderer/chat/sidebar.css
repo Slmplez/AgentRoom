@@ -1,6 +1,19 @@
 .chat-app .chat-workspace { padding: 16px 16px 4px; gap: 8px; }
 .chat-app .chat-workspace > span { flex: 0 0 18px; }
 .chat-app .chat-workspace select { border: 0; background: transparent; padding: 8px 2px; font-size: 14px; }
+.chat-app .chat-workspace option { color: var(--ink); background: var(--surface-2); }
+/* Keep the native select behavior while styling its popup in supporting engines. */
+@supports (appearance: base-select) {
+  .chat-app .chat-workspace select,
+  .chat-app .chat-workspace select::picker(select) { appearance: base-select; }
+  .chat-app .chat-workspace select::picker-icon { color: var(--text-secondary); }
+  .chat-app .chat-workspace select::picker(select) { color: var(--ink); background: var(--surface-2); border: 1px solid var(--line-strong); border-radius: 8px; padding: 4px; box-shadow: var(--shadow); }
+  .chat-app .chat-workspace option { padding: 8px 10px; border-radius: 5px; }
+  .chat-app .chat-workspace option:hover,
+  .chat-app .chat-workspace option:focus { background: var(--surface-0); outline: none; }
+  .chat-app .chat-workspace option:checked { color: var(--clay-text); background: var(--clay-soft); }
+  .chat-app .chat-workspace option::checkmark { color: var(--clay-text); }
+}
 .chat-app .chat-workspace .icon-button { flex: 0 0 28px; }
 .chat-app .sidebar-top { padding: 12px 16px 6px; }
 .chat-app .chat-sidebar-title { padding-left: 4px; font-size: 13px; color: var(--text-secondary); font-weight: 500; }
