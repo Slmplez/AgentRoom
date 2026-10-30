@@ -13,7 +13,6 @@ let window;
 let service;
 let tray;
 let quitting = false;
-const terminalSubscriptions = new Set();
 
 function showWindow() { if (window && !window.isDestroyed()) { window.show(); window.focus(); } }
 function keepGatewayInTray() {
@@ -38,9 +37,6 @@ function createWindow() {
   Menu.setApplicationMenu(null);
   window.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
   window.webContents.on('will-navigate', event => event.preventDefault());
-  window.webContents.on('did-start-loading', () => terminalSubscriptions.clear());
-  window.webContents.on('render-process-gone', () => terminalSubscriptions.clear());
-  window.webContents.on('destroyed', () => terminalSubscriptions.clear());
   window.once('ready-to-show', () => window.show());
   window.on('close', event => {
     if (!quitting && (service?.gateways.size || service?.runtime?.activeSessions)) { event.preventDefault(); keepGatewayInTray(); window.hide(); }
@@ -58,53 +54,23 @@ if (single) app.whenReady().then(async () => {
   ipcMain.handle('chat:request', (_, input) => chatApi.request(input));
   chatApi.subscribe(event => { if (window && !window.isDestroyed()) window.webContents.send('chat:event', event); });
   app.once('will-quit', () => chatApi.close());
-  ipcMain.handle('room:workbench', (_, section = '') => { if (!['', 'connections', 'capabilities', 'usage', 'launch', 'members', 'permissions'].includes(section)) throw new Error('未知管理入口'); return window.loadFile(path.join(__dirname, 'renderer', 'index.html'), { query: { section } }); });
-  ipcMain.handle('room:state', () => service.snapshot());
-  ipcMain.handle('room:refresh', () => service.rescan());
-  ipcMain.handle('room:send', (_, payload) => service.send(payload));
-  ipcMain.handle('room:create', (_, payload) => service.createRoom(payload));
-  ipcMain.handle('room:terminal', (_, id) => service.terminal(id));
-  ipcMain.handle('terminal:input', (_, id, data) => service.terminalInput(id, data));
-  ipcMain.handle('terminal:resize', (_, id, cols, rows) => service.terminalResize(id, cols, rows));
-  ipcMain.handle('terminal:stop', (_, id) => service.stopSession(id));
-  ipcMain.handle('session:inspect', (_, id) => service.inspectSession(id));
-  ipcMain.handle('session:respond', (_, id, requestId, answer) => service.respondSession(id, requestId, answer));
-  ipcMain.handle('session:cancel', (_, id) => service.cancelSession(id));
-  ipcMain.on('terminal:subscribe', (event, id) => {
-    if (event.sender === window?.webContents && typeof id === 'string') terminalSubscriptions.add(id);
-  });
-  ipcMain.on('terminal:unsubscribe', (event, id) => {
-    if (event.sender === window?.webContents) terminalSubscriptions.delete(id);
-  });
-  service.on('terminal', event => { if (terminalSubscriptions.has(event.id) && window && !window.isDestroyed()) window.webContents.send('terminal:event', event); });
-  ipcMain.handle('room:launch', (_, payload) => service.launch(payload));
-  ipcMain.handle('room:workspace', (_, payload) => service.createWorkspace(payload));
-  ipcMain.handle('connection:save', (_, payload) => service.saveConnection(payload));
-  ipcMain.handle('connection:remove', (_, id) => service.removeConnection(id));
-  ipcMain.handle('connection:test', (_, payload) => service.testConnection(payload));
-  ipcMain.handle('usage:state', () => service.usage.snapshot());
-  ipcMain.handle('capability:server-save', (_, payload) => service.saveCapabilityServer(payload));
-  ipcMain.handle('capability:skill-import', (_, payload) => service.importCapabilitySkill(payload));
-  ipcMain.handle('capability:remove', (_, payload) => service.removeCapability(payload));
-  ipcMain.handle('capability:bind', (_, payload) => service.bindCapabilities(payload));
-  ipcMain.handle('capability:test', (_, payload) => service.testCapabilityServer(payload));
-  service.on('usage', stats => { if (window && !window.isDestroyed()) window.webContents.send('usage:state', stats); });
-  ipcMain.handle('connection:certificate', async (_, kind) => {
+  ipcMain.handle('platform:workbench', (_, section = '') => { if (!['', 'connections', 'capabilities', 'usage', 'launch', 'members', 'permissions'].includes(section)) throw new Error('未知管理入口'); return window.loadFile(path.join(__dirname, 'renderer', 'index.html'), { query: { section } }); });
+  ipcMain.handle('platform:certificate', async (_, kind) => {
+    if (!['cert', 'key'].includes(kind)) throw new Error('不支持的证书类型');
     const result = await dialog.showOpenDialog(window, { properties: ['openFile'], title: kind === 'key' ? '选择客户端私钥（PEM）' : '选择证书（PEM）',
       filters: [{ name: 'PEM 证书与私钥', extensions: ['pem', 'crt', 'cer', 'key'] }, { name: '所有文件', extensions: ['*'] }] });
     return result.canceled ? null : result.filePaths[0];
   });
-  ipcMain.handle('room:directory', async () => {
+  ipcMain.handle('platform:directory', async () => {
     const result = await dialog.showOpenDialog(window, { properties: ['openDirectory'], title: '选择 agent 工作目录' });
     return result.canceled ? null : result.filePaths[0];
   });
-  ipcMain.on('window:action', (_, action) => {
+  ipcMain.on('platform:window', (_, action) => {
     if (action === 'minimize') window.minimize();
     if (action === 'maximize') window.isMaximized() ? window.unmaximize() : window.maximize();
     if (action === 'close') window.close();
   });
-  ipcMain.handle('room:open-source', () => shell.openExternal('https://github.com/aannoo/hcom'));
-  service.on('state', state => { if (window && !window.isDestroyed()) window.webContents.send('room:state', state); });
+  ipcMain.handle('platform:open-source', () => shell.openExternal('https://github.com/aannoo/hcom'));
   createWindow();
   await service.start();
 });

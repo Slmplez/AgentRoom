@@ -31,8 +31,6 @@ foreach ($entry in @(@($moduleSource, 'agent_room_hcom.node', $moduleHash), @($h
   if ((Get-NativeHash $destination) -ne $entry[2]) { throw "Invalid native build file: $destination" }
 }
 Copy-Item -LiteralPath (Join-Path $projectRoot 'native/hcom/LICENSE') -Destination (Join-Path $buildDir 'hcom-LICENSE') -Force
-& node (Join-Path $PSScriptRoot 'copy-terminal-assets.cjs')
-if ($LASTEXITCODE -ne 0) { throw 'Terminal asset copy failed.' }
 $manifestTemp = Join-Path $nativeBin ('runtime-' + [Guid]::NewGuid().ToString('N') + '.tmp')
 [IO.File]::WriteAllText($manifestTemp, (@{ build = $buildName } | ConvertTo-Json), [Text.UTF8Encoding]::new($false))
 Move-Item -LiteralPath $manifestTemp -Destination (Join-Path $nativeBin 'runtime.json') -Force

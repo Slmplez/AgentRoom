@@ -1,6 +1,6 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const { tokens, context, insert } = require('../renderer/mentions.js');
+const { tokens, context, insert } = require('../shared/mentions.cjs');
 const { resolveTargets } = require('../lib/hcom-service.cjs');
 const agents = ['alpha','beta','gamma'].map(id => ({id,name:id,baseName:id,workspaceId:'w'}));
 const room = {workspaceId:'w',allMembers:true};

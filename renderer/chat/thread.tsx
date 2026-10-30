@@ -7,16 +7,16 @@ import { useEntrance } from './motion';
 const toolStatus = (status: string) => ({ completed: '已完成', running: '执行中', failed: '失败', cancelled: '已中断', ended: '已结束', unknown: '结果未知' } as Record<string, string>)[status] || '等待中';
 const brief = (text: string) => { const line = text.trim().split(/\r?\n/)[0] || ''; return line.length > 100 ? `${line.slice(0, 100)}…` : line; };
 
-const ThreadContext = createContext<{ client?: ChatClient; messages: Message[]; agents: Agent[]; portrait(agent: Agent): string; showDiff(patches: string[]): void; expanded?: Record<string, boolean>; onExpanded?(id: string, value: boolean): void }>({ messages: [], agents: [], portrait: () => '', showDiff: () => {} });
+const ThreadContext = createContext<{ client?: ChatClient; group?: boolean; statusMessageIds?: string[]; messages: Message[]; agents: Agent[]; portrait(agent: Agent): string; showDiff(patches: string[]): void; expanded?: Record<string, boolean>; onExpanded?(id: string, value: boolean): void }>({ messages: [], agents: [], portrait: () => '', showDiff: () => {} });
 const convertMessage = (message: ThreadMessageLike) => message;
 const MarkdownText = () => <MarkdownTextPrimitive />;
-export function ChatThread({ client, messages, agents, portrait, showDiff, expanded = {}, onExpanded }: React.ContextType<typeof ThreadContext>) {
+export function ChatThread({ client, group = false, statusMessageIds = [], messages, agents, portrait, showDiff, expanded = {}, onExpanded }: React.ContextType<typeof ThreadContext>) {
   const converted = useMemo<ThreadMessageLike[]>(() => messages.map(m => ({
     id: m.id, role: m.role, content: [{ type: 'text', text: m.text }], createdAt: new Date(m.createdAt || 0),
     ...(m.role === 'assistant' ? { status: m.status === 'running' ? { type: 'running' as const } : { type: 'complete' as const, reason: 'stop' as const } } : {}),
   })), [messages]);
   const runtime = useExternalStoreRuntime({ messages: converted, convertMessage, isRunning: messages.some(m => m.status === 'running'), onNew: async () => { throw new Error('请使用会话输入框发送。'); } });
-  return <ThreadContext.Provider value={{ client, messages, agents, portrait, showDiff, expanded, onExpanded }}><AssistantRuntimeProvider runtime={runtime}>
+  return <ThreadContext.Provider value={{ client, group, statusMessageIds, messages, agents, portrait, showDiff, expanded, onExpanded }}><AssistantRuntimeProvider runtime={runtime}>
     <ThreadPrimitive.Root className="chat-thread">
       <ThreadPrimitive.Viewport className="messages" id="messages" aria-label="消息记录" scrollToBottomOnRunStart={false}>
         {!messages.length && <div className="welcome"><div className="welcome-kicker">AGENT ROOM</div><h2>今天，一起完成什么？</h2><p>写下想法，或者邀请一位 Agent 加入讨论。</p></div>}
@@ -31,16 +31,39 @@ function MessageRow() {
   const message = context.messages.find(m => m.id === id);
   if (!message) return null;
   const agent = context.agents.find(a => a.id === message.authorId);
-  return <MessagePrimitive.Root className={`message ${message.role === 'user' ? 'human' : ''}`} data-message-id={id}>
+  const statusCovered = context.group && context.statusMessageIds?.includes(id);
+  if (statusCovered && message.status === 'running' && !message.text && !message.tools.length) return null;
+  return <MessagePrimitive.Root className={`message ${context.group ? 'group-message' : ''} ${message.role === 'user' ? 'human' : ''}`} data-message-id={id}>
     {message.role !== 'user' && <span className="avatar character">{agent && <img src={context.portrait(agent)} alt="" />}</span>}
-    <div className="message-main"><div className="message-heading"><span className="message-name">{message.authorName}</span>{agent && <span className="message-engine">{agent.engine}</span>}</div>
+    <div className="message-main"><div className="message-heading"><span className="message-name">{message.authorName}</span>{agent && !context.group && <span className="message-engine">{agent.engine}</span>}</div>
       <div className="message-bubble chat-markdown"><MessagePrimitive.Parts components={{ Text: MarkdownText }} />{message.status === 'running' && !message.text && <span className="chat-thinking" role="status">正在回应…</span>}</div>
-      {message.status !== 'running' && message.status !== 'complete' && <p className="chat-inline-error" role="status">{message.status === 'unknown' ? '执行结果尚未确认' : message.status === 'cancelled' ? '已中断' : '执行失败'}</p>}
-      {message.tools.length > 0 && <details className="tool-trace" open={context.expanded?.[id]} onToggle={e => context.onExpanded?.(id, e.currentTarget.open)}><summary><span>工具使用 · {message.tools.length} 次</span><span className="tool-overview">{message.tools.some(t => t.status === 'failed') ? '有操作失败' : message.tools.some(t => t.status === 'unknown') ? '有结果待核查' : message.tools.some(t => t.status === 'running') ? '执行中' : message.tools.every(t => t.status === 'completed') ? '已完成' : '查看进展'}</span></summary>
+      {!statusCovered && message.status !== 'running' && message.status !== 'complete' && <p className="chat-inline-error" role="status">{message.status === 'unknown' ? '执行结果尚未确认' : message.status === 'cancelled' ? '已中断' : '执行失败'}</p>}
+      {context.group && message.tools.some(t => t.hasDiff || t.patches.length > 0) && <MessageChanges key={message.id} tools={message.tools} context={context} />}
+      {message.tools.length > 0 && <details className="tool-trace" open={context.expanded?.[id]} onToggle={e => context.onExpanded?.(id, e.currentTarget.open)}><summary>{context.group ? <><span>查看过程</span>{!statusCovered && message.status === 'complete' && message.tools.some(t => ['failed', 'unknown'].includes(t.status)) && <span className="process-attention">有操作需要核查</span>}</> : <><span>工具使用 · {message.tools.length} 次</span><span className="tool-overview">{message.tools.some(t => t.status === 'failed') ? '有操作失败' : message.tools.some(t => t.status === 'unknown') ? '有结果待核查' : message.tools.some(t => t.status === 'running') ? '执行中' : message.tools.every(t => t.status === 'completed') ? '已完成' : '查看进展'}</span></>}</summary>
         {message.tools.map(tool => <ToolRow key={tool.id} tool={tool} messageId={id} context={context} />)}
       </details>}
     </div>
   </MessagePrimitive.Root>;
+}
+
+function MessageChanges({ tools, context }: { tools: Message['tools']; context: React.ContextType<typeof ThreadContext> }) {
+  const [busy, setBusy] = useState(false), [error, setError] = useState(''), [notice, setNotice] = useState('');
+  const active = useRef(true), pending = useRef(false);
+  useEffect(() => { active.current = true; return () => { active.current = false; }; }, []);
+  async function open() {
+    if (pending.current) return;
+    pending.current = true; setBusy(true); setError(''); setNotice('');
+    try {
+      const results = await Promise.all(tools.filter(t => t.hasDiff || t.patches.length > 0).map(t => t.detailRef && context.client ? context.client.query({ type: 'toolDetails', ref: t.detailRef }) : Promise.resolve({ patches: t.patches, truncated: t.truncated })));
+      if (!active.current) return;
+      const patches = results.flatMap(r => r.patches);
+      if (!patches.length) throw new Error('当前没有可用变更，请展开过程核查。');
+      if (results.some(r => r.truncated)) setNotice('部分内容超过预览范围，可展开过程查看详情。');
+      context.showDiff(patches);
+    } catch (e) { if (active.current) setError((e as Error).message); }
+    finally { pending.current = false; if (active.current) setBusy(false); }
+  }
+  return <div className="message-results"><button className="message-result-link" disabled={busy} onClick={() => void open()}>{busy ? '正在读取变更…' : '查看变更'}</button>{error && <p role="alert">{error}</p>}{notice && <p role="status">{notice}</p>}</div>;
 }
 
 function ToolRow({ tool, messageId, context }: { tool: Message['tools'][number]; messageId: string; context: React.ContextType<typeof ThreadContext> }) {

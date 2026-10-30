@@ -9,7 +9,7 @@
     "install-runtime": "install-electron",
     "web": "node server.cjs",
     "test": "node --test test/*.test.cjs",
-    "check": "node --check main.cjs && node --check preload.cjs && node --check server.cjs && node --check lib/hcom-service.cjs && node --check lib/connection-profiles.cjs && node --check lib/model-gateway.cjs && node --check lib/engine-connections.cjs && node --check lib/usage.cjs && node --check lib/capability-library.cjs && node --check lib/mcp-hub.cjs && node --check lib/capability-launch.cjs && node --check renderer/capabilities.js && node --check lib/context-telemetry.cjs && node --check lib/pi-context-extension.mjs && node --check renderer/context.js && node --check renderer/connections.js && node --check renderer/usage.js && node --check renderer/avatars.js && node --check renderer/app.js && node --check lib/native-runtime.cjs && node --check lib/runtime-host.cjs && node --check lib/terminal-contract.cjs && node --check renderer/terminal.js && node --check lib/rpc-runtime.cjs && node --check lib/rpc/transport.cjs && node --check lib/rpc/engines.cjs && node --check lib/rpc/approvals.cjs && node --check renderer/permissions.js && node --check renderer/mentions.js && node --check renderer/diffs.js && node --check lib/rpc/tool-diffs.cjs",
+    "check": "node --check main.cjs && node --check preload.cjs && node --check server.cjs && node --check lib/hcom-service.cjs && node --check lib/connection-profiles.cjs && node --check lib/model-gateway.cjs && node --check lib/engine-connections.cjs && node --check lib/usage.cjs && node --check lib/capability-library.cjs && node --check lib/mcp-hub.cjs && node --check lib/capability-launch.cjs && node --check renderer/capabilities.js && node --check lib/context-telemetry.cjs && node --check lib/pi-context-extension.mjs && node --check renderer/context.js && node --check renderer/connections.js && node --check renderer/usage.js && node --check renderer/avatars.js && node --check renderer/app.js && node --check lib/native-runtime.cjs && node --check lib/runtime-host.cjs && node --check lib/terminal-contract.cjs && node --check lib/rpc-runtime.cjs && node --check lib/rpc/transport.cjs && node --check lib/rpc/engines.cjs && node --check lib/rpc/approvals.cjs && node --check renderer/permissions.js && node --check renderer/diffs.js && node --check lib/rpc/tool-diffs.cjs",
     "verify:capabilities-ui": "electron scripts/verify-capabilities-ui.cjs --disable-gpu",
     "verify:capability-clis": "node scripts/verify-capability-clis.cjs",
     "build:native": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-native.ps1",
@@ -28,7 +28,12 @@
     "verify:chat-ui": "electron scripts/verify-chat-ui.cjs --disable-gpu",
     "verify:chat-transports": "electron scripts/verify-chat-transports.cjs --disable-gpu",
     "verify:rpc-ui": "electron scripts/verify-rpc-ui.cjs --disable-gpu",
-    "check:client": "node --check lib/chat-api.mjs && node --check lib/chat-projection.mjs && node --check lib/chat-http.mjs && node --check renderer/client/client.mjs && node --check renderer/client/transport.mjs && node --check renderer/client/bootstrap.mjs"
+    "check:client": "node scripts/check-boundaries.cjs && node --check lib/chat-api.mjs && node --check lib/chat-projection.mjs && node --check lib/chat-http.mjs && node --check renderer/client/client.mjs && node --check renderer/client/transport.mjs && node --check renderer/client/bootstrap.mjs",
+    "check:boundaries": "node scripts/check-boundaries.cjs",
+    "verify:management-ui": "electron scripts/verify-management-ui.cjs --disable-gpu",
+    "verify:chat-interactions": "electron scripts/verify-chat-interactions.cjs --disable-gpu",
+    "verify:chat-regressions": "electron scripts/verify-chat-regressions.cjs --disable-gpu",
+    "verify:chat-polish": "electron scripts/verify-chat-polish.cjs --disable-gpu"
   },
   "devDependencies": {
     "@types/react": "19.3.0",
@@ -44,8 +49,6 @@
     "@json-render/react": "0.21.3",
     "@modelcontextprotocol/sdk": "1.32.2",
     "@pierre/diffs": "1.6.2",
-    "@xterm/addon-fit": "^0.11.0",
-    "@xterm/xterm": "^6.0.0",
     "react": "19.3.1",
     "react-dom": "19.3.1",
     "zod": "4.6.7"

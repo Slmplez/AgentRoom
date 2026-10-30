@@ -1,4 +1,13 @@
 /* Chat interaction refinements; shared warm palette and original navigation remain. */
+.chat-app .group-message .tool-trace { border: 0; padding: 0; margin-top: 8px; }
+.chat-app .group-message .tool-trace > summary { padding: 5px 0; width: fit-content; }
+.chat-app .group-message .tool-trace:not([open]) { display: inline-block; vertical-align: baseline; }
+.chat-app .group-message .tool-trace[open] { padding: 0 12px 8px; border-left: 1px solid var(--line-strong); }
+.process-attention { color: var(--clay-text); margin-left: 12px; }
+.message-results { display: inline-block; vertical-align: baseline; margin: 10px 14px 0 0; font-size: 13px; }
+.message-result-link { color: var(--clay-text); padding: 4px 0; font: inherit; text-decoration: underline; text-underline-offset: 3px; }
+.message-result-link:disabled { color: var(--text-secondary); cursor: wait; }
+.message-results p { margin: 6px 0; color: var(--clay-text); }
 .chat-app .tool-trace { border: 1px solid var(--line); border-radius: 10px; padding: 0 12px; margin-top: 14px; background: transparent; }
 .chat-app .tool-trace > summary { padding: 11px 0; color: var(--text-secondary); font-size: 12px; }
 .tool-overview { float: right; margin-left: 16px; }

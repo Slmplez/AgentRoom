@@ -10,26 +10,6 @@ const dataDir = path.join(__dirname, '.data', 'web-rpc');
 const service = new HcomService({ dataDir, runtime: new RpcRuntime({ dataDir }) });
 const chatHandler = Promise.all([import('./lib/chat-api.mjs'), import('./lib/chat-http.mjs')])
   .then(([{ createChatApi }, { createChatHttpHandler }]) => createChatHttpHandler(createChatApi(service)));
-const clients = new Set();
-service.on('state', state => { for (const res of clients) res.write(`data: ${JSON.stringify(state)}\n\n`); });
-const api = {
-  '/api/state': () => service.snapshot(), '/api/refresh': () => service.rescan(),
-  '/api/send': body => service.send(body), '/api/rooms': body => service.createRoom(body),
-  '/api/terminal': body => service.terminal(body.id), '/api/launch': body => service.launch(body),
-  '/api/session/inspect': body => service.inspectSession(body.id),
-  '/api/session/respond': body => service.respondSession(body.id, body.requestId, body.answer),
-  '/api/session/cancel': body => service.cancelSession(body.id), '/api/session/stop': body => service.stopSession(body.id),
-  '/api/workspaces': body => service.createWorkspace(body),
-  '/api/connections/save': body => service.saveConnection(body),
-  '/api/connections/remove': body => service.removeConnection(body.id),
-  '/api/connections/test': body => service.testConnection(body),
-  '/api/usage': () => service.usage.snapshot(),
-  '/api/capabilities/server-save': body => service.saveCapabilityServer(body),
-  '/api/capabilities/skill-import': body => service.importCapabilitySkill(body),
-  '/api/capabilities/remove': body => service.removeCapability(body),
-  '/api/capabilities/bind': body => service.bindCapabilities(body),
-  '/api/capabilities/test': body => service.testCapabilityServer(body),
-};
 const mime = { '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.svg': 'image/svg+xml', '.webp': 'image/webp', '.png': 'image/png' };
 const server = http.createServer(async (req, res) => {
   try {
@@ -38,25 +18,11 @@ const server = http.createServer(async (req, res) => {
     }
     const url = new URL(req.url, origin);
     if (url.pathname.startsWith('/api/chat/')) return await (await chatHandler)(req, res);
-    if (url.pathname === '/api/events' && req.method === 'GET') {
-      res.writeHead(200, { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', Connection: 'keep-alive' });
-      clients.add(res); res.write(`data: ${JSON.stringify(service.snapshot())}\n\n`);
-      req.on('close', () => clients.delete(res)); return;
-    }
-    if (api[url.pathname]) {
-      const readOnly = ['/api/state', '/api/usage'].includes(url.pathname);
-      if (req.method !== (readOnly ? 'GET' : 'POST')) { res.writeHead(405); return res.end(); }
-      let text = '';
-      for await (const chunk of req) { text += chunk; if (text.length > 65536) throw new Error('请求过大'); }
-      const body = text ? JSON.parse(text) : {};
-      const result = await api[url.pathname](body);
-      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
-      return res.end(JSON.stringify(result));
-    }
+    if (url.pathname.startsWith('/api/')) { res.writeHead(404); res.end(); return; }
     if (req.method !== 'GET') { res.writeHead(405); return res.end(); }
     const name = url.pathname === '/' ? (process.argv.includes('--chat-ui') ? 'chat.html' : 'index.html') : decodeURIComponent(url.pathname).slice(1);
     const chatAsset = name === 'chat.html' || name === 'vendor/mentions.js' || /^vendor\/(?:chat|client)\/[a-zA-Z0-9_.-]+\.(?:js|css)$/.test(name);
-    if (!chatAsset && !/^assets\/avatars\/[a-zA-Z0-9_-]+\.webp$/.test(name) && !['index.html', 'styles.css', 'design-tokens.css', 'workbench.css', 'app.js', 'icons.js', 'avatars.js', 'connections.js', 'usage.js', 'context.js', 'capabilities.js', 'capabilities.css', 'terminal.js', 'permissions.js', 'mentions.js', 'diffs.js', 'vendor/xterm.css', 'vendor/xterm.js', 'vendor/addon-fit.js', 'assets/brand/mark.svg', 'assets/brand/app.svg', 'assets/brand/mark.png', 'assets/brand/app.png', 'assets/brand/lockup-navy.png', 'assets/brand/lockup-light.png'].includes(name) && !/^vendor\/diffs\/[a-zA-Z0-9_.-]+\.js$/.test(name)) { res.writeHead(404); return res.end(); }
+    if (!chatAsset && !/^assets\/avatars\/[a-zA-Z0-9_-]+\.webp$/.test(name) && !['index.html', 'styles.css', 'design-tokens.css', 'workbench.css', 'app.js', 'icons.js', 'avatars.js', 'connections.js', 'usage.js', 'context.js', 'capabilities.js', 'capabilities.css', 'permissions.js', 'diffs.js', 'assets/brand/mark.svg', 'assets/brand/app.svg', 'assets/brand/mark.png', 'assets/brand/app.png', 'assets/brand/lockup-navy.png', 'assets/brand/lockup-light.png'].includes(name) && !/^vendor\/diffs\/[a-zA-Z0-9_.-]+\.js$/.test(name)) { res.writeHead(404); return res.end(); }
     const content = await fs.readFile(path.join(__dirname, 'renderer', name));
     res.writeHead(200, { 'Content-Type': mime[path.extname(name)], 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' });
     res.end(content);
@@ -66,4 +32,10 @@ const server = http.createServer(async (req, res) => {
   }
 });
 server.listen(port, '127.0.0.1', async () => { console.log(`Agent Room preview: ${origin}`); await service.start(); });
-process.on('SIGINT', () => { service.close(); for (const res of clients) res.end(); server.close(() => process.exit()); });
+let stopping = false;
+async function shutdown() {
+  if (stopping) return; stopping = true;
+  await service.close(); server.closeAllConnections(); server.close(() => process.exit());
+}
+process.on('SIGINT', () => { void shutdown(); });
+process.on('SIGTERM', () => { void shutdown(); });

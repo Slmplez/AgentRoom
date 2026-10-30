@@ -2,7 +2,7 @@ import { createAgentRoomClient } from './client.mjs';
 import { createChatTransport, createHttpChannel } from './transport.mjs';
 import { clientError } from '../../contracts/chat.mjs';
 
-export function createPlatformClient(host = globalThis.agentRoom) {
+export function createPlatformClient(host = globalThis.agentRoomPlatform) {
   return {
     capabilities: Object.freeze({ windowControls: typeof host?.windowAction === 'function', chooseDirectory: typeof host?.chooseDirectory === 'function', chooseCertificate: typeof host?.chooseCertificate === 'function' }),
     async chooseCertificate(kind) {
