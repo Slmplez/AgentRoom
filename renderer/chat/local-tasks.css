@@ -1,0 +1,16 @@
+.local-tasks { margin: 8px 20px; border-bottom: 1px solid var(--line-strong); font-size: 14px; flex-shrink: 0; min-width: 0; }
+.local-tasks > summary { padding: 8px 0; color: var(--clay-text); cursor: pointer; }
+.local-tasks-body { max-height: 48vh; overflow: auto; padding: 4px 4px 16px; }
+.local-tasks label { display: grid; gap: 8px; padding: 6px 0; }
+.local-tasks label:has(input) { display: flex; align-items: baseline; }
+.local-tasks textarea { box-sizing: border-box; width: 100%; color: var(--ink); background: var(--surface-2); border: 1px solid var(--line-strong); border-radius: var(--radius-control); padding: 10px; font: inherit; resize: vertical; }
+.local-tasks fieldset { border: 0; min-width: 0; padding: 0; }
+.local-tasks article { padding: 16px 0; border-top: 1px solid var(--line); }
+.local-tasks article header { display: flex; flex-wrap: wrap; gap: 8px 16px; justify-content: space-between; overflow-wrap: anywhere; }
+.local-task-note { color: var(--text-secondary); font-size: 13px; overflow-wrap: anywhere; margin: 8px 0; }
+.local-native-question { padding: 10px 12px; background: var(--surface-0); border-radius: var(--radius-panel); }
+.local-native-question summary { cursor: pointer; }
+.local-task-result { white-space: pre-wrap; overflow-wrap: anywhere; font: inherit; }
+.local-tasks [role=alert], [data-local-phase=unknown] { color: var(--danger-text); }
+.local-tasks :focus-visible { outline: 2px solid var(--clay-text); outline-offset: 3px; }
+@media (max-width: 759px) { .local-tasks { margin: 8px 12px; } .local-tasks-body { max-height: 42vh; } }

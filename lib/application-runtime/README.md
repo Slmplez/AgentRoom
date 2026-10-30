@@ -1,10 +1,17 @@
 # G2a persistent discussion backend
 
-This is the standalone #13–#15 backend. It does not replace the existing desktop
+This is the standalone #13–#15 discussion backend, with opt-in #26/#28 local
+Agent question support. By default it does not replace the existing desktop
 service or load hcom, an agent CLI, a model gateway, or the React client.
-It supports authenticated HTTP/SSE and the public AgentRoomClient. Production UI
-integration remains #16. History paging and event expiry are available through
+It supports authenticated HTTP/SSE and the public AgentRoomClient. Production discussion UI
+integration was delivered in #16. History paging and event expiry are available through
 the existing public client; no additional chat UI or store is introduced.
+
+The explicit `--agent-workspace` trusted-host option enables one local owner,
+one read-only Pi execution and native question answers through the same runtime.
+The task UI uses the same Client/journal/SSE. See
+[local Agent API and UI](../../docs/LOCAL-AGENT-QUESTIONS.md) for startup,
+schema-2 migration, failure recovery, real CLI evidence and current limits.
 
 Requires Node.js >= 24.4.1 with `node:sqlite` (experimental in the validated
 24.4.1 runtime). Use a separate local data directory. Do not point this service

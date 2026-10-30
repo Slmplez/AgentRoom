@@ -31,11 +31,12 @@ export const persistenceFrameSchema = z.discriminatedUnion('type', [
 export const persistenceBootstrapSchema = z.object({
   schemaVersion: z.literal(1), databaseId: id, instanceId: id,
   user: z.object({ id, name: z.string() }), workspace: z.object({ id, title: z.string() }),
-  capabilities: z.object({ persistentMessages: z.literal(true), eventStream: z.literal(true), idempotentSend: z.literal(true), tasks: z.literal(false), readOnlyArtifacts: z.boolean().default(false), artifactPublishing: z.boolean().default(false) }),
+  capabilities: z.object({ persistentMessages: z.literal(true), eventStream: z.literal(true), idempotentSend: z.literal(true), tasks: z.literal(false), readOnlyArtifacts: z.boolean().default(false), artifactPublishing: z.boolean().default(false), localExecution: z.boolean().default(false) }), localAgentId: id.optional(),
 });
 export const persistenceSnapshotSchema = z.object({
   schemaVersion: z.literal(1), databaseId: id, instanceId: id, cursor,
   room: persistenceRoomSchema, messages: z.array(persistenceMessageSchema),
+  localTasks: z.array(localTaskSchema).default([]),
   roomSequenceUpperBound: counter, beforeSequence: counter.positive().nullable(),
 });
 export const persistenceHistorySchema = z.object({

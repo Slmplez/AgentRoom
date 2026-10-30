@@ -8,7 +8,7 @@ input.on('line', line => {
   if (r.type === 'get_state') send({ type: 'response', id: r.id, success: true, data: { sessionId: 'controlled-native-session' } });
   if (r.type === 'prompt') {
     send({ type: 'response', id: r.id, success: true, data: {} });
-    send({ type: 'extension_ui_request', id: 'native-input', method: 'input', title: '旧接口兼容期限？' });
+    send({ type: 'extension_ui_request', id: 'native-input', method: r.message.includes('select') ? 'select' : 'input', title: '旧接口兼容期限？', ...(r.message.includes('select') ? { options: ['保留两周', '直接切换'] } : {}) });
   }
   if (r.type === 'extension_ui_response') {
     if (process.env.LOCAL_ANSWER_LOG) fs.appendFileSync(process.env.LOCAL_ANSWER_LOG, 'answer\n');

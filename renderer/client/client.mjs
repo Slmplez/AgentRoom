@@ -7,7 +7,7 @@ function freeze(value) {
   if (value && typeof value === 'object' && !Object.isFrozen(value)) { Object.freeze(value); Object.values(value).forEach(freeze); }
   return value;
 }
-const empty = () => ({ instanceId: '', revision: -1, agents: [], rooms: [], workspaces: [], messages: [], approvals: [], approvalHistory: [], runs: [], capabilities: { tasks: false, idempotentSend: false } });
+const empty = () => ({ instanceId: '', revision: -1, agents: [], rooms: [], workspaces: [], messages: [], approvals: [], approvalHistory: [], runs: [], localTasks: [], localAgentId: null, currentUserId: null, capabilities: { tasks: false, idempotentSend: false, localExecution: false } });
 
 // The client owns the single projection, its subscription, recovery and uncertain operations.
 export function createAgentRoomClient(transport) {
@@ -25,6 +25,7 @@ export function createAgentRoomClient(transport) {
   }
   function acceptPersistence(event) {
     if (event.type === 'persistence.identity') {
+      publish({ backendId: event.backendId });
       if (state.databaseId && state.databaseId !== event.data.databaseId) {
         applied = null;
         publish({ ...empty(), databaseId: event.data.databaseId, cursor: null, pendingOperations: [], databaseChanged: true, connection: 'resyncing', error: '后端数据库已更换，请重新确认；旧请求不会重发。' });
@@ -33,16 +34,21 @@ export function createAgentRoomClient(transport) {
       const data = persistenceSnapshotSchema.parse(event.data), boot = event.boot;
       if (data.room.id !== scope.roomId) throw clientError('invalid_scope', '快照范围不匹配。');
       // The projection and applied cursor are published together; listeners never see a cursor ahead of data.
-      const next = snapshotSchema.parse({ instanceId: data.instanceId, revision: data.room.revision, agents: [], rooms: [{ ...data.room, type: 'group', memberIds: [boot.user.id] }], workspaces: [{ ...boot.workspace, directory: '' }], messages: data.messages, approvals: [], runs: [], capabilities: { tasks: false, idempotentSend: true } });
+      const next = snapshotSchema.parse({ instanceId: data.instanceId, revision: data.room.revision, agents: [], rooms: [{ ...data.room, type: 'group', memberIds: [boot.user.id] }], workspaces: [{ ...boot.workspace, directory: '' }], messages: data.messages, approvals: [], runs: [], currentUserId: boot.user.id, localTasks: data.localTasks, localAgentId: boot.localAgentId || null, capabilities: { tasks: false, idempotentSend: true, localExecution: boot.capabilities.localExecution } });
       applied = { databaseId: data.databaseId, roomId: data.room.id, cursor: data.cursor };
       publish({ ...next, messages: data.messages, databaseId: data.databaseId, cursor: data.cursor, roomSequenceUpperBound: data.roomSequenceUpperBound, beforeSequence: data.beforeSequence });
     } else if (event.type === 'persistence.frame') {
       if (!applied) throw clientError('resync_required', '需要先读取快照。');
       const frame = persistenceFrameSchema.parse(event.data);
-      let messages = state.messages;
+      let messages = state.messages, localTasks = state.localTasks || [];
       if (frame.type === 'event') {
         const e = frame.data;
         if (e.roomId !== scope.roomId || e.workspaceId !== state.rooms[0]?.workspaceId) throw clientError('invalid_scope', '事件范围不匹配。');
+        if (e.type === 'localTask.updated') {
+          const old = localTasks.find(t => t.id === e.entityId);
+          if (!old) localTasks = [e.payload, ...localTasks].slice(0, 100);
+          else if (old.revision < e.entityRevision) localTasks = localTasks.map(t => t.id === e.entityId ? e.payload : t);
+        }
         if (e.type === 'message.created') {
           const previous = messages.find(m => m.id === e.entityId);
           if (!previous || previous.revision < e.entityRevision) messages = [...messages.filter(m => m.id !== e.entityId), e.payload].sort((a, b) => a.sequence - b.sequence);
@@ -50,12 +56,12 @@ export function createAgentRoomClient(transport) {
       }
       const cursor = frame.type === 'event' ? frame.data.cursor : frame.cursor;
       applied = { ...applied, cursor };
-      publish({ messages, cursor });
+      publish({ messages, localTasks, cursor });
     } else if (event.type === 'persistence.pending') {
       publish({ pendingOperations: event.data.filter(item => item.roomId === scope.roomId) });
     } else if (event.type === 'persistence.ready') {
       attempts = 0; streamOffline = false;
-      publish({ instanceId: event.data.instanceId, connection: 'live', syncNotice: state.syncNotice ? '事件记录已不可续订，已重新加载消息；旧历史仍可分页读取。' : '', error: state.databaseChanged ? '后端数据库已更换，请重新确认；旧请求不会重发。' : '' });
+      publish({ instanceId: event.data.instanceId, currentUserId: event.data.user?.id ?? state.currentUserId, localAgentId: event.data.capabilities ? event.data.localAgentId || null : state.localAgentId, capabilities: { ...state.capabilities, localExecution: event.data.capabilities?.localExecution ?? state.capabilities.localExecution }, connection: 'live', syncNotice: state.syncNotice ? '事件记录已不可续订，已重新加载消息；旧历史仍可分页读取。' : '', error: state.databaseChanged ? '后端数据库已更换，请重新确认；旧请求不会重发。' : '' });
     }
   }
   function accept(raw) {
@@ -165,6 +171,7 @@ export function createAgentRoomClient(transport) {
       const parsed = commandSchema.safeParse(input);
       if (!parsed.success) throw clientError('invalid_command', '请求不符合聊天契约。');
       const command = parsed.data;
+      if (['createLocalTask', 'answerLocalQuestion'].includes(command.type) && !state.capabilities.localExecution) throw clientError('unsupported', '当前后端未启用本机只读执行。');
       if (command.type === 'answerQuestion' && !state.capabilities.collaborationQuestions) throw clientError('unsupported', '当前后端不支持协作问题。');
       if (['requestQuestionAdvice', 'adoptQuestionAdvice'].includes(command.type) && (!state.capabilities.collaborationQuestions || !state.capabilities.questionAdvice)) throw clientError('unsupported', '当前后端不支持 Agent 建议。');
       const token = command.type === 'decide' ? command.approvalId : command.key;

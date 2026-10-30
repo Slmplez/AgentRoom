@@ -1,3 +1,4 @@
+import { localExecutionCommandSchema } from '../../contracts/local-execution.mjs';
 import { clientError } from '../../contracts/chat.mjs';
 import { persistenceBootstrapSchema, persistenceSnapshotSchema, persistenceReceiptSchema, persistenceFrameSchema, persistenceCommandSchema, persistenceHistorySchema } from '../../contracts/persistence.mjs';
 
@@ -6,6 +7,13 @@ import { persistenceBootstrapSchema, persistenceSnapshotSchema, persistenceRecei
 export function createPersistentTransport({ session, backendId, localUserId, storage = globalThis.localStorage, fetch: fetcher = globalThis.fetch }) {
   if (typeof session !== 'function' || !backendId || !localUserId || !storage?.getItem || !storage?.setItem || !storage?.removeItem || !storage?.key) throw new Error('Persistent transport requires a trusted session and durable user-scoped storage.');
   let active;
+  const parseCommand = value => { const original = persistenceCommandSchema.safeParse(value); return original.success ? original : localExecutionCommandSchema.safeParse(value); };
+  const routeFor = command => `/rooms/${encodeURIComponent(command.roomId)}/` + (command.type === 'sendDiscussion' ? 'messages' : command.type === 'createLocalTask' ? 'local-tasks' : `local-tasks/${encodeURIComponent(command.taskId)}/answers`);
+  function commandBody(command) { const { type, key, roomId, taskId, ...body } = command; return body; }
+  function validateReceipt(command, receipt) {
+    if (receipt.roomId !== command.roomId || (command.taskId && receipt.taskId !== command.taskId) || (command.type !== 'sendDiscussion' && !receipt.taskId)) throw clientError('invalid_response', '回执范围不匹配。', 'unknown');
+  }
+
   const controllers = new Set();
   const journalPrefix = boot => 'agentroom:submitted:v1:' + JSON.stringify([localUserId, backendId, boot.databaseId, boot.user.id]) + ':';
   const journalKey = (boot, key) => journalPrefix(boot) + JSON.stringify(key);
@@ -16,8 +24,8 @@ export function createPersistentTransport({ session, backendId, localUserId, sto
         const key = storage.key(i);
         if (!key?.startsWith(prefix)) continue;
         const raw = storage.getItem(key); if (raw === null) continue;
-        const item = JSON.parse(raw), parsed = persistenceCommandSchema.safeParse(item.command);
-        if (!parsed.success || item.command.type !== 'sendDiscussion' || item.databaseId !== boot.databaseId || item.command.workspaceId !== boot.workspace.id || key !== journalKey(boot, item.command.key) || !['unknown', 'not_found'].includes(item.outcome)) throw new Error('Invalid journal entry.');
+        const item = JSON.parse(raw), parsed = parseCommand(item.command);
+        if (!parsed.success || !['sendDiscussion', 'createLocalTask', 'answerLocalQuestion'].includes(item.command.type) || item.databaseId !== boot.databaseId || item.command.workspaceId !== boot.workspace.id || key !== journalKey(boot, item.command.key) || !['unknown', 'not_found'].includes(item.outcome)) throw new Error('Invalid journal entry.');
         items.push(item);
       }
       return items;
@@ -25,7 +33,7 @@ export function createPersistentTransport({ session, backendId, localUserId, sto
   }
   function pending(context) {
     if (active !== context || context.controller.signal.aborted) return;
-    context.emit({ type: 'persistence.pending', data: readJournal(context.boot).map(item => ({ key: item.command.key, type: 'send', roomId: item.command.roomId, databaseId: item.databaseId, outcome: item.outcome })) });
+    context.emit({ type: 'persistence.pending', data: readJournal(context.boot).map(item => ({ key: item.command.key, type: item.command.type === 'sendDiscussion' ? 'send' : item.command.type, taskId: item.command.taskId, roomId: item.command.roomId, databaseId: item.databaseId, outcome: item.outcome })) });
   }
   function update(context, key, value) {
     // One durable key per submitted command: separate windows cannot overwrite each other's list.
@@ -43,7 +51,7 @@ export function createPersistentTransport({ session, backendId, localUserId, sto
         redirect: 'error',
         credentials: 'same-origin',
         headers: { ...(context.credentials.authentication === 'cookie' ? {} : { Authorization: 'Bearer ' + context.credentials.token }), ...(command ? { 'Content-Type': 'application/json', 'Idempotency-Key': command.key } : {}) },
-        body: command ? JSON.stringify({ workspaceId: command.workspaceId, text: command.text, replyToId: command.replyToId, mentions: [] }) : undefined,
+        body: command ? JSON.stringify(commandBody(command)) : undefined,
         signal: stream ? signal : AbortSignal.any([signal, AbortSignal.timeout(15000)]),
       });
     } catch { throw clientError('transport_unavailable', '连接中断，请核查原请求。', command ? 'unknown' : 'rejected'); }
@@ -62,7 +70,8 @@ export function createPersistentTransport({ session, backendId, localUserId, sto
   async function check(context, key) {
     const entry = readJournal(context.boot).find(item => item.command.key === key);
     try {
-      const receipt = await json(context, '/operations?' + new URLSearchParams({ workspaceId: entry?.command.workspaceId || context.boot.workspace.id, commandType: 'sendDiscussion', key }), persistenceReceiptSchema);
+      const receipt = await json(context, '/operations?' + new URLSearchParams({ workspaceId: entry?.command.workspaceId || context.boot.workspace.id, commandType: entry?.command.type || 'sendDiscussion', key }), persistenceReceiptSchema);
+      if (entry) validateReceipt(entry.command, receipt);
       if (entry) update(context, key, null); return receipt;
     } catch (error) {
       if (error.code !== 'not_found') throw error;
@@ -107,7 +116,7 @@ export function createPersistentTransport({ session, backendId, localUserId, sto
       if (context.controller.signal.aborted) return;
       if (scope.workspaceId && scope.workspaceId !== context.boot.workspace.id) throw clientError('not_found', '工作区不可访问。');
       const matching = resume?.databaseId === context.boot.databaseId && resume.roomId === scope.roomId;
-      emit({ type: 'persistence.identity', data: context.boot, changed: !!resume && !matching });
+      emit({ type: 'persistence.identity', backendId, data: context.boot, changed: !!resume && !matching });
       // Only query previous explicit submissions; never execute them during recovery.
       for (const entry of readJournal(context.boot)) {
         if (context.controller.signal.aborted) return;
@@ -119,6 +128,7 @@ export function createPersistentTransport({ session, backendId, localUserId, sto
         const data = await json(context, `/rooms/${encodeURIComponent(scope.roomId)}/snapshot`, persistenceSnapshotSchema);
         if (context.controller.signal.aborted) return;
         if (data.databaseId !== context.boot.databaseId || data.room.id !== scope.roomId || data.room.workspaceId !== context.boot.workspace.id) throw clientError('invalid_response', '快照范围不匹配。');
+        if (data.localTasks.some(t => t.roomId !== scope.roomId)) throw clientError('invalid_response', '任务快照范围不匹配。');
         emit({ type: 'persistence.snapshot', data, boot: context.boot });
         cursor = data.cursor;
       }
@@ -145,9 +155,13 @@ export function createPersistentTransport({ session, backendId, localUserId, sto
     async command(input) {
       const context = active;
       if (!context?.boot || context.controller.signal.aborted) throw clientError('unavailable', '连接尚未恢复。');
-      if (input.type !== 'send' || input.mode !== 'discussion' || input.mentions?.length || input.ownerAgentId) throw clientError('unsupported', '持久后端仅支持普通讨论消息。');
+      const local = ['createLocalTask', 'answerLocalQuestion'].includes(input.type);
+      if (local && !context.boot.capabilities.localExecution) throw clientError('unsupported', '本机执行尚未启用。');
+      if (!local && (input.type !== 'send' || input.mode !== 'discussion' || input.mentions?.length || input.ownerAgentId)) throw clientError('unsupported', '持久后端仅支持普通讨论消息。');
       if (input.roomId !== context.scope.roomId) throw clientError('invalid_scope', '只能向当前房间发送。');
-      const command = { type: 'sendDiscussion', key: input.key, workspaceId: context.boot.workspace.id, roomId: input.roomId, text: input.text, replyToId: null };
+      const command = local ? localExecutionCommandSchema.parse(input) : { type: 'sendDiscussion', key: input.key, workspaceId: context.boot.workspace.id, roomId: input.roomId, text: input.text, replyToId: null };
+      if (command.workspaceId !== context.boot.workspace.id) throw clientError('invalid_scope', '工作区已变化。');
+      if (local && readJournal(context.boot).some(e => e.command.key !== command.key && e.command.type !== 'sendDiscussion' && e.command.roomId === command.roomId && (command.type === 'createLocalTask' || e.command.type === 'createLocalTask' || command.taskId === e.command.taskId))) throw clientError('outcome_unknown', '此前任务请求结果待核查，不能换标识重复提交。', 'unknown');
       const previous = readJournal(context.boot).find(item => item.command.key === command.key);
       if (previous) {
         if (JSON.stringify(previous.command) !== JSON.stringify(command)) throw clientError('idempotency_conflict', '待核查请求内容不能改变。');
@@ -159,7 +173,8 @@ export function createPersistentTransport({ session, backendId, localUserId, sto
       update(context, command.key, entry);
       const controller = new AbortController(); controllers.add(controller);
       try {
-        const receipt = await json(context, `/rooms/${encodeURIComponent(command.roomId)}/messages`, persistenceReceiptSchema, { command, signal: controller.signal });
+        const receipt = await json(context, routeFor(command), persistenceReceiptSchema, { command, signal: controller.signal });
+        validateReceipt(command, receipt);
         try { update(context, command.key, null); }
         catch { throw clientError('journal_unavailable', '消息已提交，但本地回执未保存；请核查原请求。', 'unknown'); }
         return receipt;
@@ -179,6 +194,7 @@ export function createPersistentTransport({ session, backendId, localUserId, sto
       if (!entry) throw clientError('not_found', '没有待重试的原请求，请先核查消息记录。');
       if (entry.command.roomId !== context.scope.roomId) throw clientError('invalid_scope', '原请求不属于当前房间。');
       if (entry.outcome !== 'not_found') throw clientError('outcome_unknown', '请先核查原请求。', 'unknown');
+      if (entry.command.type !== 'sendDiscussion') return this.command(entry.command);
       return this.command({ type: 'send', key, roomId: entry.command.roomId, text: entry.command.text, mode: 'discussion', mentions: [], ownerAgentId: null });
     },
   };

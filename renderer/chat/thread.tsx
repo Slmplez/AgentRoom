@@ -7,10 +7,10 @@ import { useEntrance } from './motion';
 const toolStatus = (status: string) => ({ completed: '已完成', running: '执行中', failed: '失败', cancelled: '已中断', ended: '已结束', unknown: '结果未知' } as Record<string, string>)[status] || '等待中';
 const brief = (text: string) => { const line = text.trim().split(/\r?\n/)[0] || ''; return line.length > 100 ? `${line.slice(0, 100)}…` : line; };
 
-const ThreadContext = createContext<{ client?: ChatClient; renderQuestions?(messageId: string): React.ReactNode; group?: boolean; statusMessageIds?: string[]; messages: Message[]; agents: Agent[]; portrait(agent: Agent): string; showDiff(patches: string[]): void; expanded?: Record<string, boolean>; onExpanded?(id: string, value: boolean): void }>({ messages: [], agents: [], portrait: () => '', showDiff: () => {} });
+const ThreadContext = createContext<{ client?: ChatClient; suppressWelcome?: boolean; renderQuestions?(messageId: string): React.ReactNode; group?: boolean; statusMessageIds?: string[]; messages: Message[]; agents: Agent[]; portrait(agent: Agent): string; showDiff(patches: string[]): void; expanded?: Record<string, boolean>; onExpanded?(id: string, value: boolean): void }>({ messages: [], agents: [], portrait: () => '', showDiff: () => {} });
 const convertMessage = (message: ThreadMessageLike) => message;
 const MarkdownText = () => <MarkdownTextPrimitive />;
-export function ChatThread({ client, renderQuestions, group = false, statusMessageIds = [], messages, agents, portrait, showDiff, expanded = {}, onExpanded }: React.ContextType<typeof ThreadContext>) {
+export function ChatThread({ client, renderQuestions, suppressWelcome = false, group = false, statusMessageIds = [], messages, agents, portrait, showDiff, expanded = {}, onExpanded }: React.ContextType<typeof ThreadContext>) {
   const converted = useMemo<ThreadMessageLike[]>(() => messages.map(m => ({
     id: m.id, role: m.role, content: [{ type: 'text', text: m.text }], createdAt: new Date(m.createdAt || 0),
     ...(m.role === 'assistant' ? { status: m.status === 'running' ? { type: 'running' as const } : { type: 'complete' as const, reason: 'stop' as const } } : {}),
@@ -19,7 +19,7 @@ export function ChatThread({ client, renderQuestions, group = false, statusMessa
   return <ThreadContext.Provider value={{ client, renderQuestions, group, statusMessageIds, messages, agents, portrait, showDiff, expanded, onExpanded }}><AssistantRuntimeProvider runtime={runtime}>
     <ThreadPrimitive.Root className="chat-thread">
       <ThreadPrimitive.Viewport className="messages" id="messages" aria-label="消息记录" scrollToBottomOnRunStart={false}>
-        {!messages.length && <div className="welcome"><div className="welcome-kicker">AGENT ROOM</div><h2>今天，一起完成什么？</h2><p>写下想法，或者邀请一位 Agent 加入讨论。</p></div>}
+        {!messages.length && !suppressWelcome && <div className="welcome"><div className="welcome-kicker">AGENT ROOM</div><h2>今天，一起完成什么？</h2><p>写下想法，或者邀请一位 Agent 加入讨论。</p></div>}
         <ThreadPrimitive.Messages components={{ Message: MessageRow }} />
       </ThreadPrimitive.Viewport>
       <ThreadPrimitive.ScrollToBottom className="chat-scroll-bottom" aria-label="回到最新消息">↓ 最新消息</ThreadPrimitive.ScrollToBottom>
