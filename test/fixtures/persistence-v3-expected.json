@@ -1,0 +1,303 @@
+{
+  "workspaceId": "7a1432d9-d875-4366-bbe8-9485792845ae",
+  "roomId": "76cd9e08-45af-4f99-9a7e-90cf0721ffd0",
+  "messageReceipt": {
+    "schemaVersion": 1,
+    "accepted": true,
+    "operationId": "9505cd50-84af-4257-a7da-2af9d439d8cd",
+    "roomId": "76cd9e08-45af-4f99-9a7e-90cf0721ffd0",
+    "messageId": "8c5b9648-ddf6-41e9-849b-66cfa9169dd9",
+    "sequence": 1,
+    "cursor": "WzEsIjE1MjRiNjNiLTMwMGEtNGVjNS1iNTVmLTllZTA0MWJjZGU0NyIsIjc2Y2Q5ZTA4LTQ1YWYtNGY5OS05YTdlLTkwY2YwNzIxZmZkMCIsMl0"
+  },
+  "taskReceipt": {
+    "schemaVersion": 1,
+    "accepted": true,
+    "operationId": "816d9ef7-60f6-4959-bfcd-da63e7ad1202",
+    "roomId": "76cd9e08-45af-4f99-9a7e-90cf0721ffd0",
+    "messageId": null,
+    "sequence": null,
+    "cursor": "WzEsIjE1MjRiNjNiLTMwMGEtNGVjNS1iNTVmLTllZTA0MWJjZGU0NyIsIjc2Y2Q5ZTA4LTQ1YWYtNGY5OS05YTdlLTkwY2YwNzIxZmZkMCIsM10",
+    "taskId": "ab1199e2-fe00-4ccb-b440-4ce224df8f32"
+  },
+  "artifactReceipt": {
+    "schemaVersion": 1,
+    "accepted": true,
+    "operationId": "d2a23344-1ac8-4d87-8ccf-9ac069ee0674",
+    "roomId": "76cd9e08-45af-4f99-9a7e-90cf0721ffd0",
+    "messageId": "a2931f1c-410d-410d-90d2-a11afca7dfce",
+    "sequence": 2,
+    "cursor": "WzEsIjE1MjRiNjNiLTMwMGEtNGVjNS1iNTVmLTllZTA0MWJjZGU0NyIsIjc2Y2Q5ZTA4LTQ1YWYtNGY5OS05YTdlLTkwY2YwNzIxZmZkMCIsNl0",
+    "artifactId": "26318bd0-d282-4257-9efb-10e940754853",
+    "artifactVersion": 1
+  },
+  "events": {
+    "events": [
+      {
+        "eventId": "422f9693-2b0b-4cf7-8def-4709ed3a847f",
+        "schemaVersion": 1,
+        "type": "room.created",
+        "entityId": "76cd9e08-45af-4f99-9a7e-90cf0721ffd0",
+        "entityRevision": 1,
+        "operationId": "d308969d-ab10-4b47-8608-0acf1b9b9664",
+        "workspaceId": "7a1432d9-d875-4366-bbe8-9485792845ae",
+        "roomId": "76cd9e08-45af-4f99-9a7e-90cf0721ffd0",
+        "occurredAt": "2026-10-30T23:33:08.956Z",
+        "payload": {
+          "id": "76cd9e08-45af-4f99-9a7e-90cf0721ffd0",
+          "workspaceId": "7a1432d9-d875-4366-bbe8-9485792845ae",
+          "title": "Original v3",
+          "revision": 1
+        },
+        "cursor": "WzEsIjE1MjRiNjNiLTMwMGEtNGVjNS1iNTVmLTllZTA0MWJjZGU0NyIsIjc2Y2Q5ZTA4LTQ1YWYtNGY5OS05YTdlLTkwY2YwNzIxZmZkMCIsMV0"
+      },
+      {
+        "eventId": "198a172f-5aa4-430e-8a7e-3d16c05dbb43",
+        "schemaVersion": 1,
+        "type": "message.created",
+        "entityId": "8c5b9648-ddf6-41e9-849b-66cfa9169dd9",
+        "entityRevision": 1,
+        "operationId": "9505cd50-84af-4257-a7da-2af9d439d8cd",
+        "workspaceId": "7a1432d9-d875-4366-bbe8-9485792845ae",
+        "roomId": "76cd9e08-45af-4f99-9a7e-90cf0721ffd0",
+        "occurredAt": "2026-10-30T23:33:08.959Z",
+        "payload": {
+          "id": "8c5b9648-ddf6-41e9-849b-66cfa9169dd9",
+          "roomId": "76cd9e08-45af-4f99-9a7e-90cf0721ffd0",
+          "sequence": 1,
+          "authorId": "3cb9798e-8813-40fc-9ada-839c87b1a30f",
+          "authorName": "本机用户",
+          "role": "user",
+          "text": "Original v3 source",
+          "status": "complete",
+          "createdAt": "2026-10-30T23:33:08.959Z",
+          "tools": [],
+          "artifactRefs": [],
+          "replyToId": null,
+          "recipientIds": [],
+          "runId": null,
+          "authorKind": "human",
+          "revision": 1
+        },
+        "cursor": "WzEsIjE1MjRiNjNiLTMwMGEtNGVjNS1iNTVmLTllZTA0MWJjZGU0NyIsIjc2Y2Q5ZTA4LTQ1YWYtNGY5OS05YTdlLTkwY2YwNzIxZmZkMCIsMl0"
+      },
+      {
+        "eventId": "9617cfbf-1ce2-4e0c-b10d-17fb9e238c1b",
+        "schemaVersion": 1,
+        "type": "localTask.updated",
+        "entityId": "ab1199e2-fe00-4ccb-b440-4ce224df8f32",
+        "entityRevision": 1,
+        "operationId": "816d9ef7-60f6-4959-bfcd-da63e7ad1202",
+        "workspaceId": "7a1432d9-d875-4366-bbe8-9485792845ae",
+        "roomId": "76cd9e08-45af-4f99-9a7e-90cf0721ffd0",
+        "occurredAt": "2026-10-30T23:33:08.963Z",
+        "payload": {
+          "id": "ab1199e2-fe00-4ccb-b440-4ce224df8f32",
+          "runId": "4c18ab7a-56ca-4639-9d26-aa39c0e417d0",
+          "initiatorId": "3cb9798e-8813-40fc-9ada-839c87b1a30f",
+          "roomId": "76cd9e08-45af-4f99-9a7e-90cf0721ffd0",
+          "ownerAgentId": "fixture-agent",
+          "goal": "Original v3 task",
+          "revision": 1,
+          "phase": "queued",
+          "result": "",
+          "delivery": "none",
+          "question": null,
+          "history": []
+        },
+        "cursor": "WzEsIjE1MjRiNjNiLTMwMGEtNGVjNS1iNTVmLTllZTA0MWJjZGU0NyIsIjc2Y2Q5ZTA4LTQ1YWYtNGY5OS05YTdlLTkwY2YwNzIxZmZkMCIsM10"
+      },
+      {
+        "eventId": "258580fb-add7-49ef-9503-eb71a8a6071e",
+        "schemaVersion": 1,
+        "type": "localTask.updated",
+        "entityId": "ab1199e2-fe00-4ccb-b440-4ce224df8f32",
+        "entityRevision": 2,
+        "operationId": "15b0f45c-4b68-4818-86d7-b8e07172d38f",
+        "workspaceId": "7a1432d9-d875-4366-bbe8-9485792845ae",
+        "roomId": "76cd9e08-45af-4f99-9a7e-90cf0721ffd0",
+        "occurredAt": "2026-10-30T23:33:08.967Z",
+        "payload": {
+          "id": "ab1199e2-fe00-4ccb-b440-4ce224df8f32",
+          "runId": "4c18ab7a-56ca-4639-9d26-aa39c0e417d0",
+          "initiatorId": "3cb9798e-8813-40fc-9ada-839c87b1a30f",
+          "roomId": "76cd9e08-45af-4f99-9a7e-90cf0721ffd0",
+          "ownerAgentId": "fixture-agent",
+          "goal": "Original v3 task",
+          "revision": 2,
+          "phase": "dispatching",
+          "result": "",
+          "delivery": "none",
+          "question": null,
+          "history": []
+        },
+        "cursor": "WzEsIjE1MjRiNjNiLTMwMGEtNGVjNS1iNTVmLTllZTA0MWJjZGU0NyIsIjc2Y2Q5ZTA4LTQ1YWYtNGY5OS05YTdlLTkwY2YwNzIxZmZkMCIsNF0"
+      },
+      {
+        "eventId": "345fe80c-4145-4263-9d80-48fd45d3534a",
+        "schemaVersion": 1,
+        "type": "localTask.updated",
+        "entityId": "ab1199e2-fe00-4ccb-b440-4ce224df8f32",
+        "entityRevision": 3,
+        "operationId": "d6efdb57-73cf-4b4b-bbc2-79fa9b7858af",
+        "workspaceId": "7a1432d9-d875-4366-bbe8-9485792845ae",
+        "roomId": "76cd9e08-45af-4f99-9a7e-90cf0721ffd0",
+        "occurredAt": "2026-10-30T23:33:08.969Z",
+        "payload": {
+          "id": "ab1199e2-fe00-4ccb-b440-4ce224df8f32",
+          "runId": "4c18ab7a-56ca-4639-9d26-aa39c0e417d0",
+          "initiatorId": "3cb9798e-8813-40fc-9ada-839c87b1a30f",
+          "roomId": "76cd9e08-45af-4f99-9a7e-90cf0721ffd0",
+          "ownerAgentId": "fixture-agent",
+          "goal": "Original v3 task",
+          "revision": 3,
+          "phase": "running",
+          "result": "",
+          "delivery": "none",
+          "question": null,
+          "history": []
+        },
+        "cursor": "WzEsIjE1MjRiNjNiLTMwMGEtNGVjNS1iNTVmLTllZTA0MWJjZGU0NyIsIjc2Y2Q5ZTA4LTQ1YWYtNGY5OS05YTdlLTkwY2YwNzIxZmZkMCIsNV0"
+      },
+      {
+        "eventId": "75783b84-d21a-4ecd-921c-5e65c219d0ac",
+        "schemaVersion": 1,
+        "type": "message.created",
+        "entityId": "a2931f1c-410d-410d-90d2-a11afca7dfce",
+        "entityRevision": 1,
+        "operationId": "d2a23344-1ac8-4d87-8ccf-9ac069ee0674",
+        "workspaceId": "7a1432d9-d875-4366-bbe8-9485792845ae",
+        "roomId": "76cd9e08-45af-4f99-9a7e-90cf0721ffd0",
+        "occurredAt": "2026-10-30T23:33:08.972Z",
+        "payload": {
+          "id": "a2931f1c-410d-410d-90d2-a11afca7dfce",
+          "roomId": "76cd9e08-45af-4f99-9a7e-90cf0721ffd0",
+          "sequence": 2,
+          "authorId": "fixture-agent",
+          "authorName": "fixture-agent",
+          "role": "assistant",
+          "text": "V3 report",
+          "status": "complete",
+          "createdAt": "2026-10-30T23:33:08.972Z",
+          "tools": [],
+          "artifactRefs": [
+            {
+              "artifactId": "26318bd0-d282-4257-9efb-10e940754853",
+              "version": 1,
+              "title": "V3 report",
+              "catalogVersion": 1
+            }
+          ],
+          "replyToId": null,
+          "recipientIds": [],
+          "runId": null,
+          "authorKind": "agent",
+          "revision": 1
+        },
+        "cursor": "WzEsIjE1MjRiNjNiLTMwMGEtNGVjNS1iNTVmLTllZTA0MWJjZGU0NyIsIjc2Y2Q5ZTA4LTQ1YWYtNGY5OS05YTdlLTkwY2YwNzIxZmZkMCIsNl0"
+      },
+      {
+        "eventId": "ed836426-51c8-4d78-b06f-48ecb6ec05c7",
+        "schemaVersion": 1,
+        "type": "localTask.updated",
+        "entityId": "ab1199e2-fe00-4ccb-b440-4ce224df8f32",
+        "entityRevision": 4,
+        "operationId": "23f0eaf8-7d22-4718-95bd-5cc4a9571aca",
+        "workspaceId": "7a1432d9-d875-4366-bbe8-9485792845ae",
+        "roomId": "76cd9e08-45af-4f99-9a7e-90cf0721ffd0",
+        "occurredAt": "2026-10-30T23:33:08.975Z",
+        "payload": {
+          "id": "ab1199e2-fe00-4ccb-b440-4ce224df8f32",
+          "runId": "4c18ab7a-56ca-4639-9d26-aa39c0e417d0",
+          "initiatorId": "3cb9798e-8813-40fc-9ada-839c87b1a30f",
+          "roomId": "76cd9e08-45af-4f99-9a7e-90cf0721ffd0",
+          "ownerAgentId": "fixture-agent",
+          "goal": "Original v3 task",
+          "revision": 4,
+          "phase": "reviewing",
+          "result": "v3 completed",
+          "delivery": "none",
+          "question": null,
+          "history": []
+        },
+        "cursor": "WzEsIjE1MjRiNjNiLTMwMGEtNGVjNS1iNTVmLTllZTA0MWJjZGU0NyIsIjc2Y2Q5ZTA4LTQ1YWYtNGY5OS05YTdlLTkwY2YwNzIxZmZkMCIsN10"
+      }
+    ],
+    "cursor": "WzEsIjE1MjRiNjNiLTMwMGEtNGVjNS1iNTVmLTllZTA0MWJjZGU0NyIsIjc2Y2Q5ZTA4LTQ1YWYtNGY5OS05YTdlLTkwY2YwNzIxZmZkMCIsN10"
+  },
+  "snapshot": {
+    "schemaVersion": 1,
+    "databaseId": "1524b63b-300a-4ec5-b55f-9ee041bcde47",
+    "instanceId": "e6d68f7c-7b62-49a4-bf73-6c65136d6021",
+    "room": {
+      "id": "76cd9e08-45af-4f99-9a7e-90cf0721ffd0",
+      "workspaceId": "7a1432d9-d875-4366-bbe8-9485792845ae",
+      "title": "Original v3",
+      "revision": 7
+    },
+    "messages": [
+      {
+        "id": "8c5b9648-ddf6-41e9-849b-66cfa9169dd9",
+        "roomId": "76cd9e08-45af-4f99-9a7e-90cf0721ffd0",
+        "sequence": 1,
+        "authorId": "3cb9798e-8813-40fc-9ada-839c87b1a30f",
+        "authorName": "本机用户",
+        "role": "user",
+        "text": "Original v3 source",
+        "status": "complete",
+        "createdAt": "2026-10-30T23:33:08.959Z",
+        "tools": [],
+        "artifactRefs": [],
+        "replyToId": null,
+        "recipientIds": [],
+        "runId": null,
+        "authorKind": "human",
+        "revision": 1
+      },
+      {
+        "id": "a2931f1c-410d-410d-90d2-a11afca7dfce",
+        "roomId": "76cd9e08-45af-4f99-9a7e-90cf0721ffd0",
+        "sequence": 2,
+        "authorId": "fixture-agent",
+        "authorName": "fixture-agent",
+        "role": "assistant",
+        "text": "V3 report",
+        "status": "complete",
+        "createdAt": "2026-10-30T23:33:08.972Z",
+        "tools": [],
+        "artifactRefs": [
+          {
+            "artifactId": "26318bd0-d282-4257-9efb-10e940754853",
+            "version": 1,
+            "title": "V3 report",
+            "catalogVersion": 1
+          }
+        ],
+        "replyToId": null,
+        "recipientIds": [],
+        "runId": null,
+        "authorKind": "agent",
+        "revision": 1
+      }
+    ],
+    "localTasks": [
+      {
+        "id": "ab1199e2-fe00-4ccb-b440-4ce224df8f32",
+        "runId": "4c18ab7a-56ca-4639-9d26-aa39c0e417d0",
+        "initiatorId": "3cb9798e-8813-40fc-9ada-839c87b1a30f",
+        "roomId": "76cd9e08-45af-4f99-9a7e-90cf0721ffd0",
+        "ownerAgentId": "fixture-agent",
+        "goal": "Original v3 task",
+        "revision": 4,
+        "phase": "reviewing",
+        "result": "v3 completed",
+        "delivery": "none",
+        "question": null,
+        "history": []
+      }
+    ],
+    "roomSequenceUpperBound": 2,
+    "beforeSequence": null,
+    "cursor": "WzEsIjE1MjRiNjNiLTMwMGEtNGVjNS1iNTVmLTllZTA0MWJjZGU0NyIsIjc2Y2Q5ZTA4LTQ1YWYtNGY5OS05YTdlLTkwY2YwNzIxZmZkMCIsN10"
+  }
+}
