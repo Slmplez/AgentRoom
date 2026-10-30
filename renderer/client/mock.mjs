@@ -27,6 +27,8 @@ function initial(instanceId) {
 export function createMockTransport({ manual = false } = {}) {
   let incarnation = 1, state = initial('mock-1'), online = true, sequence = 2, requestNumber = 0, timer, paused = false, elapsed = 0;
   const listeners = new Set(), receipts = new Map(), pending = new Map();
+  let holdSnapshots = false;
+  const delayedSnapshots = [];
   const emit = event => { for (const listener of listeners) listener(event); };
   const snapshot = () => structuredClone(state);
   function publish() { state.revision++; if (online) emit({ type: 'snapshot', data: snapshot() }); }
@@ -60,7 +62,7 @@ export function createMockTransport({ manual = false } = {}) {
   function schedule() { if (!manual && !paused && !timer && pending.size) timer = setInterval(advance, 650); }
   const transport = {
     subscribe(listener) { listeners.add(listener); return () => listeners.delete(listener); },
-    async snapshot() { if (!online) throw clientError('unavailable', '模拟连接已断开。'); return snapshot(); },
+    async snapshot() { if (!online) throw clientError('unavailable', '模拟连接已断开。'); const value = snapshot(); return holdSnapshots ? new Promise(resolve => delayedSnapshots.push(() => resolve(value))) : value; },
     async command(input) {
       if (!online) throw clientError('unavailable', '模拟连接已断开。');
       const c = commandSchema.parse(input);
@@ -108,6 +110,10 @@ export function createMockTransport({ manual = false } = {}) {
   };
   const control = {
     advance,
+    holdSnapshots() { holdSnapshots = true; },
+    releaseSnapshots() { holdSnapshots = false; delayedSnapshots.splice(0).forEach(resolve => resolve()); },
+    duplicate() { if (online) emit({ type: 'snapshot', data: snapshot() }); },
+    gap() { if (online) emit({ type: 'delta', baseRevision: state.revision + 10, offset: 999 }); },
     pause() { paused = true; clearInterval(timer); timer = undefined; },
     resume() { paused = false; schedule(); },
     cancelUnknown() { for (const run of state.runs) if (run.status === 'cancel_requested') { run.status = 'unknown'; run.error = '模拟取消确认丢失'; } publish(); },
@@ -139,7 +145,7 @@ export function createMockTransport({ manual = false } = {}) {
       ]; publish();
     },
     history(roomId = 'room-design') { for (let i = 0; i < 35; i++) message(roomId, i % 2 ? 'beta' : 'alpha', `讨论记录 ${i + 1}\n\n保留清楚的文字层级与稳定的消息位置。\n\n| 项目 | 状态 |\n| --- | --- |\n| 布局 | 已讨论 |\n| 交互 | 待验证 |`); publish(); },
-    dispose() { clearInterval(timer); listeners.clear(); pending.clear(); },
+    dispose() { clearInterval(timer); listeners.clear(); pending.clear(); delayedSnapshots.splice(0).forEach(resolve => resolve()); },
   };
   return { transport, control };
 }

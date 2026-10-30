@@ -32,7 +32,7 @@ export function createHttpChannel({ baseUrl = '', fetch: fetcher = globalThis.fe
     subscribe(listener) {
       const stream = new Stream(`${baseUrl}/api/chat/events`);
       stream.onmessage = event => { try { listener(JSON.parse(event.data)); } catch { listener({ type: 'offline' }); } };
-      stream.onerror = () => listener({ type: 'offline' });
+      stream.onerror = () => { stream.close(); listener({ type: 'offline' }); };
       return () => stream.close();
     },
   };
