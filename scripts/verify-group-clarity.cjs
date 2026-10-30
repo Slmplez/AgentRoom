@@ -21,31 +21,55 @@ app.whenReady().then(async()=>{
   await run('document.querySelector(".dev-controls").open=false');
   assert.equal(await run('document.querySelector(".tool-trace > summary").textContent'),'查看过程');
   assert.equal(await run('document.querySelector(".tool-trace").open'),false);
+  assert.equal(await run('document.querySelector(".message-process-menu").open'),false);
+  await until('document.querySelector(".message-process-menu > summary").checkVisibility({checkOpacity:true})');
+  assert.equal(await run('document.querySelector(".tool-trace > summary").checkVisibility()'),false,'Process is only available inside message actions');
   assert.ok(await run('Array.from(document.querySelectorAll(".tool-step")).every(e=>!e.checkVisibility())'));
   assert.equal(await run('document.querySelectorAll(".message-result-link").length'),1);
   await run('document.querySelector(".message-results").scrollIntoView({block:"center"})');
   await new Promise(r=>setTimeout(r,250));await fs.writeFile(path.resolve(__dirname,'../artifacts/group-clarity.png'),(await win.webContents.capturePage()).toPNG());
   await click('查看变更');await until('Boolean(document.querySelector(".chat-diff-dialog diffs-container"))');
   assert.equal(await run('document.querySelector(".tool-trace").open'),false,'Direct result access does not require opening process');
-  await click('关闭');await run('document.querySelector(".tool-trace > summary").click()');await until('document.querySelector(".tool-trace").open');
+  await click('关闭');await run('document.querySelector(".message-process-menu > summary").click();document.querySelector(".tool-trace > summary").click()');await until('document.querySelector(".tool-trace").open');
+  await run(`document.querySelector('.message-process-menu > summary').dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true}))`);
+  assert.equal(await run('document.querySelector(".message-process-menu").open'),false);
+  assert.equal(await run('document.activeElement.className'),'');
+  assert.equal(await run('document.activeElement.parentElement.className'),'message-process-menu','Escape restores focus to message actions');
+  await run('document.querySelector(".message-process-menu > summary").click()');
+  assert.equal(await run('document.querySelector(".tool-trace").open'),true,'Process expansion survives closing the action area');
   assert.equal(await run('document.querySelectorAll(".tool-step").length'),2);
   await run('document.querySelector(".tool-trace > summary").click();document.querySelector(".dev-controls").open=true');await click('输出过期');await click('查看变更');
   await until('document.querySelector(".message-results [role=alert]")?.textContent.includes("过期")');
   assert.equal(await run('Boolean(document.querySelector(".chat-diff-dialog"))'),false);
   await click('工具失败');await until('Boolean(document.querySelector(".process-attention"))');
   assert.ok(await run('document.querySelector(".process-attention").checkVisibility()'),'Failed tool remains visible without opening process');
+  await run('document.querySelector(".dev-controls").open=false;document.documentElement.dataset.theme="dark"');
+  await new Promise(r=>setTimeout(r,150));
+  await fs.writeFile(path.resolve(__dirname,'../artifacts/group-clarity-dark.png'),(await win.webContents.capturePage()).toPNG());
+  win.setSize(420,860);await new Promise(r=>setTimeout(r,150));
+  await run('document.querySelector("[aria-label=切换侧栏]").click()');
+  await new Promise(r=>setTimeout(r,200));
+  assert.ok(await run('document.documentElement.scrollWidth<=innerWidth'),'Narrow group has no page overflow');
+  await fs.writeFile(path.resolve(__dirname,'../artifacts/group-clarity-narrow.png'),(await win.webContents.capturePage()).toPNG());
+  win.setSize(1400,960);
   await run(`document.querySelector('[data-room="dm:alpha"]').click()`);await click('工具与差异');await until('Boolean(document.querySelector(".message-engine"))');
   assert.ok(await run('document.querySelector(".tool-trace > summary").textContent.includes("工具使用")'),'Single-agent detailed display remains available');
   // A message suppresses a duplicate status only when the visible run panel owns it.
   const harness=await build({stdin:{resolveDir:path.resolve(__dirname,'..'),loader:'tsx',contents:`
-    import React,{useState} from 'react';import {createRoot} from 'react-dom/client';import {ChatThread} from './renderer/chat/thread';
+    import React,{useState} from 'react';import {createRoot} from 'react-dom/client';import {ChatThread} from './renderer/chat/thread';import {RunPanel} from './renderer/chat/runs';
     const base={id:'status-message',roomId:'a',sequence:1,authorId:'alpha',authorName:'Alpha',role:'assistant',text:'检查尚未完成。',status:'unknown',createdAt:'2026-10-30T00:00:00Z',tools:[]};
-    function Harness(){const[covered,set]=useState(true);window.setCovered=set;return <ChatThread group messages={[base]} agents={[]} statusMessageIds={covered?['status-message']:[]} portrait={()=>''} showDiff={()=>{}}/>;}
+    const runState={connection:'live',rooms:[{id:'a',type:'group'}],agents:[{id:'alpha',displayName:'Alpha'}],runs:[{id:'run-a',agentId:'alpha',roomId:'a',status:'running',canCancel:true},{id:'run-b',agentId:'alpha',roomId:'a',status:'unknown',canCancel:false}]};
+    const client={dispatch:async c=>{window.cancelledRun=c.runId;return {accepted:true};}};
+    function Harness(){const[covered,set]=useState(true);window.setCovered=set;return <><RunPanel state={runState} client={client} roomId="a"/><ChatThread group messages={[base]} agents={[]} statusMessageIds={covered?['status-message']:[]} portrait={()=>''} showDiff={()=>{}}/></>;}
     document.querySelector('#chat-root').style.display='none';const host=document.createElement('div');host.className='chat-app';document.body.append(host);createRoot(host).render(<Harness/>);
   `},bundle:true,write:false,format:'iife',platform:'browser',jsx:'automatic',define:{'process.env.NODE_ENV':'"production"'}});
   await run(harness.outputFiles[0].text);await until('Boolean(window.setCovered)');
   assert.equal(await run('document.querySelectorAll("[data-message-id=status-message] .chat-inline-error").length'),0);
   await run('window.setCovered(false)');await until('Boolean(document.querySelector("[data-message-id=status-message] .chat-inline-error"))');
+  assert.ok(await run('document.querySelector(".run-summary > summary").textContent.includes("1 项执行中 · 1 项需要核查")'));
+  assert.equal(await run('document.querySelector("[data-run-id=run-a] button").checkVisibility()'),false);
+  await run('document.querySelector(".run-summary > summary").click();document.querySelector("[data-run-id=run-a] button").click()');
+  await until('window.cancelledRun==="run-a"');
   assert.deepEqual(errors,[]);console.log('Passed: plain group messages, hidden engines/counts, collapsed process, direct lazy diff, expired result feedback, single-agent details, centralized status with history fallback.');
   win.destroy();server.close();app.quit();
 }).catch(e=>{console.error(e);win?.destroy();server?.close();app.exit(1);});

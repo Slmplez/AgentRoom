@@ -15,7 +15,7 @@ export function useEntrance<T extends HTMLElement>(ref: RefObject<T | null>, act
   useEffect(() => {
     const element = ref.current, preference = matchMedia('(prefers-reduced-motion: reduce)');
     if (!active || !element || preference.matches || !element.animate) return;
-    const [k, c, m] = presets[kind], duration = 550;
+    const [k, c, m] = presets[kind], duration = kind === 'panel' ? 320 : kind === 'dialog' ? 280 : 200;
     const frames = Array.from({ length: 34 }, (_, i) => {
       const progress = i === 33 ? 1 : response(i / 33 * duration / 1000, k, c, m);
       return { opacity: Math.min(1, Math.max(0, progress)), transform: kind === 'panel' ? `translateX(${(1 - progress) * 16}px)` : `translateY(${(1 - progress) * 6}px) scale(${.98 + progress * .02})`, offset: i / 33 };

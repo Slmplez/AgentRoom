@@ -1,9 +1,11 @@
 import React, { useEffect, useRef, useState, type CSSProperties } from 'react';
 
 const minChat = 380, minResult = 360, handleWidth = 12;
-export function useResultSplit(open: boolean, close: () => void) {
+export function useResultSplit(open: boolean, close: () => void, storageKey = 'ar-chat-result-width') {
   const host = useRef<HTMLDivElement>(null), handle = useRef<HTMLDivElement>(null);
-  const [available, setAvailable] = useState(0), [width, setWidth] = useState(440), [dragging, setDragging] = useState(false);
+  const [available, setAvailable] = useState(0), [width, setWidth] = useState(() => {
+    try { const saved = Number(localStorage.getItem(storageKey)); return Number.isFinite(saved) && saved >= minResult && saved <= 4000 ? saved : 440; } catch { return 440; }
+  }), [dragging, setDragging] = useState(false);
   const drag = useRef<{ x: number; width: number; raw: number; pointer: number } | null>(null);
   const closeRef = useRef(close); closeRef.current = close;
   const bounds = useRef({ available, max: Math.max(minResult, available - minChat - handleWidth) });
@@ -11,6 +13,7 @@ export function useResultSplit(open: boolean, close: () => void) {
   const wide = available >= minChat + minResult + handleWidth;
   const clamp = (value: number) => Math.max(minResult, Math.min(bounds.current.max, value));
   const cancel = () => { const start = drag.current; drag.current = null; setDragging(false); if (start) setWidth(start.width); };
+  useEffect(() => { if (!dragging) { try { localStorage.setItem(storageKey, String(width)); } catch { /* Preferences must not block reading. */ } } }, [width, dragging, storageKey]);
   useEffect(() => {
     const element = host.current; if (!element) return;
     const sidebar = element.querySelector<HTMLElement>('.sidebar');
@@ -23,6 +26,7 @@ export function useResultSplit(open: boolean, close: () => void) {
     if (!dragging) return;
     const move = (event: PointerEvent) => {
       const start = drag.current; if (!start || event.pointerId !== start.pointer) return;
+      if (Math.abs(start.x - event.clientX) < 4 && start.raw === start.width) return;
       start.raw = start.width + start.x - event.clientX; setWidth(clamp(start.raw));
     };
     const finish = (event: PointerEvent) => {

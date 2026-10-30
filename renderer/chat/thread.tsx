@@ -39,11 +39,21 @@ function MessageRow() {
       <div className="message-bubble chat-markdown"><MessagePrimitive.Parts components={{ Text: MarkdownText }} />{message.status === 'running' && !message.text && <span className="chat-thinking" role="status">正在回应…</span>}</div>
       {!statusCovered && message.status !== 'running' && message.status !== 'complete' && <p className="chat-inline-error" role="status">{message.status === 'unknown' ? '执行结果尚未确认' : message.status === 'cancelled' ? '已中断' : '执行失败'}</p>}
       {context.group && message.tools.some(t => t.hasDiff || t.patches.length > 0) && <MessageChanges key={message.id} tools={message.tools} context={context} />}
-      {message.tools.length > 0 && <details className="tool-trace" open={context.expanded?.[id]} onToggle={e => context.onExpanded?.(id, e.currentTarget.open)}><summary>{context.group ? <><span>查看过程</span>{!statusCovered && message.status === 'complete' && message.tools.some(t => ['failed', 'unknown'].includes(t.status)) && <span className="process-attention">有操作需要核查</span>}</> : <><span>工具使用 · {message.tools.length} 次</span><span className="tool-overview">{message.tools.some(t => t.status === 'failed') ? '有操作失败' : message.tools.some(t => t.status === 'unknown') ? '有结果待核查' : message.tools.some(t => t.status === 'running') ? '执行中' : message.tools.every(t => t.status === 'completed') ? '已完成' : '查看进展'}</span></>}</summary>
-        {message.tools.map(tool => <ToolRow key={tool.id} tool={tool} messageId={id} context={context} />)}
-      </details>}
+      {message.tools.some(t => ['failed', 'unknown', 'cancelled'].includes(t.status)) && <p className="process-attention" role="status">{message.tools.some(t => t.status === 'failed') ? '有操作失败，请查看过程核查' : message.tools.some(t => t.status === 'unknown') ? '有操作结果未知，请查看过程核查' : '有操作已中断'}</p>}
+      {message.tools.length > 0 && <MessageProcess message={message} context={context} />}
     </div>
   </MessagePrimitive.Root>;
+}
+
+function MessageProcess({ message, context }: { message: Message; context: React.ContextType<typeof ThreadContext> }) {
+  const menu = useRef<HTMLDetailsElement>(null);
+  const process = <details className="tool-trace" open={context.expanded?.[message.id]} onToggle={e => context.onExpanded?.(message.id, e.currentTarget.open)}><summary>{context.group ? '查看过程' : <><span>工具使用 · {message.tools.length} 次</span><span className="tool-overview">{message.tools.some(t => t.status === 'failed') ? '有操作失败' : message.tools.some(t => t.status === 'unknown') ? '有结果待核查' : message.tools.some(t => t.status === 'running') ? '执行中' : message.tools.every(t => t.status === 'completed') ? '已完成' : '查看进展'}</span></>}</summary>
+    {message.tools.map(tool => <ToolRow key={tool.id} tool={tool} messageId={message.id} context={context} />)}
+  </details>;
+  if (!context.group) return process;
+  return <details ref={menu} className="message-process-menu" onKeyDown={e => {
+    if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); menu.current!.open = false; menu.current!.querySelector('summary')?.focus(); }
+  }}><summary aria-label={`${message.authorName} 的消息操作`}>更多</summary><div className="message-action-content">{process}</div></details>;
 }
 
 function MessageChanges({ tools, context }: { tools: Message['tools']; context: React.ContextType<typeof ThreadContext> }) {
