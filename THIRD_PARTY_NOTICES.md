@@ -72,3 +72,16 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
+
+## @pierre/diffs
+
+文件差异预览使用 [@pierre/diffs](https://github.com/pierrecomputer/pierre)，版本 1.6.2，Apache-2.0。构建时复制其许可证到 `renderer/vendor/diffs/LICENSE.txt`。库与语法高亮资源本地打包，不加载远程 CDN。
+
+## React chat interface
+
+The opt-in chat interface uses React, React DOM, `@assistant-ui/react`,
+`@assistant-ui/core`, `@assistant-ui/store`, `@assistant-ui/react-markdown`, and Zod.
+The build copies their package LICENSE files into `renderer/vendor/chat/` and
+retains dependency legal comments in adjacent generated `.LEGAL.txt` files.
+All chat resources are bundled locally. Installed json-render packages are not
+yet wired into this entry point; structured artifact rendering remains planned.

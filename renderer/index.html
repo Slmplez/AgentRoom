@@ -36,7 +36,7 @@
         <div class="composer" id="composer">
           <div id="reply-preview" class="reply-preview" hidden></div>
           <div id="mention-menu" class="mention-menu" role="listbox" aria-label="提及成员" hidden></div>
-          <textarea id="message-input" rows="2" placeholder="向团队描述任务，输入 @ 指定成员…" aria-label="消息内容"></textarea>
+          <textarea id="message-input" aria-controls="mention-menu" aria-expanded="false" aria-autocomplete="list" rows="2" placeholder="向团队描述任务，输入 @ 指定成员…" aria-label="消息内容"></textarea>
           <div class="composer-toolbar"><div class="composer-tools"><button class="composer-tool" data-action="mention" title="提及成员" aria-label="提及成员" data-icon="at"></button><button class="composer-tool" data-action="emoji" title="插入表情" aria-label="插入表情" data-icon="smile"></button><span class="toolbar-divider"></span><button class="recipient-button" data-action="members"><span data-icon="agents"></span><span class="composer-hint" id="composer-hint">房间成员</span><span data-icon="chevron-down"></span></button></div><button id="send-button" class="send-button" aria-label="发送消息" disabled><span data-icon="arrow-up"></span></button></div>
         </div>
         <div class="environment-bar"><button data-action="workspace-menu" title="切换工作目录"><span data-icon="folder"></span><span id="composer-workspace">本地工作区</span></button><button data-action="launch" title="启动新的 Agent"><span data-icon="code"></span><span id="composer-engines">选择 Agent</span><span data-icon="chevron-down"></span></button></div>
@@ -58,6 +58,10 @@
   <script src="usage.js"></script>
   <script src="context.js"></script>
   <script src="capabilities.js"></script>
+  <script src="vendor/mentions.js"></script>
+  <script src="permissions.js"></script>
+  <script src="diffs.js"></script>
+  <script src="vendor/client/client.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

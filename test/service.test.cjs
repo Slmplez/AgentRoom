@@ -77,6 +77,15 @@ test('an uncertain send is never retried', async t => {
   await assert.rejects(service.send({ roomId: room.id, text: '@nora hello' }), /结果未确认/);
   assert.equal(calls.filter(args => args[0] === 'send').length, 1);
 });
+
+test('structured recipients stay inside the room and do not expand mentions from quoted content', async t => {
+  const { service, calls } = await fixture(t);
+  const result = await service.send({ roomId: room.id, text: '引用 @silo，仅发给 Nora', recipientIds: ['nora'] });
+  assert.deepEqual(result.targets, ['nora']);
+  await assert.rejects(service.send({ roomId: room.id, text: 'hello', recipientIds: ['elsewhere'] }), /房间成员/);
+  await assert.rejects(service.send({ roomId: room.id, text: 'hello', recipientIds: [] }), /接收者/);
+  assert.equal(calls.filter(args => args[0] === 'send').length, 1);
+});
 test('room membership cannot include agents from another workspace', async t => {
   const { service } = await fixture(t);
   await assert.rejects(service.createRoom({ title: 'wrong', workspaceId: room.workspaceId, members: ['elsewhere'] }), /当前工作区/);

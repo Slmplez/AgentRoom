@@ -4,11 +4,12 @@ const fs = require('node:fs/promises');
 const path = require('node:path');
 const { HcomService } = require('./lib/hcom-service.cjs');
 const { RpcRuntime } = require('./lib/rpc-runtime.cjs');
-const { catalog: avatarCatalog } = require('./renderer/avatars.js');
 const port = Number(process.env.PORT || 4317);
 const origin = `http://127.0.0.1:${port}`;
 const dataDir = path.join(__dirname, '.data', 'web-rpc');
 const service = new HcomService({ dataDir, runtime: new RpcRuntime({ dataDir }) });
+const chatHandler = Promise.all([import('./lib/chat-api.mjs'), import('./lib/chat-http.mjs')])
+  .then(([{ createChatApi }, { createChatHttpHandler }]) => createChatHttpHandler(createChatApi(service)));
 const clients = new Set();
 service.on('state', state => { for (const res of clients) res.write(`data: ${JSON.stringify(state)}\n\n`); });
 const api = {
@@ -36,6 +37,7 @@ const server = http.createServer(async (req, res) => {
       res.writeHead(403); return res.end('Forbidden');
     }
     const url = new URL(req.url, origin);
+    if (url.pathname.startsWith('/api/chat/')) return await (await chatHandler)(req, res);
     if (url.pathname === '/api/events' && req.method === 'GET') {
       res.writeHead(200, { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', Connection: 'keep-alive' });
       clients.add(res); res.write(`data: ${JSON.stringify(service.snapshot())}\n\n`);
@@ -52,8 +54,9 @@ const server = http.createServer(async (req, res) => {
       return res.end(JSON.stringify(result));
     }
     if (req.method !== 'GET') { res.writeHead(405); return res.end(); }
-    const name = url.pathname === '/' ? 'index.html' : decodeURIComponent(url.pathname).slice(1);
-    if (!['index.html', 'styles.css', 'design-tokens.css', 'workbench.css', 'app.js', 'icons.js', 'avatars.js', 'connections.js', 'usage.js', 'context.js', 'capabilities.js', 'capabilities.css', 'terminal.js', 'vendor/xterm.css', 'vendor/xterm.js', 'vendor/addon-fit.js', 'assets/brand/mark.svg', 'assets/brand/app.svg', 'assets/brand/mark.png', 'assets/brand/app.png', 'assets/brand/lockup-navy.png', 'assets/brand/lockup-light.png', ...avatarCatalog.map(item => item.src)].includes(name)) { res.writeHead(404); return res.end(); }
+    const name = url.pathname === '/' ? (process.argv.includes('--chat-ui') ? 'chat.html' : 'index.html') : decodeURIComponent(url.pathname).slice(1);
+    const chatAsset = name === 'chat.html' || name === 'vendor/mentions.js' || /^vendor\/(?:chat|client)\/[a-zA-Z0-9_.-]+\.(?:js|css)$/.test(name);
+    if (!chatAsset && !/^assets\/avatars\/[a-zA-Z0-9_-]+\.webp$/.test(name) && !['index.html', 'styles.css', 'design-tokens.css', 'workbench.css', 'app.js', 'icons.js', 'avatars.js', 'connections.js', 'usage.js', 'context.js', 'capabilities.js', 'capabilities.css', 'terminal.js', 'permissions.js', 'mentions.js', 'diffs.js', 'vendor/xterm.css', 'vendor/xterm.js', 'vendor/addon-fit.js', 'assets/brand/mark.svg', 'assets/brand/app.svg', 'assets/brand/mark.png', 'assets/brand/app.png', 'assets/brand/lockup-navy.png', 'assets/brand/lockup-light.png'].includes(name) && !/^vendor\/diffs\/[a-zA-Z0-9_.-]+\.js$/.test(name)) { res.writeHead(404); return res.end(); }
     const content = await fs.readFile(path.join(__dirname, 'renderer', name));
     res.writeHead(200, { 'Content-Type': mime[path.extname(name)], 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' });
     res.end(content);

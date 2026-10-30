@@ -348,3 +348,30 @@ input::placeholder, textarea::placeholder { color: var(--muted); }
 .rpc-request-detail { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 240px; overflow: auto; font: inherit; font-size: 12px; }
 .rpc-request { margin-bottom: 14px; }
 .rpc-progress .message-bubble { border: 1px dashed var(--border, #ddd); }
+
+/* Tool traces and the cross-workspace permission inbox. */
+.tool-trace { margin: 12px 0; padding: 10px 14px; border: 1px solid var(--line-strong); border-radius: 10px; font-size: 13px; }
+.tool-trace summary { cursor: pointer; color: var(--ink); }
+.tool-step { margin: 10px 0 0 12px; }
+.tool-step summary span { opacity: .65; margin-left: 10px; }
+.tool-step pre, .permission-dialog pre { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 240px; overflow: auto; font-size: 12px; }
+.permission-inbox { position: fixed; right: 28px; bottom: 28px; z-index: 100; box-shadow: 0 4px 20px #0002; background: var(--surface-1); color: var(--ink); }
+.permission-inbox[hidden] { display: none; }
+.permission-dialog { width: min(640px, calc(100vw - 48px)); max-height: calc(100vh - 80px); overflow: auto; border: 1px solid var(--line-strong); border-radius: 18px; padding: 24px; color: var(--ink); background: var(--surface-1); box-shadow: 0 20px 80px #0003; }
+.permission-dialog::backdrop { background: #0006; }
+.permission-heading, .permission-actions { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.permission-heading h2 { font-size: 18px; margin: 0; }
+.permission-actions { justify-content: flex-end; margin-top: 20px; }
+.permission-context { font-size: 12px; opacity: .75; overflow-wrap: anywhere; }
+.permission-dialog fieldset { border: 1px solid var(--line-strong); border-radius: 8px; margin: 16px 0; padding: 12px; }
+.permission-option { display: flex; align-items: flex-start; gap: 8px; margin: 10px 0; }
+.permission-option small { display: block; opacity: .7; }
+.permission-error { color: #c24b40; }
+.permission-dialog button:focus-visible, .tool-trace summary:focus-visible { outline: 2px solid var(--clay-text); outline-offset: 3px; }
+
+.diff-controls { display: flex; gap: 8px; margin-bottom: 12px; }
+.diff-controls [aria-pressed="true"] { background: var(--selected); color: var(--ink); }
+.diff-file { min-width: 0; margin: 16px 0; }
+#diff-content { min-width: 0; overflow-x: auto; }
+.diff-raw { white-space: pre-wrap; overflow-wrap: anywhere; font: 13px var(--font-mono); }
+#diff-feedback { font-size: 12px; color: var(--text-secondary); }

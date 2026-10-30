@@ -45,7 +45,7 @@ function createWindow() {
   window.on('close', event => {
     if (!quitting && (service?.gateways.size || service?.runtime?.activeSessions)) { event.preventDefault(); keepGatewayInTray(); window.hide(); }
   });
-  window.loadFile(path.join(__dirname, 'renderer', 'index.html'));
+  window.loadFile(path.join(__dirname, 'renderer', process.argv.includes('--chat-ui') ? 'chat.html' : 'index.html'));
 }
 if (single) app.whenReady().then(async () => {
   const dataDir = app.isPackaged || process.argv.includes('--ui-preview') ? app.getPath('userData') : path.join(__dirname, '.data');
@@ -53,6 +53,11 @@ if (single) app.whenReady().then(async () => {
   // Never switch the Add Agent button back to the external terminal launcher.
   const runtime = new RpcRuntime({ dataDir, fork: utilityProcess.fork.bind(utilityProcess), resourcesPath: app.isPackaged ? path.join(process.resourcesPath, 'native') : undefined });
   service = new HcomService({ dataDir, secretStorage: safeStorage, runtime });
+  const { createChatApi } = await import('./lib/chat-api.mjs');
+  const chatApi = createChatApi(service);
+  ipcMain.handle('chat:request', (_, input) => chatApi.request(input));
+  chatApi.subscribe(event => { if (window && !window.isDestroyed()) window.webContents.send('chat:event', event); });
+  app.once('will-quit', () => chatApi.close());
   ipcMain.handle('room:state', () => service.snapshot());
   ipcMain.handle('room:refresh', () => service.rescan());
   ipcMain.handle('room:send', (_, payload) => service.send(payload));
