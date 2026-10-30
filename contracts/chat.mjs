@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { artifactRefSchema } from './artifacts.mjs';
 import { connectionCommands } from './settings.mjs';
 import { managementCommands } from './management.mjs';
 import { capabilityCommands } from './capabilities.mjs';
@@ -12,6 +13,7 @@ export const messageSchema = z.object({
   id, roomId: id, sequence: z.number(), authorId: id, authorName: z.string(), role: z.enum(['user', 'assistant']),
   text: z.string(), status: z.enum(['running', 'complete', 'failed', 'cancelled', 'unknown']),
   createdAt: z.string(), tools: z.array(toolSchema).default([]),
+  artifactRefs: z.array(artifactRefSchema).default([]),
   replyToId: z.string().nullable().default(null), recipientIds: z.array(id).default([]), runId: id.nullable().default(null),
 });
 export const approvalSchema = z.object({

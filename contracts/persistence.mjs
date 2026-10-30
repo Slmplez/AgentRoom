@@ -12,7 +12,7 @@ export const persistenceCommandSchema = z.discriminatedUnion('type', [
   z.object({ ...commandBase, type: z.literal('createRoom'), title: z.string().min(1).max(200) }).strict(),
   z.object({ ...commandBase, type: z.literal('sendDiscussion'), roomId: id, text: z.string().min(1).max(16000), replyToId: id.nullable().default(null), mentions: z.array(z.never()).max(0).default([]) }).strict(),
 ]);
-export const persistenceMessageSchema = messageSchema.extend({ sequence: counter.positive(), authorKind: z.literal('human'), revision: counter.positive() });
+export const persistenceMessageSchema = messageSchema.extend({ sequence: counter.positive(), authorKind: z.enum(['human','agent']), revision: counter.positive() });
 export const persistenceEventSchema = z.object({
   schemaVersion: z.literal(1), eventId: id, type: z.enum(['room.created', 'message.created', 'localTask.updated']),
   entityId: id, entityRevision: counter.positive(), operationId: id, workspaceId: id, roomId: id,
@@ -31,7 +31,7 @@ export const persistenceFrameSchema = z.discriminatedUnion('type', [
 export const persistenceBootstrapSchema = z.object({
   schemaVersion: z.literal(1), databaseId: id, instanceId: id,
   user: z.object({ id, name: z.string() }), workspace: z.object({ id, title: z.string() }),
-  capabilities: z.object({ persistentMessages: z.literal(true), eventStream: z.literal(true), idempotentSend: z.literal(true), tasks: z.literal(false) }),
+  capabilities: z.object({ persistentMessages: z.literal(true), eventStream: z.literal(true), idempotentSend: z.literal(true), tasks: z.literal(false), readOnlyArtifacts: z.boolean().default(false), artifactPublishing: z.boolean().default(false) }),
 });
 export const persistenceSnapshotSchema = z.object({
   schemaVersion: z.literal(1), databaseId: id, instanceId: id, cursor,
@@ -47,6 +47,7 @@ export const persistenceReceiptSchema = z.object({
   schemaVersion: z.literal(1), accepted: z.literal(true), operationId: id,
   roomId: id, messageId: id.nullable(), sequence: counter.nullable(), cursor: id,
   taskId: id.optional(),
+  artifactId: id.optional(), artifactVersion: counter.positive().optional(),
 });
 export const persistenceQuerySchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('bootstrap') }).strict(),
@@ -55,7 +56,7 @@ export const persistenceQuerySchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('messages'), roomId: id, limit: counter.min(1).max(200).default(100), beforeSequence: counter.positive().optional(), upperBound: counter.optional() }).strict(),
   z.object({ type: z.literal('events'), roomId: id, after: z.string().max(1000).optional(), limit: counter.min(1).max(200).default(100) }).strict(),
   z.object({ type: z.literal('operation'), operationId: id }).strict(),
-  z.object({ type: z.literal('receipt'), workspaceId: id, commandType: z.enum(['createRoom', 'sendDiscussion', 'createLocalTask', 'answerLocalQuestion']), key: id }).strict(),
+  z.object({ type: z.literal('receipt'), workspaceId: id, commandType: z.enum(['createRoom', 'sendDiscussion', 'createLocalTask', 'answerLocalQuestion', 'publishArtifact']), key: z.string().min(1).max(650) }).strict(),
 ]);
 export function persistenceError(code, message, status = 400, outcome = 'rejected') {
   return Object.assign(new Error(message), { code, status, outcome });

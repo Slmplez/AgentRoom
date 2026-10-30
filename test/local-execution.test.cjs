@@ -74,8 +74,8 @@ test('schema 1 discussion data migrates intact and default mode never enables lo
   assert.equal((await s.request(`/rooms/${roomId}/local-tasks`, { workspaceId, goal: 'must not run', ownerAgentId: 'local-pi' }, 'disabled')).status, 422);
   await s.close();
   const { DatabaseSync } = await import('node:sqlite'); const db = new DatabaseSync(path.join(directory, 'application.sqlite'));
-  // Produce an authentic schema-1 layout with existing discussion rows/receipts.
-  db.exec('DROP TABLE local_tasks; PRAGMA user_version=1;'); db.close();
+  // Remove later tables/columns to exercise discussion-only data migration.
+  db.exec('DROP TABLE artifact_versions; DROP TABLE local_tasks; ALTER TABLE messages DROP COLUMN artifact_refs_json; PRAGMA user_version=1;'); db.close();
   s = await setup(directory, { execution: null });
   try {
     assert.equal((await s.request(`/rooms/${roomId}/messages`)).data.messages[0].text, '迁移前的消息');
