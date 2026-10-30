@@ -96,6 +96,10 @@ app.whenReady().then(async () => {
   await new Promise(resolve => setTimeout(resolve, 150));
   assert.ok(await run('document.documentElement.scrollWidth <= window.innerWidth'), 'Narrow layout must not overflow horizontally');
   await capture('chat-g1-narrow.png');
+  await clickText('空工作区');
+  await until('document.querySelectorAll("[data-room]").length === 0');
+  await clickText('重置场景');
+  await until('document.querySelectorAll(".message[data-message-id]").length === 2');
   assert.equal(requests.filter(url => url.includes('/api/')).length, 0, 'Mock must not contact production APIs');
   assert.deepEqual(errors, []);
   console.log('Passed: standalone Mock, assistant-ui messages, repeated @, separate Agent streams, IME, drafts, tools, approvals, expiry, reconnect, scroll, Pierre diff, themes and narrow layout.');

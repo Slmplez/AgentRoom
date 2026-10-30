@@ -1,6 +1,30 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 
+test('mock controls isolate an empty workspace and resume a paused deterministic conversation', async t => {
+  const { createAgentRoomClient } = await import('../renderer/client/client.mjs');
+  const { createMockTransport } = await import('../renderer/client/mock.mjs');
+  const mock = createMockTransport({ manual: true });
+  const client = createAgentRoomClient(mock.transport);
+  t.after(() => { client.close(); mock.control.dispose(); });
+  await client.open();
+  mock.control.reset('empty-workspace');
+  assert.equal(client.read().rooms.length, 0);
+  assert.equal(client.read().agents.length, 0);
+  mock.control.reset();
+  mock.control.pause();
+  await client.dispatch({ type: 'send', key: 'paused', roomId: 'dm:alpha', text: '你好', mode: 'discussion', ownerAgentId: null, mentions: [] });
+  const reply = client.read().messages.at(-1);
+  mock.control.advance(1000);
+  assert.equal(client.read().messages.at(-1).text, '');
+  mock.control.resume();
+  mock.control.advance(1000); mock.control.advance(1000);
+  assert.equal(client.read().messages.at(-1).id, reply.id);
+  assert.equal(client.read().messages.at(-1).status, 'complete');
+  mock.control.reset();
+  assert.equal(client.read().messages.length, 2);
+});
+
 test('client preserves newer events when the initial snapshot arrives late and releases its subscription', async () => {
   const { createAgentRoomClient } = await import('../renderer/client/client.mjs');
   let deliver, finishSnapshot, released = 0;

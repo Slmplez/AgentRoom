@@ -25,17 +25,19 @@ function initial(instanceId) {
 
 // Deliberately has no backend, filesystem, model, or credential imports.
 export function createMockTransport({ manual = false } = {}) {
-  let incarnation = 1, state = initial('mock-1'), online = true, sequence = 2, requestNumber = 0, timer;
+  let incarnation = 1, state = initial('mock-1'), online = true, sequence = 2, requestNumber = 0, timer, paused = false, elapsed = 0;
   const listeners = new Set(), receipts = new Map(), pending = new Map();
   const emit = event => { for (const listener of listeners) listener(event); };
   const snapshot = () => structuredClone(state);
   function publish() { state.revision++; if (online) emit({ type: 'snapshot', data: snapshot() }); }
   function message(roomId, authorId, text, status = 'complete') {
     const agent = state.agents.find(a => a.id === authorId);
-    const m = { id: `mock-${incarnation}-${++sequence}`, roomId, sequence, authorId, authorName: agent?.displayName || '你', role: agent ? 'assistant' : 'user', text, status, createdAt: stamp, tools: [] };
+    const m = { id: `mock-${incarnation}-${++sequence}`, roomId, sequence, authorId, authorName: agent?.displayName || '你', role: agent ? 'assistant' : 'user', text, status, createdAt: new Date(Date.parse(stamp) + elapsed).toISOString(), tools: [] };
     state.messages.push(m); return m;
   }
-  function advance() {
+  function advance(milliseconds = 650) {
+    if (paused) return;
+    elapsed += milliseconds;
     for (const [id, job] of pending) {
       const m = state.messages.find(item => item.id === id);
       if (!m) { pending.delete(id); continue; }
@@ -46,7 +48,7 @@ export function createMockTransport({ manual = false } = {}) {
     publish();
     if (!pending.size) { clearInterval(timer); timer = undefined; }
   }
-  function schedule() { if (!manual && !timer) timer = setInterval(advance, 650); }
+  function schedule() { if (!manual && !paused && !timer && pending.size) timer = setInterval(advance, 650); }
   const transport = {
     subscribe(listener) { listeners.add(listener); return () => listeners.delete(listener); },
     async snapshot() { if (!online) throw clientError('unavailable', '模拟连接已断开。'); return snapshot(); },
@@ -88,11 +90,15 @@ export function createMockTransport({ manual = false } = {}) {
   };
   const control = {
     advance,
+    pause() { paused = true; clearInterval(timer); timer = undefined; },
+    resume() { paused = false; schedule(); },
     disconnect() { online = false; emit({ type: 'offline' }); },
     reconnect() { online = true; emit({ type: 'resync' }); },
+    /** @param {boolean | 'empty-workspace'} empty */
     reset(empty = false) {
-      clearInterval(timer); timer = undefined; pending.clear(); receipts.clear(); sequence = 2; requestNumber = 0;
+      clearInterval(timer); timer = undefined; pending.clear(); receipts.clear(); sequence = 2; requestNumber = 0; elapsed = 0; paused = false;
       state = initial(`mock-${++incarnation}`); if (empty) state.messages = [];
+      if (empty === 'empty-workspace') { state.rooms = []; state.agents = []; }
       online = true; publish();
     },
     approval(kind = 'permission', roomId = 'room-design') {
