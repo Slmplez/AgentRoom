@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { connectionCommands } from './settings.mjs';
 import { managementCommands } from './management.mjs';
 import { capabilityCommands } from './capabilities.mjs';
+import { collaborationQuestionSchema, questionCommands } from './questions.mjs';
 
 const id = z.string().min(1).max(300);
 const question = z.object({ id, title: z.string(), multiple: z.boolean(), options: z.array(z.string()) });
@@ -28,12 +29,14 @@ export const snapshotSchema = z.object({
   rooms: z.array(z.object({ id, title: z.string(), type: z.enum(['group', 'dm']), workspaceId: id, memberIds: z.array(id), ownerAgentId: z.string().nullable().default(null), pinned: z.boolean().default(false), description: z.string().default('') })),
   workspaces: z.array(z.object({ id, title: z.string(), directory: z.string() })),
   messages: z.array(messageSchema), approvals: z.array(approvalSchema), runs: z.array(runSchema).default([]), approvalHistory: z.array(approvalSchema).default([]),
-  capabilities: z.object({ tasks: z.boolean(), idempotentSend: z.boolean().default(false) }),
+  currentUserId: id.nullable().default(null), questions: z.array(collaborationQuestionSchema).default([]),
+  capabilities: z.object({ tasks: z.boolean(), idempotentSend: z.boolean().default(false), collaborationQuestions: z.boolean().default(false) }),
 });
 export const commandSchema = z.discriminatedUnion('type', [
   ...connectionCommands,
   ...managementCommands,
   ...capabilityCommands,
+  ...questionCommands,
   z.object({ type: z.literal('cancelRun'), key: id, runId: id }),
   z.object({ type: z.literal('send'), key: id, roomId: id, text: z.string().min(1).max(16000), mode: z.enum(['discussion', 'task']), ownerAgentId: z.string().nullable(),
     mentions: z.array(z.object({ agentId: id, start: z.number().int().nonnegative(), end: z.number().int().positive() })) }),

@@ -132,7 +132,12 @@ export function createAgentRoomClient(transport) {
       const epoch = generation;
       const result = await transport.query(parsed.data);
       if (epoch !== generation) throw clientError('stale_query', '查询范围已变化。');
-      return freeze(queryResults[parsed.data.type].parse(result));
+      const value = freeze(queryResults[parsed.data.type].parse(result));
+      if (parsed.data.type === 'questionOperation' && value.found && uncertain.get(parsed.data.key)?.target === parsed.data.questionId) {
+        uncertain.delete(parsed.data.key);
+        publish({ pendingOperations: [...uncertain.values()].filter(item => item.scope === scopeKey()) });
+      }
+      return value;
     }
   return {
     read: () => state,
@@ -159,8 +164,9 @@ export function createAgentRoomClient(transport) {
       const parsed = commandSchema.safeParse(input);
       if (!parsed.success) throw clientError('invalid_command', '请求不符合聊天契约。');
       const command = parsed.data;
+      if (command.type === 'answerQuestion' && !state.capabilities.collaborationQuestions) throw clientError('unsupported', '当前后端不支持协作问题。');
       const token = command.type === 'decide' ? command.approvalId : command.key;
-      const target = command.agentId || command.roomId || command.workspaceId || command.id || '';
+      const target = command.questionId || command.agentId || command.roomId || command.workspaceId || command.id || '';
       if (uncertain.has(token) || !['send', 'decide', 'cancelRun'].includes(command.type) && [...uncertain.values()].some(item => item.type === command.type && item.target === target)) throw clientError('outcome_unknown', '此前同类操作结果未知，请核查后端记录；不会使用新请求键重复提交。', 'unknown');
       if (inFlight.has(token)) throw clientError('busy', '操作正在处理。');
       inFlight.add(token);

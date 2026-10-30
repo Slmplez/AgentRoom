@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { catalogSchema } from './management.mjs';
 import { capabilityQueries, capabilityQueryResults } from './capabilities.mjs';
 import { telemetryQueries, telemetryQueryResults } from './telemetry.mjs';
+import { questionQueries, questionQueryResults } from './questions.mjs';
 
 const id = z.string().min(1).max(300);
 const text = z.string().max(2048);
@@ -20,12 +21,14 @@ export const connectionCommands = [
 ];
 export const querySchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('toolDetails'), ref: id }),
+  ...questionQueries,
   ...capabilityQueries, ...telemetryQueries,
   z.object({ type: z.literal('catalog'), refresh: z.boolean().default(false) }),
   z.object({ type: z.literal('connections') }),
   connectionWrite.extend({ type: z.literal('testConnection') }),
 ]);
 export const queryResults = {
+  ...questionQueryResults,
   toolDetails: z.object({ id, runId: id.nullable(), output: z.string().max(16000), patches: z.array(z.string()), truncated: z.boolean() }),
   ...capabilityQueryResults, ...telemetryQueryResults,
   catalog: catalogSchema,

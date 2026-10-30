@@ -1,5 +1,11 @@
 # 聊天展示层
 
+## 协作问题 Mock（#21）
+
+模拟场景提供“协作问题/多选问题”，消息内点击展开后可只选、只写或选择并补充。答复经 AgentRoomClient 和版本化问题契约写入 Mock 投影，原生审批不变。场景包含答复失败/未知、原 key 核查、版本变化、过期/撤销和他人已答复；草稿仅在本页按实例/用户/房间/问题隔离。真实旧后端及持久讨论模式的新能力默认为不可用，不执行模型或本机操作。
+
+验证：`node --test test/questions.test.cjs`、`npx electron scripts/verify-questions-ui.cjs --disable-gpu`；后者输出 `artifacts/questions-light.png` 与 `questions-narrow-dark.png`。
+
 此目录负责 React 界面和本地交互。保持现有暖灰、陶土强调、头像和双主题；业务命令通过注入的 `ChatClient` 发出，不在组件中解析引擎协议。
 
 管理、审批和工具详情均通过统一 Client；桌面操作由 PlatformClient 提供。界面与后端契约由主集成会话完成整合。

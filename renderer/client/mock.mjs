@@ -1,12 +1,13 @@
 import { commandSchema, clientError } from '../../contracts/chat.mjs';
 import { createMockSettings } from './mock-settings.mjs';
 import { createMockAdmin } from './mock-admin.mjs';
+import { createMockQuestions } from './mock-questions.mjs';
 
 const stamp = '2026-10-30T08:00:00.000Z';
 const samplePatch = 'diff --git a/welcome.ts b/welcome.ts\n--- a/welcome.ts\n+++ b/welcome.ts\n@@ -1 +1 @@\n-export const title = "Hello";\n+export const title = "一起完成下一件事";\n';
 function initial(instanceId) {
   return {
-    instanceId, revision: 0, capabilities: { tasks: true, idempotentSend: true },
+    instanceId, revision: 0, capabilities: { tasks: true, idempotentSend: true, collaborationQuestions: true }, currentUserId: 'user', questions: [],
     workspaces: [{ id: 'workspace-demo', title: 'Agent Room', directory: '模拟工作区 · 不访问本机文件' }],
     agents: [
       { id: 'alpha', name: 'alpha', displayName: 'Alpha', engine: 'Codex', status: 'listening', workspaceId: 'workspace-demo' },
@@ -32,6 +33,7 @@ export function createMockTransport({ manual = false } = {}) {
   const settings = createMockSettings();
   const toolDetails = new Map();
   const admin = createMockAdmin(() => state, publish);
+  const questions = createMockQuestions(() => state, publish, message);
   let holdSnapshots = false, decisionUnknown = false;
   const delayedSnapshots = [];
   const emit = event => { for (const listener of listeners) listener(event); };
@@ -69,6 +71,7 @@ export function createMockTransport({ manual = false } = {}) {
   const transport = {
     async query(input) {
       if (!online) throw clientError('unavailable', '模拟连接已断开。');
+      if (input.type === 'questionOperation') return questions.query(input);
       if (input.type === 'toolDetails') { if (!toolDetails.has(input.ref)) throw clientError('expired', '模拟工具输出已过期。'); return structuredClone(toolDetails.get(input.ref)); }
       return ['connections', 'testConnection'].includes(input.type) ? settings.query(input) : admin.query(input);
     },
@@ -77,6 +80,7 @@ export function createMockTransport({ manual = false } = {}) {
     async command(input) {
       if (!online) throw clientError('unavailable', '模拟连接已断开。');
       const c = commandSchema.parse(input);
+      if (c.type === 'answerQuestion') return questions.execute(c);
       if (['saveConnection', 'removeConnection'].includes(c.type)) return settings.execute(c);
       if (!['send', 'decide', 'cancelRun'].includes(c.type)) return admin.execute(c);
       if (c.type === 'cancelRun') {
@@ -125,6 +129,7 @@ export function createMockTransport({ manual = false } = {}) {
     },
   };
   const control = {
+    question: questions.create, questionFailure: questions.fail, questionChange: questions.change,
     advance,
     failNext(type) { settings.failNext(type); admin.failNext(type); },
     telemetry: admin.telemetry,
@@ -146,6 +151,7 @@ export function createMockTransport({ manual = false } = {}) {
       settings.reset();
       toolDetails.clear();
       admin.reset(); decisionUnknown = false;
+      questions.reset();
       if (empty === 'empty-workspace') { state.rooms = []; state.agents = []; }
       online = true; publish();
     },
