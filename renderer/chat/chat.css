@@ -34,7 +34,9 @@
 .chat-scroll-bottom { position: absolute; bottom: 8px; left: 50%; transform: translateX(-50%); background: var(--surface-2); color: var(--ink); padding: 7px 13px; border: 1px solid var(--line-strong); border-radius: 20px; box-shadow: var(--shadow); }
 .chat-scroll-bottom:disabled { display: none; }
 .chat-app .composer-area { padding-top: 10px; }
-.chat-app .composer { position: relative; }
+.chat-app .composer { position: relative; padding: 12px 14px 10px; }
+.chat-app .composer textarea { display: block; min-height: 26px; max-height: 180px; line-height: 26px; }
+.chat-app .composer-toolbar { margin-top: 8px; }
 .chat-app textarea { color: var(--ink); }
 .chat-app .composer select { font-size: 12px; }
 .chat-app .send-button { background: #a64c30; color: #fff; font-size: 23px; }

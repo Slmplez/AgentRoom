@@ -46,7 +46,7 @@ export function Composer({ client, room, agents, portrait, openMembers, membersO
     document.addEventListener('pointerdown', outside); return () => document.removeEventListener('pointerdown', outside);
   }, [compact, optionsOpen]);
   const selectedAgents = agents.filter(a => draft.mentions.some(m => m.agentId === a.id));
-  useEffect(() => { if (input.current) { input.current.style.height = 'auto'; input.current.style.height = `${Math.max(64, Math.min(180, input.current.scrollHeight))}px`; } }, [draft.text]);
+  useEffect(() => { if (input.current) { input.current.style.height = 'auto'; input.current.style.height = `${Math.max(26, Math.min(180, input.current.scrollHeight))}px`; } }, [draft.text]);
   function selectCursor() { if (input.current) { setCursor(input.current.selectionStart); setSelectionEnd(input.current.selectionEnd); setMenuClosed(false); } }
   function edited(next: string, nextCursor: number) {
     // Keep only explicit selections, adjusting ranges across the one contiguous text edit.
@@ -90,7 +90,7 @@ export function Composer({ client, room, agents, portrait, openMembers, membersO
           onMouseDown={e => e.preventDefault()} onClick={() => insertAgent(a)}><span className="avatar character small"><img src={portrait(a)} alt="" /></span><span className="mention-person"><strong>{a.displayName}</strong><small>{a.engine}</small></span><small className="mention-handle">@{a.name}</small></button>) : <p>没有匹配的成员</p>}
       </div>}
       <textarea ref={input} id="message-input" aria-label="消息内容" aria-describedby={instructionsId} aria-autocomplete="list" aria-controls={menu ? 'mention-menu' : undefined} aria-expanded={menu} aria-activedescendant={menu && candidates.length ? `mention-${Math.min(highlighted, candidates.length - 1)}` : undefined}
-        placeholder={persistent ? '写下讨论内容…' : room.type === 'dm' ? `和 ${room.title} 继续对话…` : '写下想法，输入 @ 选择参与者…'} value={draft.text} rows={2}
+        placeholder={persistent ? '写下讨论内容…' : room.type === 'dm' ? `和 ${room.title} 继续对话…` : '写下想法，输入 @ 选择参与者…'} value={draft.text} rows={1}
         onChange={e => edited(e.target.value, e.target.selectionStart)} onSelect={selectCursor}
         onCompositionStart={() => { composing.current = true; setMenuClosed(true); }} onCompositionEnd={() => { composing.current = false; selectCursor(); }}
         onKeyDown={e => {
