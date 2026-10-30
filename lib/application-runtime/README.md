@@ -1,8 +1,9 @@
 # G2a persistent discussion backend
 
-This is the standalone #13 backend. It does not replace the existing desktop
+This is the standalone #13/#14 backend. It does not replace the existing desktop
 service or load hcom, an agent CLI, a model gateway, or the React client.
-SSE and production UI integration remain #14 and #16 respectively.
+It supports authenticated HTTP/SSE and the public AgentRoomClient. Production UI
+integration remains #16; history paging in the client and event expiry remain #15.
 
 Requires Node.js >= 24.4.1 with `node:sqlite` (experimental in the validated
 24.4.1 runtime). Use a separate local data directory. Do not point this service
@@ -49,7 +50,9 @@ local session; caller/author fields in the JSON body are rejected.
 | GET /api/v1/rooms | `workspaceId`; bounded to 200 rooms |
 | POST /api/v1/rooms/:id/messages | `{workspaceId, text, replyToId?}`; empty `mentions` only |
 | GET /api/v1/rooms/:id/messages | `limit` (1–200), `beforeSequence?`, `upperBound?` |
+| GET /api/v1/rooms/:id/snapshot | Room and latest 100 messages with a cursor from the same read transaction |
 | GET /api/v1/rooms/:id/events | Bounded committed-event query, `after?`, `limit?`; **not SSE** |
+| GET /api/v1/events | SSE using authorization header, `roomId`, `after` cursor |
 | GET /api/v1/operations/:id | Original accessible receipt |
 | GET /api/v1/operations | `workspaceId`, `commandType`, original `key` |
 
@@ -66,9 +69,76 @@ leaves all queryable after restart. Queries authorize before reading each scope.
 Unknown schemas, foreign databases and initialization failures fail explicitly;
 there is no reset-to-empty recovery. Event retention/cleanup is not enabled yet.
 
+## Public client integration
+
+```js
+import { createAgentRoomClient } from '../../renderer/client/client.mjs';
+import { createPersistentTransport } from '../../renderer/client/persistent.mjs';
+
+const client = createAgentRoomClient(createPersistentTransport({
+  // Trusted host supplies the current loopback origin/token, including after restart.
+  session: () => host.getPersistenceSession(),
+  backendId: host.stableBackendId,
+  localUserId: host.localUserId,
+  storage: localStorage,
+}));
+await client.open({ roomId });
+await client.dispatch({
+  type: 'send', key: crypto.randomUUID(), roomId, text: '你好',
+  mode: 'discussion', ownerAgentId: null, mentions: [],
+});
+// client.read(), client.subscribe(listener), client.checkOperation(originalKey)
+// client.close() aborts HTTP/SSE and scheduled reconnection, not the backend.
+```
+
+This example assumes the host selected/created a discussion room through the
+authenticated HTTP API. It is not a second UI entry point. The adapter requires a
+room scope. It negotiates schema v1 and `persistentMessages`, `idempotentSend`,
+`eventStream` before syncing. The existing legacy and Mock transports retain their
+snapshot protocol. The optional internal `synchronize(scope, emit, resume)` seam
+delivers validated identities, snapshots, frames and connection state to the one
+AgentRoomClient projection; the transport holds no message projection.
+
+The client keeps an applied cursor only with its in-memory projection. A new
+client always gets a snapshot; reconnect of the same client/database resumes its
+cursor even when the process instance changes. Snapshot and applied cursor are
+published together. Message identity/revision deduplicates replay; receipts never
+advance the applied cursor or insert an optimistic second message. Scope changes
+and close invalidate late callbacks using the existing client generation.
+
+The persistent event log is also the outbox. `watch` registers a wakeup before
+reading and uses the same query loop for backlog and live data, with a one-second
+fallback scan. Filtered streams send checkpoint frames without exposing other
+rooms. Fifteen-second SSE heartbeats keep idle connections active. Per-response
+pending writes are capped at 1 MiB; excess disconnects the peer, which resumes
+from the last applied cursor. The HTTP loop gives socket I/O time to drain during
+large backlogs. Watchers and heartbeat timers are released on connection close.
+
+Submitted-command journals require Storage-compatible durable storage
+(`getItem`, `setItem`, `removeItem`, `key`, `length`). No volatile fallback is
+provided. The host's stable backend/user identities must not be a port or bearer
+token. Keys additionally include the database ID and authenticated principal;
+individual command records avoid unrelated windows overwriting one shared list.
+Only explicitly dispatched commands are saved, before the HTTP write. Records
+contain the original command text for exact retry, but never the session token;
+the public pending-operation state exposes identifiers/outcomes only. Apply the
+same local data protections as other user chat content.
+
+On reload/reconnect, existing records are queried, never posted. `not_found`
+permits an explicit dispatch of the unchanged original command/key; a known
+receipt clears the record. A changed database clears the old projection, sets
+`databaseChanged`, and never loads or submits the previous database's journal.
+Old records are retained under their original database key. This is not an
+offline execution queue or multi-user login implementation.
+
 ## Validation
 
-Run `node --test test/persistence-durable.test.cjs`. Tests use real SQLite, HTTP
-and child processes, including forced termination before and after commit.
+Run `node --test test/persistence-durable.test.cjs test/persistence-stream.test.cjs
+test/client.test.cjs test/client-sync.test.cjs`. Tests use real SQLite, HTTP/SSE,
+two public clients, a disk-backed command journal, and child processes, including
+forced termination before and after commit. Streaming tests cover snapshot and
+backlog boundaries, missed wakeups, checkpoint filtering, duplicate events,
+both receipt/event orders, database switching, cursor/auth rejection, stale
+responses, a paused TCP reader and a healthy large-backlog reader.
 The crash injector is only assembled by `test/fixtures/persistence-process.cjs`;
 the production launcher never reads a crash setting from HTTP or environment.

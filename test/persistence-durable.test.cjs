@@ -166,7 +166,7 @@ test('newer, corrupt, foreign and inaccessible databases are not replaced by an 
 test('production launcher uses private IPC credentials and independent data directory', async t => {
   const dir = await directory(t), server = await start(dir, path.join(__dirname, '../scripts/start-persistence-server.cjs')); t.after(() => server.stop(true));
   assert.equal((await server.create('实际入口')).status, 200);
-  assert.equal(server.boot.capabilities.tasks, false); assert.equal(server.boot.capabilities.eventStream, false);
+  assert.equal(server.boot.capabilities.tasks, false); assert.equal(server.boot.capabilities.eventStream, true);
   await server.stop(); assert.equal(server.output().includes(server.ready.token), false);
 });
 
