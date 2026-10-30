@@ -5,14 +5,15 @@ const { createInterface } = require('node:readline');
 async function main() {
   const args = process.argv.slice(2);
   if (args.includes('--help')) {
-    console.log('node scripts/start-persistence-server.cjs --data-dir <isolated-directory> [--port 0]\nStandalone launch requires a 64-character random hex token in one JSON line on stdin: {"token":"..."}. Do not log that line. With fork IPC, credentials are returned only on the private IPC channel.');
+    console.log('node scripts/start-persistence-server.cjs --data-dir <isolated-directory> [--port 0] [--agent-workspace <trusted-read-only-directory>]\nAgent execution is opt-in, single local owner, Pi RPC with read-only tools. Without --agent-workspace this remains discussion-only.\nStandalone launch requires a 64-character random hex token in one JSON line on stdin: {"token":"..."}. Do not log that line. With fork IPC, credentials are returned only on the private IPC channel.');
     return;
   }
-  let directory, port = 0;
+  let directory, agentWorkspace, port = 0;
   for (let i = 0; i < args.length; i += 2) {
     if (args[i] === '--data-dir' && args[i + 1]) directory = path.resolve(args[i + 1]);
+    else if (args[i] === '--agent-workspace' && args[i + 1]) agentWorkspace = path.resolve(args[i + 1]);
     else if (args[i] === '--port' && /^\d+$/.test(args[i + 1] || '')) port = Number(args[i + 1]);
-    else throw new Error('Use --data-dir <isolated-directory> [--port 0].');
+    else throw new Error('Use --data-dir <isolated-directory> [--port 0] [--agent-workspace <trusted-directory>].');
   }
   if (!directory) throw new Error('An explicit isolated --data-dir is required.');
   let token;
@@ -24,7 +25,13 @@ async function main() {
   }
   const { createApplicationRuntime } = await import(pathToFileURL(path.join(__dirname, '../lib/application-runtime/index.mjs')));
   const { startPersistenceHttp } = await import(pathToFileURL(path.join(__dirname, '../lib/application-http/index.mjs')));
-  const runtime = await createApplicationRuntime({ directory });
+  let execution = null;
+  if (agentWorkspace) {
+    const { stat } = require('node:fs/promises'); if (!(await stat(agentWorkspace)).isDirectory()) throw new Error('Agent workspace must be a directory.');
+    const { createPiQuestionEngine } = await import(pathToFileURL(path.join(__dirname, '../lib/local-question-engine.mjs')));
+    execution = { agentId: 'local-pi', createEngine: () => createPiQuestionEngine({ directory: agentWorkspace }) };
+  }
+  const runtime = await createApplicationRuntime({ directory, execution });
   let listener;
   try { listener = await startPersistenceHttp({ runtime, port, token }); } catch (e) { runtime.close(); throw e; }
   const ready = { type: 'ready', origin: listener.origin, token: listener.token };

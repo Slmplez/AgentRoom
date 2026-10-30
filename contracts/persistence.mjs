@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { messageSchema } from './chat.mjs';
+import { localTaskSchema } from './local-execution.mjs';
 
 export const SCHEMA_VERSION = 1;
 const id = z.string().min(1).max(300);
@@ -13,13 +14,13 @@ export const persistenceCommandSchema = z.discriminatedUnion('type', [
 ]);
 export const persistenceMessageSchema = messageSchema.extend({ sequence: counter.positive(), authorKind: z.literal('human'), revision: counter.positive() });
 export const persistenceEventSchema = z.object({
-  schemaVersion: z.literal(1), eventId: id, type: z.enum(['room.created', 'message.created']),
+  schemaVersion: z.literal(1), eventId: id, type: z.enum(['room.created', 'message.created', 'localTask.updated']),
   entityId: id, entityRevision: counter.positive(), operationId: id, workspaceId: id, roomId: id,
-  occurredAt: z.string(), cursor, payload: z.union([persistenceMessageSchema, persistenceRoomSchema]),
+  occurredAt: z.string(), cursor, payload: z.union([persistenceMessageSchema, persistenceRoomSchema, localTaskSchema]),
 }).superRefine((event, ctx) => {
-  const schema = event.type === 'message.created' ? persistenceMessageSchema : persistenceRoomSchema;
+  const schema = event.type === 'localTask.updated' ? localTaskSchema : event.type === 'message.created' ? persistenceMessageSchema : persistenceRoomSchema;
   if (!schema.safeParse(event.payload).success || event.payload.id !== event.entityId || event.payload.revision !== event.entityRevision ||
-      (event.type === 'message.created' ? event.payload.roomId !== event.roomId : event.payload.id !== event.roomId || event.payload.workspaceId !== event.workspaceId)) {
+      (event.type !== 'room.created' ? event.payload.roomId !== event.roomId : event.payload.id !== event.roomId || event.payload.workspaceId !== event.workspaceId)) {
     ctx.addIssue({ code: 'custom', message: 'Event identity or payload mismatch.' });
   }
 });
@@ -45,6 +46,7 @@ export const persistenceHistorySchema = z.object({
 export const persistenceReceiptSchema = z.object({
   schemaVersion: z.literal(1), accepted: z.literal(true), operationId: id,
   roomId: id, messageId: id.nullable(), sequence: counter.nullable(), cursor: id,
+  taskId: id.optional(),
 });
 export const persistenceQuerySchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('bootstrap') }).strict(),
@@ -53,7 +55,7 @@ export const persistenceQuerySchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('messages'), roomId: id, limit: counter.min(1).max(200).default(100), beforeSequence: counter.positive().optional(), upperBound: counter.optional() }).strict(),
   z.object({ type: z.literal('events'), roomId: id, after: z.string().max(1000).optional(), limit: counter.min(1).max(200).default(100) }).strict(),
   z.object({ type: z.literal('operation'), operationId: id }).strict(),
-  z.object({ type: z.literal('receipt'), workspaceId: id, commandType: z.enum(['createRoom', 'sendDiscussion']), key: id }).strict(),
+  z.object({ type: z.literal('receipt'), workspaceId: id, commandType: z.enum(['createRoom', 'sendDiscussion', 'createLocalTask', 'answerLocalQuestion']), key: id }).strict(),
 ]);
 export function persistenceError(code, message, status = 400, outcome = 'rejected') {
   return Object.assign(new Error(message), { code, status, outcome });
