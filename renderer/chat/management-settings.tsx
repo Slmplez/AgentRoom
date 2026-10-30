@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import type { ChatClient, Command, Snapshot, QueryResult, PlatformClient } from './types';
 import { PathField } from './path-field';
 import { Field, QueryState } from './connection-settings';
+import { LaunchModelPicker } from './model-picker';
 import { formText, requestKey, useSettingsQuery, type SettingsActions } from './settings-data';
 
 export type ManagementProps = { client: ChatClient; platform: PlatformClient; active: boolean; actions: SettingsActions; state: Snapshot; workspaceId: string };
@@ -34,8 +35,8 @@ export function CreationSettings({ client, active, actions, state, workspaceId, 
       {kind === 'new-room' ? <><Field label="群聊名称"><input name="title" required maxLength={40} /></Field><div className="settings-field"><span>选择成员</span>{agents.map(a => <label className="settings-check" key={a.id}><input type="checkbox" name="member" value={a.id} />{a.displayName}<small>{a.engine}</small></label>)}{!agents.length && <p className="settings-note">当前工作区没有可用 Agent，请先添加。</p>}</div></> : <>
         <Field label="Agent 引擎"><select value={engine} onChange={e => { setEngine(e.target.value); setConnection(''); }}>{!engines.length && <option value="">没有可用引擎</option>}{engines.map(e => <option key={e.id} value={e.id}>{e.label}</option>)}</select></Field>
         <Field label="Tag（可选）"><input name="tag" maxLength={32} pattern={'[a-zA-Z0-9][a-zA-Z0-9_\\-]{0,31}'} title="以英文字母或数字开头，仅使用英文、数字、下划线和短横线" placeholder="例如：frontend、review" onInvalid={() => setValidation('Tag 仅支持英文、数字、下划线和短横线，且以英文或数字开头。')} onChange={() => setValidation('')} /></Field>
-        <Field label="连接方案"><select value={selected?.id || ''} onChange={e => setConnection(e.target.value)}><option value="">使用 CLI 原配置</option>{connections.data?.profiles.filter(p => p.compatibleEngines.includes(engine)).map(p => <option key={p.id} value={p.id}>{p.name}</option>)}</select></Field>
-        {selected && <Field label="本次使用的模型"><input key={selected.id} name="model" required maxLength={200} defaultValue={selected.model} /></Field>}
+        <Field label="连接方案"><select value={selected?.id || ''} onChange={e => setConnection(e.target.value)}><option value="">使用 CLI 原配置</option>{connections.data?.profiles.map(p => <option key={p.id} value={p.id} disabled={!p.compatibleEngines.includes(engine)}>{p.name}{p.compatibleEngines.includes(engine) ? '' : ' · 当前引擎不支持此协议'}</option>)}</select></Field>
+        {selected && <LaunchModelPicker key={`${selected.id}:${engine}`} client={client} connectionId={selected.id} defaultModel={selected.model} engineId={engine} active={active} />}
         <Field label="工具与技能"><select name="capabilityMode" value={mode} onChange={e => setMode(e.target.value as typeof mode)}><option value="workspace">使用工作区配置</option><option value="custom">为此 Agent 单独选择</option><option value="off">不启用工具与技能</option></select></Field>
         {mode === 'custom' && <div className="settings-capability-picker"><QueryState {...capabilities} />{capabilities.data?.servers.map(s => <label className="settings-check" key={s.id}><input type="checkbox" name="launch-server" value={s.id} />{s.name}</label>)}{capabilities.data?.skills.map(s => <label className="settings-check" key={s.id}><input type="checkbox" name="launch-skill" value={s.id} />{s.name}</label>)}{capabilities.data && !capabilities.data.servers.length && !capabilities.data.skills.length && <p className="settings-note">工具库为空，可先在“工具与技能”中添加。</p>}</div>}
       </>}

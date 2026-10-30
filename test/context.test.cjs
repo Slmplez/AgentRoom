@@ -209,6 +209,7 @@ test('service launch binds two real loopback gateways to the returned agent name
   const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'ar-context-launch-'));
   t.after(() => fs.rm(directory, { recursive: true, force: true }));
   const upstream = http.createServer(async (req, res) => {
+    if (req.url === '/v1/models') { res.end(JSON.stringify({ data: [{ id: 'test-model' }] })); return; }
     let body = ''; for await (const chunk of req) body += chunk;
     res.writeHead(200, { 'content-type': 'application/json' });
     res.end(JSON.stringify({ model: 'test-model', usage: { input_tokens: JSON.parse(body).input, output_tokens: 20 } }));

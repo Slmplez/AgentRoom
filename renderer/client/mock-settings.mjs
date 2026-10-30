@@ -1,4 +1,5 @@
 import { clientError } from '../../contracts/chat.mjs';
+import models from '../../shared/model-catalog.cjs';
 
 export function createMockSettings() {
   let profiles = [], nextId = 0, failure = '';
@@ -18,7 +19,14 @@ export function createMockSettings() {
     query(input) {
       if (failure === input.type) { failure = ''; throw clientError('simulated_failure', '模拟读取失败。'); }
       if (input.type === 'connections') return structuredClone({ profiles, secureStorageAvailable: true, simulated: true });
-      validate(input); return { ok: true, message: '模拟连接检查通过，未请求真实模型。', models: ['example'], latencyMs: 0 };
+      const profile = input.type === 'modelCatalog' ? profiles.find(p => p.id === input.connectionId) : validate(input);
+      if (!profile) throw clientError('not_found', '连接配置不存在。');
+      const catalog = models.catalogModels([
+        { id: 'example', display_name: '示例工具模型', tool_call: true, streaming: true, reasoning: true, modalities: { input: ['text', 'image'] }, context_window: 128000, max_output_tokens: 8192 },
+        { id: 'text-only', display_name: '纯文本模型', tool_call: false },
+        { id: 'unverified', display_name: '能力未知模型' },
+      ], profile.protocol, input.model ?? profile.model);
+      return { ok: true, message: '模拟连接检查通过，未请求真实模型。', models: catalog.filter(m => m.source === 'upstream').map(m => m.id), catalog, latencyMs: 0 };
     },
     execute(command) {
       if (failure === command.type) { failure = ''; throw clientError('simulated_failure', '模拟保存失败，原配置保留。'); }

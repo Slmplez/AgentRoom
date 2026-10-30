@@ -73,7 +73,7 @@ export function createMockTransport({ manual = false } = {}) {
       if (!online) throw clientError('unavailable', '模拟连接已断开。');
       if (input.type === 'questionOperation') return questions.query(input);
       if (input.type === 'toolDetails') { if (!toolDetails.has(input.ref)) throw clientError('expired', '模拟工具输出已过期。'); return structuredClone(toolDetails.get(input.ref)); }
-      return ['connections', 'testConnection'].includes(input.type) ? settings.query(input) : admin.query(input);
+      return ['connections', 'testConnection', 'modelCatalog'].includes(input.type) ? settings.query(input) : admin.query(input);
     },
     subscribe(listener) { listeners.add(listener); return () => listeners.delete(listener); },
     async snapshot() { if (!online) throw clientError('unavailable', '模拟连接已断开。'); const value = snapshot(); return holdSnapshots ? new Promise(resolve => delayedSnapshots.push(() => resolve(value))) : value; },
@@ -82,6 +82,12 @@ export function createMockTransport({ manual = false } = {}) {
       const c = commandSchema.parse(input);
       if (['answerQuestion', 'requestQuestionAdvice', 'adoptQuestionAdvice'].includes(c.type)) return questions.execute(c);
       if (['saveConnection', 'removeConnection'].includes(c.type)) return settings.execute(c);
+      if (c.type === 'launchAgent' && c.connectionId) {
+        const result = settings.query({ type: 'modelCatalog', connectionId: c.connectionId, model: c.model });
+        const profile = settings.query({ type: 'connections' }).profiles.find(p => p.id === c.connectionId);
+        const compatibility = result.catalog.find(m => m.id === (c.model ?? profile.model).trim())?.compatibility.find(item => item.engineId === c.engineId);
+        if (!profile.compatibleEngines.includes(c.engineId) || compatibility?.status === 'incompatible') throw clientError('invalid_connection', compatibility?.reason || '此引擎不支持该连接的协议。');
+      }
       if (!['send', 'decide', 'cancelRun'].includes(c.type)) return admin.execute(c);
       if (c.type === 'cancelRun') {
         const run = state.runs.find(r => r.id === c.runId);

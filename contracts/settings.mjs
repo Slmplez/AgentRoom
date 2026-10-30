@@ -3,6 +3,7 @@ import { catalogSchema } from './management.mjs';
 import { capabilityQueries, capabilityQueryResults } from './capabilities.mjs';
 import { telemetryQueries, telemetryQueryResults } from './telemetry.mjs';
 import { questionQueries, questionQueryResults } from './questions.mjs';
+import { modelDiscoverySchema } from './models.mjs';
 
 const id = z.string().min(1).max(300);
 const text = z.string().max(2048);
@@ -25,7 +26,8 @@ export const querySchema = z.discriminatedUnion('type', [
   ...capabilityQueries, ...telemetryQueries,
   z.object({ type: z.literal('catalog'), refresh: z.boolean().default(false) }),
   z.object({ type: z.literal('connections') }),
-  connectionWrite.extend({ type: z.literal('testConnection') }),
+  connectionWrite.extend({ type: z.literal('testConnection'), profile: connectionProfileSchema.extend({ model: z.string().max(200).default('') }) }),
+  z.object({ type: z.literal('modelCatalog'), connectionId: id, model: z.string().max(200).optional() }),
 ]);
 export const queryResults = {
   ...questionQueryResults,
@@ -33,5 +35,6 @@ export const queryResults = {
   ...capabilityQueryResults, ...telemetryQueryResults,
   catalog: catalogSchema,
   connections: z.object({ profiles: z.array(connectionSummarySchema), secureStorageAvailable: z.boolean(), simulated: z.boolean().default(false) }),
-  testConnection: z.object({ ok: z.boolean(), message: z.string(), models: z.array(z.string()).default([]), latencyMs: z.number().nullable().optional() }),
+  testConnection: modelDiscoverySchema,
+  modelCatalog: modelDiscoverySchema,
 };
