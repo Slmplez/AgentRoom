@@ -116,6 +116,7 @@ app.whenReady().then(async () => {
   await until(browser, 'document.querySelector("#messages").textContent.includes("跨重启保留草稿")');
   await browser.webContents.executeJavaScript('document.querySelector("[aria-label=设置]").click()');
   await until(browser, 'document.querySelector("dialog[open]")?.textContent.includes("持久讨论")');
+  await delay(350); // Let the compositor paint the modal before capturing the hidden test window.
   await fs.mkdir(path.resolve(__dirname, '../artifacts'), { recursive: true });
   await fs.writeFile(path.resolve(__dirname, '../artifacts/persistence-ui.png'), (await browser.webContents.capturePage()).toPNG());
   for (const win of windows) win.destroy(); windows = []; await stop();
