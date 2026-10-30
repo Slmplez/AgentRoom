@@ -6,6 +6,12 @@
 
 验证：`node --test test/questions.test.cjs`、`npx electron scripts/verify-questions-ui.cjs --disable-gpu`；后者输出 `artifacts/questions-light.png` 与 `questions-narrow-dark.png`。
 
+## Agent 建议 Mock（#22）
+
+问题展开后可“请 Agent 提供建议”，按稳定成员 ID 选择一位或多位 Agent 并填写分析要求。建议独立关联原问题，保持真人待决定；“采用建议”产生真人决定，“输入其他方案”回到原答复输入。重新指派产生新的咨询轮次，晚到旧建议、失败、未知、离房成员的建议不能被当前轮次采纳；审批权限与任务 Owner 不受影响。
+
+模拟场景的“推进建议答复/建议失败/建议未知/晚到旧建议/建议成员离开”控制确定性结果，未启动引擎、未实现真实协作等待恢复。`artifacts/questions-advice-light.png` 展示关联建议；咨询提交超时同样按原请求核查。真实能力依旧等待 #23。
+
 此目录负责 React 界面和本地交互。保持现有暖灰、陶土强调、头像和双主题；业务命令通过注入的 `ChatClient` 发出，不在组件中解析引擎协议。
 
 管理、审批和工具详情均通过统一 Client；桌面操作由 PlatformClient 提供。界面与后端契约由主集成会话完成整合。

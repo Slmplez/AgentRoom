@@ -133,6 +133,7 @@ export function createAgentRoomClient(transport) {
       const result = await transport.query(parsed.data);
       if (epoch !== generation) throw clientError('stale_query', '查询范围已变化。');
       const value = freeze(queryResults[parsed.data.type].parse(result));
+      if (parsed.data.type === 'questionOperation' && (value.key !== parsed.data.key || value.questionId !== parsed.data.questionId)) throw clientError('invalid_response', '问题回执范围不匹配。', 'unknown');
       if (parsed.data.type === 'questionOperation' && value.found && uncertain.get(parsed.data.key)?.target === parsed.data.questionId) {
         uncertain.delete(parsed.data.key);
         publish({ pendingOperations: [...uncertain.values()].filter(item => item.scope === scopeKey()) });
@@ -165,9 +166,10 @@ export function createAgentRoomClient(transport) {
       if (!parsed.success) throw clientError('invalid_command', '请求不符合聊天契约。');
       const command = parsed.data;
       if (command.type === 'answerQuestion' && !state.capabilities.collaborationQuestions) throw clientError('unsupported', '当前后端不支持协作问题。');
+      if (['requestQuestionAdvice', 'adoptQuestionAdvice'].includes(command.type) && (!state.capabilities.collaborationQuestions || !state.capabilities.questionAdvice)) throw clientError('unsupported', '当前后端不支持 Agent 建议。');
       const token = command.type === 'decide' ? command.approvalId : command.key;
       const target = command.questionId || command.agentId || command.roomId || command.workspaceId || command.id || '';
-      if (uncertain.has(token) || !['send', 'decide', 'cancelRun'].includes(command.type) && [...uncertain.values()].some(item => item.type === command.type && item.target === target)) throw clientError('outcome_unknown', '此前同类操作结果未知，请核查后端记录；不会使用新请求键重复提交。', 'unknown');
+      if (uncertain.has(token) || !['send', 'decide', 'cancelRun'].includes(command.type) && [...uncertain.values()].some(item => item.target === target && (item.type === command.type || command.questionId && ['answerQuestion', 'requestQuestionAdvice', 'adoptQuestionAdvice'].includes(item.type)))) throw clientError('outcome_unknown', '此前同类操作结果未知，请核查后端记录；不会使用新请求键重复提交。', 'unknown');
       if (inFlight.has(token)) throw clientError('busy', '操作正在处理。');
       inFlight.add(token);
       const epoch = generation;

@@ -14,3 +14,9 @@
 .question-body .button.primary { background: var(--clay-text); color: var(--surface-2); }
 :root[data-theme="dark"] .question-body .button.primary { background: var(--clay-text); color: #191918; }
 .question-body :focus-visible, .question-interaction > summary:focus-visible { outline: 2px solid var(--clay-text); outline-offset: 3px; }
+.question-advice { border-top: 1px solid var(--line-strong); margin-top: 20px; padding-top: 12px; }
+.question-advice summary { cursor: pointer; padding: 6px 0; color: var(--clay-text); }
+.question-advice small, .question-advice article > span { color: var(--text-secondary); font-size: 13px; }
+.question-advice article { border-left: 2px solid var(--line-strong); padding: 8px 12px; margin: 12px 0; overflow-wrap: anywhere; }
+.question-advice article > span { display: block; margin-top: 4px; }
+.question-advice-actions { display: flex; flex-wrap: wrap; gap: 8px; }

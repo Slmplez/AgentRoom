@@ -7,7 +7,7 @@ const stamp = '2026-10-30T08:00:00.000Z';
 const samplePatch = 'diff --git a/welcome.ts b/welcome.ts\n--- a/welcome.ts\n+++ b/welcome.ts\n@@ -1 +1 @@\n-export const title = "Hello";\n+export const title = "一起完成下一件事";\n';
 function initial(instanceId) {
   return {
-    instanceId, revision: 0, capabilities: { tasks: true, idempotentSend: true, collaborationQuestions: true }, currentUserId: 'user', questions: [],
+    instanceId, revision: 0, capabilities: { tasks: true, idempotentSend: true, collaborationQuestions: true, questionAdvice: true }, currentUserId: 'user', questions: [],
     workspaces: [{ id: 'workspace-demo', title: 'Agent Room', directory: '模拟工作区 · 不访问本机文件' }],
     agents: [
       { id: 'alpha', name: 'alpha', displayName: 'Alpha', engine: 'Codex', status: 'listening', workspaceId: 'workspace-demo' },
@@ -80,7 +80,7 @@ export function createMockTransport({ manual = false } = {}) {
     async command(input) {
       if (!online) throw clientError('unavailable', '模拟连接已断开。');
       const c = commandSchema.parse(input);
-      if (c.type === 'answerQuestion') return questions.execute(c);
+      if (['answerQuestion', 'requestQuestionAdvice', 'adoptQuestionAdvice'].includes(c.type)) return questions.execute(c);
       if (['saveConnection', 'removeConnection'].includes(c.type)) return settings.execute(c);
       if (!['send', 'decide', 'cancelRun'].includes(c.type)) return admin.execute(c);
       if (c.type === 'cancelRun') {
@@ -130,6 +130,7 @@ export function createMockTransport({ manual = false } = {}) {
   };
   const control = {
     question: questions.create, questionFailure: questions.fail, questionChange: questions.change,
+    adviceResults: questions.results, adviceMemberLeft: questions.memberLeft,
     advance,
     failNext(type) { settings.failNext(type); admin.failNext(type); },
     telemetry: admin.telemetry,
