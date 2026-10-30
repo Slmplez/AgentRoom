@@ -31,7 +31,7 @@ export function App({ client, platform, control, persistent = false }: { client:
   const [memberRoomId, setMemberRoomId] = useState('');
   const [diff, setDiff] = useState<string[] | null>(null);
   const [resultsOpen, setResultsOpen] = useState(false), [resultsLoaded, setResultsLoaded] = useState(false);
-  const resultSplit = useResultSplit(resultsOpen, () => setResultsOpen(false));
+  const resultSplit = useResultSplit(resultsOpen, () => setResultsOpen(false), `${prefix}result-width`);
   const avatarStore = useMemo(() => window.AgentAvatars.create({ saved: readLocal(mock ? 'ar-mock-agent-avatars' : 'ar-agent-avatars', {}) }), [mock]);
   useEffect(() => { if (!persistent || client.read().connection !== 'live') void client.open(); return () => client.close(); }, [client, persistent]);
   useEffect(() => { document.documentElement.dataset.theme = theme; saveLocal(`${prefix}theme`, theme); }, [theme, prefix]);

@@ -23,7 +23,7 @@ app.whenReady().then(async () => {
   await click('工具与差异');
   await until('Boolean(document.querySelector(".tool-trace"))');
   assert.ok(await run(`!document.querySelector('.tool-trace').open`));
-  await run(`document.querySelector('.tool-trace > summary').click()`);
+  await run(`document.querySelector('.message-process-menu > summary').click();document.querySelector('.tool-trace > summary').click()`);
   await until('document.querySelector(".tool-trace").open');
   assert.equal(await run('document.querySelectorAll(".tool-description strong").length'),2);
   assert.ok(await run('Array.from(document.querySelectorAll(".tool-payload")).every(el=>!el.open)'));
@@ -100,6 +100,13 @@ app.whenReady().then(async () => {
   await win.webContents.debugger.sendCommand('Emulation.setEmulatedMedia',{features:[{name:'prefers-reduced-motion',value:'reduce'}]});
   await until('document.querySelector(".mention-menu").getAnimations().length === 0');
   win.webContents.debugger.detach();
+  win.setContentSize(1440,960);
+  const savedWidth=await run('Number(localStorage.getItem("ar-chat-mock-result-width"))');
+  assert.ok(savedWidth>=360);
+  await win.reload();await until('Boolean(document.querySelector(".result-open-button"))');
+  await click('结果示例');await until('Boolean(document.querySelector(".result-separator"))');
+  assert.ok(Math.abs((await rect('.result-panel')).width-savedWidth)<1,'Reload restores result width');
+  assert.equal(await run('localStorage.getItem("ar-chat-result-width")'),null,'Mock width does not overwrite real preferences');
   assert.deepEqual(errors,[]);
   console.log('Passed: tool summary/lazy detail, approval hierarchy, visible wide/compact options, keyboard/pointer splitter, Escape rollback, balanced widths, retained draft, narrow dark overlay, live reduced-motion cancellation.');
   win.destroy();server.close();app.quit();
