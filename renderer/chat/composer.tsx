@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useId, useRef, useState } from 'react';
 import type { Agent, ChatClient, Command, Room } from './types';
 import { useEntrance } from './motion';
 
@@ -10,6 +10,7 @@ export function Composer({ client, room, agents, portrait, openMembers, membersO
   persistent?: boolean; pendingOperations?: { key: string; outcome: string }[];
 }) {
   const input = useRef<HTMLTextAreaElement>(null), composing = useRef(false), submitting = useRef(false);
+  const instructionsId = useId();
   const [cursor, setCursor] = useState(0), [selectionEnd, setSelectionEnd] = useState(0), [menuClosed, setMenuClosed] = useState(false);
   const [highlighted, setHighlighted] = useState(0), [busy, setBusy] = useState(false), [mode, setMode] = useState<'discussion' | 'task'>('discussion');
   const [owner, setOwner] = useState(room.ownerAgentId || ''), [uncertain, setUncertain] = useState(false);
@@ -88,7 +89,7 @@ export function Composer({ client, room, agents, portrait, openMembers, membersO
         {candidates.length ? candidates.map((a, i) => <button key={a.id} type="button" id={`mention-${i}`} className={`mention-option ${i === highlighted ? 'highlighted' : ''}`} role="option" aria-selected={i === highlighted}
           onMouseDown={e => e.preventDefault()} onClick={() => insertAgent(a)}><span className="avatar character small"><img src={portrait(a)} alt="" /></span><span className="mention-person"><strong>{a.displayName}</strong><small>{a.engine}</small></span><small className="mention-handle">@{a.name}</small></button>) : <p>没有匹配的成员</p>}
       </div>}
-      <textarea ref={input} id="message-input" aria-label="消息内容" aria-autocomplete="list" aria-controls={menu ? 'mention-menu' : undefined} aria-expanded={menu} aria-activedescendant={menu && candidates.length ? `mention-${Math.min(highlighted, candidates.length - 1)}` : undefined}
+      <textarea ref={input} id="message-input" aria-label="消息内容" aria-describedby={instructionsId} aria-autocomplete="list" aria-controls={menu ? 'mention-menu' : undefined} aria-expanded={menu} aria-activedescendant={menu && candidates.length ? `mention-${Math.min(highlighted, candidates.length - 1)}` : undefined}
         placeholder={persistent ? '写下讨论内容…' : room.type === 'dm' ? `和 ${room.title} 继续对话…` : '写下想法，输入 @ 选择参与者…'} value={draft.text} rows={2}
         onChange={e => edited(e.target.value, e.target.selectionStart)} onSelect={selectCursor}
         onCompositionStart={() => { composing.current = true; setMenuClosed(true); }} onCompositionEnd={() => { composing.current = false; selectCursor(); }}
@@ -101,7 +102,7 @@ export function Composer({ client, room, agents, portrait, openMembers, membersO
           if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); void send(); }
         }} />
       <div className="composer-toolbar"><div className="composer-tools">
-        {!persistent && <button className="composer-tool" aria-label="提及成员" onClick={() => {
+        {!persistent && <button className="composer-tool" aria-label="提及成员" title="选择回应者；可连续 @ 多位成员" onClick={() => {
           const el = input.current!; const start = el.selectionStart, end = el.selectionEnd;
           const inserted = `${start && !/\s/.test(draft.text[start - 1]) ? ' ' : ''}@`;
           edited(draft.text.slice(0, start) + inserted + draft.text.slice(end), start + inserted.length);
@@ -111,9 +112,9 @@ export function Composer({ client, room, agents, portrait, openMembers, membersO
         {tasks && <details className="composer-options" ref={optionsRef} open={!compact || optionsOpen} onToggle={e => { if (compact) setOptionsOpen(e.currentTarget.open); }} onKeyDown={e => { if (compact && e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); setOptionsOpen(false); optionsRef.current?.querySelector<HTMLElement>('summary')?.focus(); } }}><summary aria-label="消息选项">{mode === 'task' ? '任务' : '讨论'}{mode === 'task' && room.type === 'group' && <span className="composer-owner-hint">{agents.find(a => a.id === owner)?.displayName || '待选负责人'}</span>}<span aria-hidden="true">⌄</span></summary><div className="composer-option-fields"><label><span>消息类型</span><select aria-label="消息类型" value={mode} onChange={e => setMode(e.target.value as typeof mode)}><option value="discussion">讨论</option><option value="task">任务</option></select></label>
         {mode === 'task' && room.type === 'group' && <select aria-label="任务负责人" value={owner} onChange={e => setOwner(e.target.value)}><option value="">选择负责人</option>{agents.map(a => <option key={a.id} value={a.id}>{a.displayName} 负责</option>)}</select>}
         </div></details>}
-      </div><button id="send-button" className="send-button" aria-label="发送消息" disabled={busy || !live || !draft.text.trim() || locked || mode === 'task' && !owner && room.type !== 'dm'} onClick={() => void send()}><span aria-hidden="true">↑</span></button></div>
+      </div><button id="send-button" className="send-button" aria-label="发送消息" title="Enter 发送 · Shift + Enter 换行" aria-describedby={instructionsId} disabled={busy || !live || !draft.text.trim() || locked || mode === 'task' && !owner && room.type !== 'dm'} onClick={() => void send()}><span aria-hidden="true">↑</span></button></div>
     </div>
-    <div className="composer-bottom"><span>{persistent ? '持久讨论 · 不启动 Agent' : room.type === 'dm' ? `仅与 ${room.title} 对话` : mode === 'task' ? '一位负责人 · @ 添加参与者' : mock ? '@ 邀请回应 · 未提及仅记录讨论' : '请 @ 选择回应者'}</span><span>Enter 发送 · Shift + Enter 换行</span></div>
+    <div id={instructionsId} className="chat-visually-hidden"><span>{persistent ? '持久讨论 · 不启动 Agent' : room.type === 'dm' ? `仅与 ${room.title} 对话` : mode === 'task' ? '一位负责人 · @ 添加参与者' : mock ? '@ 邀请回应 · 未提及仅记录讨论' : '请 @ 选择回应者'}</span>{' '}<span>Enter 发送 · Shift + Enter 换行</span></div>
     {persistent && locked && <p className="chat-inline-error" role="alert">发送结果尚待核查。{pendingOperations.map(operation => <span key={operation.key}>
       <button className="button" data-check-operation disabled={busy || !live} onClick={async () => {
         setBusy(true);

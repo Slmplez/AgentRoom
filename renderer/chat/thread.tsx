@@ -35,7 +35,7 @@ function MessageRow() {
   if (statusCovered && message.status === 'running' && !message.text && !message.tools.length) return null;
   return <MessagePrimitive.Root className={`message ${context.group ? 'group-message' : ''} ${message.role === 'user' ? 'human' : ''}`} data-message-id={id}>
     {message.role !== 'user' && <span className="avatar character">{agent && <img src={context.portrait(agent)} alt="" />}</span>}
-    <div className="message-main"><div className="message-heading"><span className="message-name">{message.authorName}</span>{agent && !context.group && <span className="message-engine">{agent.engine}</span>}</div>
+    <div className="message-main"><div className={`message-heading ${message.role === 'user' && message.authorName === '你' ? 'chat-visually-hidden' : ''}`}><span className="message-name">{message.authorName}</span>{agent && !context.group && <span className="message-engine">{agent.engine}</span>}</div>
       <div className="message-bubble chat-markdown"><MessagePrimitive.Parts components={{ Text: MarkdownText }} />{message.status === 'running' && !message.text && <span className="chat-thinking" role="status">正在回应…</span>}</div>
       {!statusCovered && message.status !== 'running' && message.status !== 'complete' && <p className="chat-inline-error" role="status">{message.status === 'unknown' ? '执行结果尚未确认' : message.status === 'cancelled' ? '已中断' : '执行失败'}</p>}
       {context.group && message.tools.some(t => t.hasDiff || t.patches.length > 0) && <MessageChanges key={message.id} tools={message.tools} context={context} />}
