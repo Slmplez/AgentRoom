@@ -33,30 +33,19 @@ app.whenReady().then(async () => {
   const chatHandler = createChatHttpHandler(chatApi);
   ipcMain.handle('chat:request', (_, input) => chatApi.request(input));
   chatApi.subscribe(event => { if (win && !win.isDestroyed()) win.webContents.send('chat:event', event); });
-  ipcMain.handle('fixture:state', () => service.snapshot());
-  ipcMain.handle('fixture:send', (_, payload) => service.send(payload));
-  ipcMain.handle('fixture:respond', (_, id, requestId, answer) => service.respondSession(id, requestId, answer));
-  const streams = new Set();
-  service.on('state', state => { for (const stream of streams) stream.write(`data: ${JSON.stringify(state)}\n\n`); if (win && !win.isDestroyed()) win.webContents.send('fixture:update', state); });
   const staticServer = createPreviewServer({ mode: 'live' });
   server = http.createServer(async (req, res) => {
     try {
       if (req.url.startsWith('/api/chat/')) return await chatHandler(req, res);
       if (req.url === '/workbench.html') { res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' }); res.end(await fs.readFile(path.resolve(__dirname, '../renderer/index.html'))); return; }
-      if (req.url === '/api/events') { res.writeHead(200, { 'Content-Type': 'text/event-stream' }); streams.add(res); res.write(`data: ${JSON.stringify(service.snapshot())}\n\n`); req.on('close', () => streams.delete(res)); return; }
-      if (req.url.startsWith('/api/')) {
-        let body = ''; for await (const chunk of req) body += chunk;
-        const value = body ? JSON.parse(body) : {};
-        const result = req.url === '/api/state' ? service.snapshot() : req.url === '/api/send' ? await service.send(value) : await service.respondSession(value.id, value.requestId, value.answer);
-        res.writeHead(200, { 'Content-Type': 'application/json' }); res.end(JSON.stringify(result)); return;
-      }
+      if (req.url.startsWith('/api/')) { res.writeHead(404); res.end(); return; }
       staticServer.emit('request', req, res);
     } catch (error) { res.writeHead(400, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: error.message })); }
   });
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
   for (const [mode, view] of [['http', 'react'], ['ipc', 'react'], ['http', 'workbench'], ['ipc', 'workbench']]) {
     const errors = [];
-    win = new BrowserWindow({ width: 1300, height: 900, show: false, webPreferences: { offscreen: true, sandbox: true, contextIsolation: true, nodeIntegration: false, ...(mode === 'ipc' ? { preload: path.resolve(__dirname, '../test/fixtures/rpc-ui-preload.cjs') } : {}) } });
+    win = new BrowserWindow({ width: 1300, height: 900, show: false, webPreferences: { offscreen: true, sandbox: true, contextIsolation: true, nodeIntegration: false, ...(mode === 'ipc' ? { preload: path.resolve(__dirname, '../preload.cjs') } : {}) } });
     win.webContents.on('console-message', event => { if (event.level === 'error') errors.push(event.message); });
     if (mode === 'http') await win.loadURL(`http://127.0.0.1:${server.address().port}/${view === 'workbench' ? 'workbench.html' : ''}`); else await win.loadFile(path.resolve(__dirname, view === 'workbench' ? '../renderer/index.html' : '../renderer/chat.html'));
     const run = code => win.webContents.executeJavaScript(code);
@@ -95,7 +84,7 @@ app.whenReady().then(async () => {
     assert.deepEqual(errors, []);
     win.destroy();
   }
-  chatApi.close(); await service.close(); for (const stream of streams) stream.end(); server.closeAllConnections(); await new Promise(resolve => server.close(resolve));
+  chatApi.close(); await service.close(); server.closeAllConnections(); await new Promise(resolve => server.close(resolve));
   // mkdtemp returned this exact owned directory; it contains only this test's fixture data.
   const target = path.resolve(directory), parent = path.resolve(os.tmpdir()) + path.sep;
   if (!target.startsWith(parent) || !path.basename(target).startsWith('ar-chat-transport-')) throw new Error('Unsafe fixture cleanup target');

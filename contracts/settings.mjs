@@ -21,7 +21,7 @@ export const connectionCommands = [
 export const querySchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('toolDetails'), ref: id }),
   ...capabilityQueries, ...telemetryQueries,
-  z.object({ type: z.literal('catalog') }),
+  z.object({ type: z.literal('catalog'), refresh: z.boolean().default(false) }),
   z.object({ type: z.literal('connections') }),
   connectionWrite.extend({ type: z.literal('testConnection') }),
 ]);

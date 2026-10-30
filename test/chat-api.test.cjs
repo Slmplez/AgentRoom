@@ -214,3 +214,10 @@ test('unacknowledged approval writes report unknown and cannot be repeated', asy
   await assert.rejects(client.dispatch(command), { code: 'outcome_unknown' });
   assert.equal(writes, 1);
 });
+
+test('catalog refresh discovers installed engines through the public query', async t => {
+  const { client, service } = await fixture(t), run = service.run;
+  service.run = async args => args[0] === 'status' ? JSON.stringify({ tools: { pi: { installed: true } } }) : run(args);
+  assert.equal((await client.query({ type: 'catalog' })).engines.length, 0);
+  assert.equal((await client.query({ type: 'catalog', refresh: true })).engines.find(e => e.id === 'pi').installed, true);
+});

@@ -463,7 +463,7 @@
   $('#search').addEventListener('input', event => { query = event.target.value; renderSidebar(); });
   $('#workspace-button').addEventListener('click', showWorkspaceMenu);
   $('#send-button').addEventListener('click', send);
-  $('#refresh-button').addEventListener('click', async () => { try { await chat.open(); catalog = await chat.query({ type: 'catalog' }); receive(); toast('会话列表已刷新'); } catch (error) { toast(error.message); } });
+  $('#refresh-button').addEventListener('click', async () => { try { await chat.open(); catalog = await chat.query({ type: 'catalog', refresh: true }); receive(); toast('会话列表与已安装引擎已刷新'); } catch (error) { toast(error.message); } });
   const unsubscribeChat = chat.subscribe(() => {
     chatState = chat.read();
     permissions.sync(chatState);

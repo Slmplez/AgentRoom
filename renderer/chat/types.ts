@@ -17,7 +17,6 @@ export interface ChatClient {
 export interface PlatformClient { desktop: boolean; windowAction(action: string): void; openWorkbench(section?: string): void }
 declare global {
   interface Window {
-    agentRoom?: { getState(): Promise<unknown>; onState(listener: (state: unknown) => void): () => void; send(payload: unknown): Promise<unknown>; respondSession(id: string, requestId: string, answer: unknown): Promise<unknown>; windowAction?(action: string): void; openWorkbench?(): Promise<void> };
     icon(name: string): string;
     AgentMentions: { context(text: string, cursor: number, end?: number): { start: number; end: number; query: string } | null; insert(text: string, context: { start: number; end: number }, name: string): { text: string; cursor: number } };
     AgentAvatars: { create(options: { saved?: unknown }): { sync(agents: Agent[]): boolean; get(agent: Agent): { src: string } | null; export(): unknown } };
