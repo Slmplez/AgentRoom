@@ -357,25 +357,20 @@
     await refresh(); terminalTimer = setInterval(refresh, 3000);
   }
   async function showRpcSession(agent) {
-    if (agent.rpc?.approvals?.length) return permissions.open(agent.id);
-    showModal(`${agent.displayName} 的会话`, '工具记录与确认历史仅保留在本次应用会话中。', '<p id="rpc-status" role="status"></p><p id="rpc-error" class="form-hint"></p><div id="rpc-history"></div>', '<button class="button" id="rpc-open-approvals">查看待确认</button><button class="button" id="rpc-cancel">中断当前任务</button><button class="button" id="rpc-stop">停止 Agent</button><button class="button" data-action="close-modal">关闭</button>', true);
-    const element = $('#rpc-status');
-    const act = async fn => { try { await fn(); receive(await bridge.getState()); await refresh(); } catch (e) { toast(e.message); } };
+    if (chatState.approvals.some(r => r.agentId === agent.id)) return permissions.open(agent.id);
+    showModal(`${agent.displayName} 的会话`, '执行结束不代表任务已验收。关闭此面板不会停止执行。', '<p id="rpc-status" role="status"></p><p id="rpc-error" class="form-hint"></p><div id="rpc-history"></div>', '<button class="button" id="rpc-open-approvals">查看待确认</button><button class="button" id="rpc-cancel">中断当前任务</button><button class="button" id="rpc-stop">停止 Agent</button><button class="button" data-action="close-modal">关闭</button>', true);
+    const labels = { queued: '排队中', running: '执行中', cancel_requested: '等待停止确认', complete: '执行结束', cancelled: '已确认停止', failed: '失败', unknown: '结果未确认' };
+    const refresh = () => {
+      if (!$('#rpc-status')) return;
+      const runs = chat.read().runs.filter(r => r.agentId === agent.id), current = runs.find(r => r.canCancel);
+      $('#rpc-status').textContent = runs.map(r => `${labels[r.status]}${r.queuePosition ? ` · 排队 ${r.queuePosition}` : ''}`).join(' / ') || '当前没有执行';
+      $('#rpc-error').textContent = runs.map(r => r.error).filter(Boolean).join(' · ');
+      $('#rpc-cancel').disabled = !current || chat.read().connection !== 'live';
+      $('#rpc-cancel').onclick = async () => { try { await chat.dispatch({ type: 'cancelRun', key: crypto.randomUUID(), runId: current.id }); } catch (e) { toast(e.message); } };
+    };
     $('#rpc-open-approvals').onclick = () => permissions.open(agent.id);
-    $('#rpc-cancel').onclick = () => act(() => bridge.cancelSession(agent.id));
-    $('#rpc-stop').onclick = () => act(() => bridge.stopSession(agent.id));
-    async function refresh() {
-      const view = await bridge.inspectSession(agent.id);
-      if ($('#rpc-status') !== element) return;
-      element.textContent = `${view.alive ? statusLabel(view.status) : '已停止'} · ${view.queueLength || 0} 条排队`;
-      $('#rpc-error').textContent = view.error || '';
-      $('#rpc-cancel').disabled = !view.alive || !view.current;
-      $('#rpc-stop').disabled = !view.alive;
-      const labels = { allowed: '已允许', denied: '已拒绝', expired: '已失效', unknown: '结果未确认' };
-      const markup = (view.approvalHistory || []).map(r => `<p>${esc(r.title)} · ${esc(labels[r.status] || r.status)} · ${esc(r.thread)}</p>`).join('') || '<p class="form-hint">暂无确认历史</p>';
-      html('#rpc-history', markup + [...new Set((view.tools || []).map(t => t.thread))].map(thread => `<p>${esc(thread)}</p>${toolTrace({ ...agent, rpc: view }, thread)}`).join(''));
-    }
-    await refresh(); if (element.isConnected) terminalTimer = setInterval(() => refresh().catch(e => { if (element.isConnected) $('#rpc-error').textContent = e.message; }), 800);
+    $('#rpc-stop').onclick = () => bridge.stopSession(agent.id).catch(e => toast(e.message));
+    terminalDispose = chat.subscribe(refresh); refresh();
   }
   function showSettings() {
     showModal('连接与设置', 'Agent Room · 本地桌面预览版 0.1.0', `<div class="settings-row"><span>消息连接</span><strong>${state.connection === 'connected' ? 'hcom 已连接' : '连接中断'}</strong></div><div class="settings-row"><span>hcom 版本</span><strong>${esc(state.version || '—')}</strong></div><div class="settings-row"><span>工作区</span><strong>${state.workspaces.length} 个本地目录</strong></div><div class="settings-row"><span>已发现的会话</span><strong>${state.agents.length} 位 Agent</strong></div><button class="button settings-connections" data-action="usage">Token 用量与砖块图 ${icon('layers')}</button><button class="button primary settings-connections" data-action="connections">连接、网关与模型 ${icon('arrow')}</button><button class="button settings-avatars" data-action="avatars">${icon('smile')} Agent 头像<span>随机自动分配 · 优先不重复</span>${icon('arrow')}</button><p class="settings-description">桌面版会话由应用内 Rust 核心托管。关闭窗口时有活跃会话会驻留托盘；退出应用会停止本应用托管的会话。应用按工作目录组织成员，tag 用于筛选与提及，群聊成员可自由组合。</p><p class="settings-description">桌面版内置 hcom 原生核心，无需独立安装或启动 hcom。通过“添加 Agent”创建会话，原有外部 hcom 会话与应用数据互不混用。</p>`, `<button class="button" data-action="source">hcom 开源项目 ${icon('globe')}</button><button class="button primary" data-action="close-modal">知道了</button>`);

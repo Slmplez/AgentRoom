@@ -1,6 +1,25 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 
+test('two Agent runs keep independent identities and cancellation waits for observed confirmation', async t => {
+  const { createAgentRoomClient } = await import('../renderer/client/client.mjs');
+  const { createMockTransport } = await import('../renderer/client/mock.mjs');
+  const mock = createMockTransport({ manual: true });
+  const client = createAgentRoomClient(mock.transport);
+  t.after(() => { client.close(); mock.control.dispose(); });
+  await client.open();
+  for (const id of ['alpha', 'beta']) await client.dispatch({ type: 'send', key: id, roomId: `dm:${id}`, text: '检查', mode: 'discussion', ownerAgentId: null, mentions: [] });
+  const runs = client.read().runs;
+  assert.equal(runs.length, 2);
+  const alpha = runs.find(r => r.agentId === 'alpha');
+  await client.dispatch({ type: 'cancelRun', key: 'cancel-alpha', runId: alpha.id });
+  assert.equal(client.read().runs.find(r => r.id === alpha.id).status, 'cancel_requested');
+  mock.control.advance(); mock.control.advance();
+  assert.equal(client.read().runs.find(r => r.id === alpha.id).status, 'cancelled');
+  assert.equal(client.read().runs.find(r => r.agentId === 'beta').status, 'complete');
+  assert.equal(client.read().messages.filter(m => m.runId === alpha.id).length, 1);
+});
+
 test('mock controls isolate an empty workspace and resume a paused deterministic conversation', async t => {
   const { createAgentRoomClient } = await import('../renderer/client/client.mjs');
   const { createMockTransport } = await import('../renderer/client/mock.mjs');

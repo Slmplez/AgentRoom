@@ -19,7 +19,7 @@ function initial(instanceId) {
     messages: [
       { id: 'welcome-user', roomId: 'room-design', sequence: 1, role: 'user', authorId: 'user', authorName: '你', text: '保留现有设计，让消息和操作更清楚。', status: 'complete', createdAt: stamp, tools: [] },
       { id: 'welcome-alpha', roomId: 'room-design', sequence: 2, role: 'assistant', authorId: 'alpha', authorName: 'Alpha', text: '我们先让每一步都清楚。\n\n- 正文保留完整的阅读空间\n- 工具过程默认收起，需要时再展开\n- 重要操作统一等待你的确认\n\n可以输入 `@` 选择参与者，或者切换到单个 Agent 继续。', status: 'complete', createdAt: stamp, tools: [] },
-    ], approvals: [],
+    ], approvals: [], runs: [],
   };
 }
 
@@ -41,9 +41,16 @@ export function createMockTransport({ manual = false } = {}) {
     for (const [id, job] of pending) {
       const m = state.messages.find(item => item.id === id);
       if (!m) { pending.delete(id); continue; }
+      const run = state.runs.find(r => r.id === m.runId);
+      if (run.status === 'cancel_requested') { m.status = run.status = 'cancelled'; run.canCancel = false; pending.delete(id); continue; }
+      if (run.status === 'unknown') { m.status = 'unknown'; run.canCancel = false; pending.delete(id); continue; }
+      if (run.status === 'queued') {
+        if (state.runs.some(r => r.agentId === run.agentId && ['running', 'cancel_requested'].includes(r.status))) continue;
+        run.status = 'running'; run.queuePosition = 0; run.canCancel = true;
+      }
       job.step++;
       m.text = job.step === 1 ? job.text.slice(0, Math.ceil(job.text.length / 2)) : job.text;
-      if (job.step >= 2) { m.status = 'complete'; pending.delete(id); }
+      if (job.step >= 2) { m.status = run.status = 'complete'; run.canCancel = false; pending.delete(id); }
     }
     publish();
     if (!pending.size) { clearInterval(timer); timer = undefined; }
@@ -55,6 +62,12 @@ export function createMockTransport({ manual = false } = {}) {
     async command(input) {
       if (!online) throw clientError('unavailable', '模拟连接已断开。');
       const c = commandSchema.parse(input);
+      if (c.type === 'cancelRun') {
+        const run = state.runs.find(r => r.id === c.runId);
+        if (!run?.canCancel) throw clientError('not_running', '执行已结束或不能取消。');
+        run.status = 'cancel_requested'; run.canCancel = false; publish();
+        return { accepted: true, operationId: `cancel-${run.id}` };
+      }
       if (c.type === 'send') {
         const digest = JSON.stringify(c), previous = receipts.get(c.key);
         if (previous) { if (previous.digest !== digest) throw clientError('conflict', '相同命令标识不能提交不同内容。'); return previous.receipt; }
@@ -71,6 +84,9 @@ export function createMockTransport({ manual = false } = {}) {
         const targets = c.mode === 'task' ? [c.ownerAgentId] : room.type === 'dm' ? room.memberIds : [...new Set(c.mentions.map(x => x.agentId))];
         for (const target of targets) {
           const reply = message(room.id, target, '', 'running');
+          reply.runId = `run-${reply.id}`;
+          const queued = state.runs.filter(r => r.agentId === target && ['running', 'queued', 'cancel_requested'].includes(r.status)).length;
+          state.runs.push({ id: reply.runId, agentId: target, roomId: room.id, messageId: reply.id, status: queued ? 'queued' : 'running', queuePosition: queued, canCancel: !queued, error: '' });
           const text = c.mode === 'task'
             ? `我来负责这项工作。\n\n会先整理目标与验收条件，再按需要委派。\n\n> 这是模拟回复，没有启动引擎或执行本机操作。`
             : `收到，我会从自己的视角参与讨论。\n\n你刚才提到：\n\n> ${c.text.replace(/\n/g, '\n> ')}\n\n这是模拟回复，用于检查阅读与交互。`;
@@ -92,6 +108,7 @@ export function createMockTransport({ manual = false } = {}) {
     advance,
     pause() { paused = true; clearInterval(timer); timer = undefined; },
     resume() { paused = false; schedule(); },
+    cancelUnknown() { for (const run of state.runs) if (run.status === 'cancel_requested') { run.status = 'unknown'; run.error = '模拟取消确认丢失'; } publish(); },
     disconnect() { online = false; emit({ type: 'offline' }); },
     reconnect() { online = true; emit({ type: 'resync' }); },
     /** @param {boolean | 'empty-workspace'} empty */

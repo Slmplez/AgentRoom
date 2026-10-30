@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState, useSyncExternalStore } from 'react
 import type { Agent, ChatClient, PlatformClient } from './types';
 import { Composer, type Draft } from './composer';
 import { ChatThread, DiffDialog } from './thread';
+import { RunPanel } from './runs';
 import { ApprovalCenter } from './approvals';
 import type { createMockTransport } from '../client/mock.mjs';
 import './chat.css';
@@ -55,6 +56,7 @@ export function App({ client, platform, control }: { client: ChatClient; platfor
       <main className="conversation">
         <header className="conversation-header"><div className="header-location"><button className="icon-button" aria-label="切换侧栏" onClick={() => setSidebar(!sidebar)}><Icon name="panel-left" /></button><div><h1 className="header-title">{room?.title || 'Agent Room'}</h1><div className="room-subtitle">{room?.type === 'dm' ? members[0]?.engine : `${members.length} 位成员`}</div></div></div><button className="icon-button" aria-label="查看成员" aria-expanded={details} onClick={() => setDetails(!details)}><Icon name="agents" /></button></header>
         {state.connection !== 'live' && <div className="connection-alert" role="status">{state.error || connectionLabel}</div>}
+        <RunPanel client={client} state={state} roomId={room?.id} />
         <ChatThread key={`thread:${room?.id || 'empty'}`} messages={messages} agents={state.agents} portrait={portrait} showDiff={setDiff} />
         {error && <div className="chat-error" role="alert">{error}<button aria-label="关闭提示" onClick={() => setError('')}>×</button></div>}
         {room && <Composer key={`composer:${room.id}`} client={client} room={room} agents={members} draft={drafts[room.id] || { text: '', mentions: [] }} updateDraft={draft => setDrafts(old => ({ ...old, [room.id]: draft }))} live={state.connection === 'live'} tasks={state.capabilities.tasks} mock={mock} onError={setError} />}

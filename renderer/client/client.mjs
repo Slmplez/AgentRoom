@@ -7,7 +7,7 @@ function freeze(value) {
 
 // The public module owns projections and synchronization. Transports never mutate the UI.
 export function createAgentRoomClient(transport) {
-  let state = freeze({ instanceId: '', revision: -1, agents: [], rooms: [], workspaces: [], messages: [], approvals: [], capabilities: { tasks: false, idempotentSend: false }, connection: 'connecting', error: '' });
+  let state = freeze({ instanceId: '', revision: -1, agents: [], rooms: [], workspaces: [], messages: [], approvals: [], runs: [], capabilities: { tasks: false, idempotentSend: false }, connection: 'connecting', error: '' });
   let generation = 0, unsubscribe, refreshNumber = 0;
   const listeners = new Set(), inFlight = new Set();
   const publish = patch => { state = freeze({ ...state, ...patch }); for (const listener of listeners) listener(); };
@@ -50,7 +50,7 @@ export function createAgentRoomClient(transport) {
       const parsed = commandSchema.safeParse(input);
       if (!parsed.success) throw clientError('invalid_command', '请求不符合聊天契约。');
       const command = parsed.data;
-      const token = command.type === 'send' ? command.key : command.approvalId;
+      const token = command.type === 'decide' ? command.approvalId : command.key;
       if (inFlight.has(token)) throw clientError('busy', '操作正在处理。');
       inFlight.add(token);
       const epoch = generation;

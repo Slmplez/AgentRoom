@@ -69,6 +69,24 @@ test('a failed execution remains visible when the runtime clears its current tur
   assert.deepEqual(client.read().messages.map(m => [m.id, m.roomId, m.status, m.text]), [[replyId, roomId, 'unknown', '进程异常退出，结果未确认']]);
 });
 
+test('public cancellation identifies the exact run and does not imply observed completion', async t => {
+  const execution = { alive: true, current: null, partial: '', error: '', approvals: [], queue: [] };
+  const { client, service } = await fixture(t, false, execution);
+  execution.current = { id: 91, thread: service.findRoom(client.read().rooms[0].id).thread };
+  execution.queue = [{ id: 92, thread: execution.current.thread }];
+  await service.refresh();
+  const calls = [];
+  service.runtime = { cancel: async (id, turnId) => { calls.push([id, turnId]); execution.current.cancelRequested = true; }, close: async () => {} };
+  const run = client.read().runs.find(r => r.status === 'running');
+  await client.dispatch({ type: 'cancelRun', key: 'cancel', runId: run.id });
+  assert.deepEqual(calls, [[run.agentId, '91']]);
+  service.runtime = null;
+  await service.refresh();
+  assert.equal(client.read().runs.find(r => r.id === run.id).status, 'cancel_requested');
+  assert.equal(client.read().runs.find(r => r.status === 'queued').queuePosition, 1);
+  await assert.rejects(client.dispatch({ type: 'cancelRun', key: 'again', runId: run.id }), { code: 'not_running' });
+});
+
 test('an incompatible command error keeps an unknown outcome and a traceable error ID', async () => {
   const { createAgentRoomClient } = await import('../renderer/client/client.mjs');
   const { createChatTransport } = await import('../renderer/client/transport.mjs');
