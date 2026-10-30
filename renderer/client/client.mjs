@@ -19,6 +19,10 @@ export function createAgentRoomClient(transport) {
   let historyRequest = 0;
   const publish = patch => { state = freeze({ ...state, ...patch }); for (const listener of listeners) listener(); };
   const scopeKey = () => JSON.stringify(scope);
+  function requireResync() {
+    applied = null;
+    publish({ syncNotice: '事件记录已不可续订，正在重新加载消息；旧历史仍可分页读取。' });
+  }
   function acceptPersistence(event) {
     if (event.type === 'persistence.identity') {
       if (state.databaseId && state.databaseId !== event.data.databaseId) {
@@ -98,7 +102,7 @@ export function createAgentRoomClient(transport) {
           try {
             if (event.type.startsWith('persistence.')) acceptPersistence(event);
             else {
-              if (event.type === 'resync_required') { applied = null; publish({ syncNotice: '事件记录已不可续订，正在重新加载消息；旧历史仍可分页读取。' }); }
+              if (event.type === 'resync_required') requireResync();
               publish({ connection: 'offline', error: event.error?.message || '实时连接已断开。' }); retry(epoch);
             }
           } catch (error) { applied = null; unsubscribe?.(); publish({ connection: 'offline', error: error.message }); retry(epoch); }
@@ -119,7 +123,7 @@ export function createAgentRoomClient(transport) {
         } catch { publish({ connection: 'offline', error: '服务端数据不符合聊天契约。' }); retry(epoch); }
       }, scope);
       await refresh(epoch);
-    } catch (error) { if (epoch === generation) { if (error.code === 'resync_required') { applied = null; publish({ syncNotice: '事件记录已不可续订，正在重新加载消息；旧历史仍可分页读取。' }); } unsubscribe?.(); publish({ connection: 'offline', error: error.message }); retry(epoch); } }
+    } catch (error) { if (epoch === generation) { if (error.code === 'resync_required') requireResync(); unsubscribe?.(); publish({ connection: 'offline', error: error.message }); retry(epoch); } }
   }
   async function query(input) {
       const parsed = querySchema.safeParse(input);
@@ -198,6 +202,6 @@ export function createAgentRoomClient(transport) {
         return page.messages.length;
       } finally { if (epoch === generation && request === historyRequest) publish({ historyLoading: false }); }
     },
-    close() { for (const dispose of [...watches]) dispose(); closed = true; ++generation; ++refreshNumber; clearTimeout(retryTimer); retryTimer = undefined; unsubscribe?.(); unsubscribe = undefined; publish({ connection: 'offline' }); },
+    close() { for (const dispose of [...watches]) dispose(); closed = true; ++generation; ++refreshNumber; clearTimeout(retryTimer); retryTimer = undefined; unsubscribe?.(); unsubscribe = undefined; publish({ connection: 'offline', historyLoading: false }); },
   };
 }
