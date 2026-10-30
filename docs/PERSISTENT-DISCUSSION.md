@@ -48,3 +48,15 @@ npm run desktop:persistent -- --persistent-url http://127.0.0.1:4320
 `npm test` 覆盖真实 SQLite、HTTP/SSE、崩溃回滚、未知回执、双客户端、事件保留和分页。`npm run verify:persistence-ui` 启动真实 Node 服务，在桌面 preload 和浏览器环境验证收发身份、历史分页、草稿、关闭单端和重启恢复；不使用模型/CLI fixture 代替持久后端。
 
 既有模式回归：`npm run check:chat`、`npm run check:client`、`npm run verify:chat-transports`、`npm run verify:chat-ui` 及侧栏设置验证。
+
+### G2a 故障矩阵证据
+
+| 范围 | 实际验证入口 |
+| --- | --- |
+| 原子事务、同键并发/冲突、不同键相同正文、跨房间引用、提交前后终止、数据库损坏/版本/锁 | `test/persistence-durable.test.cjs` |
+| 双客户端、快照到订阅交界、日志等待交界、提交后未唤醒即终止、重复事件、断线与进程重启、数据库更换、慢连接 | `test/persistence-stream.test.cjs` |
+| 固定历史窗口、并发新消息、7 天严格边界、连续前缀清理、清理中崩溃/重启、活跃订阅过期、迟到历史隔离 | `test/persistence-history.test.cjs` |
+| 实际 Node SQLite 能力、私有 IPC/cookie、跨源拒绝、静态目录边界、后端崩溃与关闭等待、单连接退出 | `test/persistence-host.test.cjs` |
+| 桌面 preload/Web 同页、相同消息身份、108 条历史、真实响应丢失核查、原键重试保留编辑草稿、服务重启、关闭单端 | `scripts/verify-persistence-ui.cjs` |
+
+上述入口均采用真实临时数据库和真实 HTTP；崩溃与宿主生命周期使用真实子进程。持久 UI 验收没有模型或 CLI fixture。旧四引擎协议回归中的外部运行时仍使用明确标注的 fixture，不作为真实引擎接入新持久模式的证明。当前全量测试为 148 项，类型、边界、构建和相关 UI 回归通过；规范与规格复审均无未解决发现。
