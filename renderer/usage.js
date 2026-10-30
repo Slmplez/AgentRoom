@@ -1,12 +1,12 @@
-window.createUsageUI = ({ bridge, showModal, icon, esc }) => {
+window.createUsageUI = ({ client, showModal, icon, esc }) => {
   const $ = selector => document.querySelector(selector);
   const number = value => Number(value || 0).toLocaleString('zh-CN');
   const compact = value => Intl.NumberFormat('zh-CN', { notation: 'compact', maximumFractionDigits: 1 }).format(value || 0);
   const labels = { codex: 'Codex', claude: 'Claude Code', pi: 'Pi', opencode: 'OpenCode' };
   let latest, timer;
   async function refresh() {
-    const target = $('#usage-dashboard'); if (!target) { clearInterval(timer); return; }
-    try { latest = await bridge.getUsage(); if (target.isConnected) render(latest); }
+    const target = $('#usage-dashboard'); if (!target) { timer?.(); return; }
+    try { latest = await client.query({ type: 'usage' }); if (target.isConnected) render(latest); }
     catch { if (target.isConnected) target.textContent = '暂时无法读取用量统计，请稍后刷新。'; }
   }
   function render(stats) {
@@ -29,13 +29,13 @@ window.createUsageUI = ({ bridge, showModal, icon, esc }) => {
     showModal('Token 用量与统计', '查看真实请求用量、缓存命中与每天的活跃程度。', '<div id="usage-dashboard">正在读取本地用量…</div>', '<button class="button" data-action="connections">连接方案</button><button class="button primary" data-action="close-modal">关闭</button>', true);
     $('.modal').classList.add('usage-modal');
     if (latest) render(latest);
-    refresh(); clearInterval(timer); timer = setInterval(refresh, 5000);
+    timer?.(); timer = client.watch({ type: 'usage' }, result => { if (result.status === 'ready') { latest = result.value; render(latest); } else if (result.status === 'error' && $('#usage-dashboard')) $('#usage-dashboard').textContent = result.error; });
   }
   document.addEventListener('click', event => {
     const action = event.target.closest('button')?.dataset.action;
     if (action === 'usage') show();
     if (action === 'usage-refresh') refresh();
   });
-  bridge.onUsage?.(stats => { latest = stats; if ($('#usage-dashboard')) render(stats); });
-  return { show };
+
+  return { show, close() { timer?.(); timer = undefined; } };
 };

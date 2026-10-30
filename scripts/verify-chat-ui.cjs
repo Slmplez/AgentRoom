@@ -65,6 +65,13 @@ app.whenReady().then(async () => {
   await until('Boolean(document.querySelector("diffs-container")?.shadowRoot?.querySelector("[data-diff-type=split]"))');
   await capture('chat-g1-diff.png');
   await clickText('关闭');
+  await clickText('无效差异');
+  await run('(() => { const trace=[...document.querySelectorAll(".tool-trace")].at(-1); trace.querySelector("summary").click(); trace.querySelectorAll(".tool-step > summary")[1].click(); [...trace.querySelectorAll("button")].find(b=>b.textContent.includes("查看文件差异")).click(); })()');
+  await until('Boolean(document.querySelector(".chat-diff-dialog [role=alert]")?.textContent.includes("无法显示差异"))');
+  await clickText('关闭');
+  await clickText('输出过期');
+  await run('[...document.querySelectorAll(".tool-trace")].at(-1).querySelector("button").click()');
+  await until('[...document.querySelectorAll(".tool-trace")].at(-1).textContent.includes("已过期")');
   await clickText('用户提问');
   await until('Boolean(document.querySelector(".permission-dialog[open]"))');
   await run('document.querySelector(".permission-dialog input[type=checkbox]").click()');

@@ -10,6 +10,7 @@ contextBridge.exposeInMainWorld('agentRoomChat', {
 });
 contextBridge.exposeInMainWorld('agentRoom', {
   desktop: true,
+  openWorkbench: section => ipcRenderer.invoke('room:workbench', section),
   getState: () => ipcRenderer.invoke('room:state'),
   refresh: () => ipcRenderer.invoke('room:refresh'),
   send: payload => ipcRenderer.invoke('room:send', payload),

@@ -83,5 +83,7 @@ The opt-in chat interface uses React, React DOM, `@assistant-ui/react`,
 `@assistant-ui/core`, `@assistant-ui/store`, `@assistant-ui/react-markdown`, and Zod.
 The build copies their package LICENSE files into `renderer/vendor/chat/` and
 retains dependency legal comments in adjacent generated `.LEGAL.txt` files.
-All chat resources are bundled locally. Installed json-render packages are not
-yet wired into this entry point; structured artifact rendering remains planned.
+All chat resources are bundled locally. The Mock-only results examples use
+`@json-render/core` and `@json-render/react` 0.21.3 under Apache-2.0. Their license
+is retained in `renderer/chat/LICENSE.json-render.txt`; the fixed example catalog
+does not execute model output or submit business commands.

@@ -1,6 +1,8 @@
-window.createCapabilityUI = ({ bridge, getState, receive, getWorkspace, showModal, toast, icon, esc, modalAction }) => {
+window.createCapabilityUI = ({ client, getState, getWorkspace, showModal, beginModalLoad, modalCurrent, toast, icon, esc, modalAction }) => {
   const $ = selector => document.querySelector(selector);
-  const library = () => getState().capabilityLibrary || { servers: [], skills: [], bindings: [] };
+  let model = { servers: [], skills: [], bindings: [], agents: [] };
+  const library = () => model;
+  async function load() { model = await client.query({ type: 'capabilities' }); }
   let tab = 'servers', selectedId = '';
   const json = (selector, fallback) => { const value = $(selector)?.value.trim(); return value ? JSON.parse(value) : fallback; };
   const empty = text => `<p class="cap-empty">${text}</p>`;
@@ -23,7 +25,10 @@ window.createCapabilityUI = ({ bridge, getState, receive, getWorkspace, showModa
     const binding = library().bindings.find(b => b.workspaceId === workspaceId) || { serverIds: [], skillIds: [] };
     return `<div class="cap-assignment-head"><div><h3>工作区默认能力</h3><p>新 Agent 默认继承这里的选择；启动时仍可为单个 Agent 调整。</p></div><select id="cap-workspace" class="text-input">${getState().workspaces.map(w => `<option value="${esc(w.id)}" ${w.id === workspaceId ? 'selected' : ''}>${esc(w.title)}</option>`).join('')}</select></div><div class="cap-assign-grid"><section><h3>MCP 服务</h3>${choices('servers', binding.serverIds, 'cap-server')}</section><section><h3>Skills</h3>${choices('skills', binding.skillIds, 'cap-skill')}</section></div><div class="cap-editor-actions"><button class="button primary" data-cap-action="save-binding">保存工作区分配</button></div><p class="cap-note">对新启动的会话生效。当前运行中的 Agent 保留原分配；在启动器选择「本次不使用」即可关闭继承。</p>`;
   }
-  function show(nextTab = tab, nextId = selectedId, workspaceId = getWorkspace()?.id) {
+  async function show(nextTab = tab, nextId = selectedId, workspaceId = getWorkspace()?.id) {
+    const current = beginModalLoad();
+    try { await load(); } catch (error) { toast(error.message); return; }
+    if (!current()) return;
     tab = nextTab; selectedId = nextId;
     showModal('能力库', '统一维护 MCP 和 Skills，让每个 Agent 带着需要的能力进入工作区。', `<div class="cap-tabs" role="tablist" aria-label="能力类型">${[['servers', 'MCP 服务', library().servers.length], ['skills', 'Skills', library().skills.length], ['assignment', '工作区分配', null]].map(([id, label, count]) => `<button role="tab" aria-selected="${tab === id}" tabindex="${tab === id ? 0 : -1}" data-cap-tab="${id}">${label}${count == null ? '' : `<span>${count}</span>`}</button>`).join('')}</div>${library().error ? `<p class="cap-error" role="alert">${esc(library().error)}</p>` : ''}<div class="cap-body">${tab === 'servers' ? `<div class="cap-layout"><aside class="cap-sidebar"><button class="button" data-cap-action="new-server">${icon('plus')} 添加 MCP</button>${library().servers.map(s => `<button class="cap-server-item ${s.id === selectedId ? 'selected' : ''}" data-cap-server="${esc(s.id)}"><strong>${esc(s.name)}</strong><small>${s.enabled ? s.transport.toUpperCase() : '已停用'} · ${s.isolation === 'workspace' ? '工作区共享' : '会话独立'}</small></button>`).join('') || empty('添加本地或远程 MCP 服务。')}<p class="cap-note">${library().secureStorageAvailable ? '凭证由系统加密保存' : '当前无法保存敏感环境变量和认证 Headers'}</p></aside>${editor()}</div>` : tab === 'skills' ? skills() : assignment(workspaceId)}</div>`, '<button class="button" data-action="close-modal">关闭</button>', true);
     $('.modal').classList.add('capability-modal');
@@ -32,7 +37,7 @@ window.createCapabilityUI = ({ bridge, getState, receive, getWorkspace, showModa
   }
   function decorateLaunch() {
     $('#agent-tag').insertAdjacentHTML('afterend', `<section class="cap-launch"><div class="form-label-row"><label class="form-label" for="launch-cap-mode">本次能力</label><button class="text-link" data-action="capabilities">管理能力库 ${icon('arrow')}</button></div><select id="launch-cap-mode" class="text-input"><option value="workspace">继承工作区默认</option><option value="custom">自定义本次 Agent</option><option value="off">本次不使用</option></select><div id="launch-cap-summary" class="cap-note"></div><div id="launch-cap-choices" hidden></div></section>`);
-    updateLaunch();
+    const current = modalCurrent(); void load().then(() => { if (current()) updateLaunch(); }).catch(error => { if (current()) toast(error.message); });
   }
   function updateLaunch() {
     if (!$('#launch-cap-mode')) return;
@@ -50,26 +55,26 @@ window.createCapabilityUI = ({ bridge, getState, receive, getWorkspace, showModa
     if (button.dataset.action === 'capabilities') return show('servers', '');
     if (button.dataset.capTab) return show(button.dataset.capTab, '');
     if (button.dataset.capServer) return show('servers', button.dataset.capServer);
-    if (button.dataset.capUpdate) return modalAction(button, async () => { const skill = library().skills.find(s => s.id === button.dataset.capUpdate); receive((await bridge.importCapabilitySkill({ id: skill.id, directory: skill.source })).state); show('skills'); toast('已生成新的 Skill 快照，新会话使用更新版本。'); });
-    if (button.dataset.capRemoveSkill) return modalAction(button, async () => { receive((await bridge.removeCapability({ kind: 'skills', id: button.dataset.capRemoveSkill })).state); show('skills'); toast('已移除，源目录和已有会话快照保留。'); });
+    if (button.dataset.capUpdate) return modalAction(button, async () => { const skill = library().skills.find(s => s.id === button.dataset.capUpdate); await client.dispatch({ type: 'importSkill', key: crypto.randomUUID(), id: skill.id, directory: skill.source }); if (!button.isConnected) return; show('skills'); toast('已生成新的 Skill 快照，新会话使用更新版本。'); });
+    if (button.dataset.capRemoveSkill) return modalAction(button, async () => { await client.dispatch({ type: 'removeCapability', key: crypto.randomUUID(), kind: 'skills', id: button.dataset.capRemoveSkill }); if (!button.isConnected) return; show('skills'); toast('已移除，源目录和已有会话快照保留。'); });
     const action = button.dataset.capAction;
     if (action === 'new-server') return show('servers', '');
     if (action === 'save-server') return modalAction(button, async () => {
       const payload = { ...(selectedId ? { id: selectedId } : {}), name: $('#cap-name').value, transport: $('#cap-transport').value, command: $('#cap-command').value, args: json('#cap-args', []), url: $('#cap-url').value, enabled: $('#cap-enabled').checked, isolation: $('#cap-isolation').value, disabledTools: json('#cap-disabled', []) };
       for (const key of ['env', 'headers']) if ($(`#cap-${key}`).value.trim()) payload[key] = json(`#cap-${key}`, {});
-      const result = await bridge.saveCapabilityServer(payload); receive(result.state); show('servers', result.id); toast('MCP 服务已保存。可测试连接，再分配给工作区。');
+      const result = await client.dispatch({ type: 'saveCapabilityServer', key: crypto.randomUUID(), server: payload }); if (!button.isConnected) return; await show('servers', result.entityId); toast('MCP 服务已保存。可测试连接，再分配给工作区。');
     });
-    if (action === 'remove-server') return modalAction(button, async () => { receive((await bridge.removeCapability({ kind: 'servers', id: selectedId })).state); show('servers', ''); toast('服务已移除，后续调用已阻止。'); });
+    if (action === 'remove-server') return modalAction(button, async () => { await client.dispatch({ type: 'removeCapability', key: crypto.randomUUID(), kind: 'servers', id: selectedId }); if (!button.isConnected) return; show('servers', ''); toast('服务已移除，后续调用已阻止。'); });
     if (action === 'test') return modalAction(button, async () => {
       const target = $('#cap-test-result');
-      const result = await bridge.testCapabilityServer({ id: selectedId, workspaceId: getWorkspace()?.id });
+      const result = await client.query({ type: 'testCapabilityServer', id: selectedId, workspaceId: getWorkspace()?.id });
       if (!target?.isConnected) return;
       target.textContent = result.message;
       const disabled = json('#cap-disabled', []);
       $('#cap-tools').innerHTML = result.tools.map(t => `<label class="cap-choice"><input type="checkbox" data-cap-tool="${esc(t.name)}" ${disabled.includes(t.name) ? '' : 'checked'}><span><strong>${esc(t.name)}</strong><small>${esc(t.description)}</small></span></label>`).join('');
     });
-    if (action === 'import-skill') return modalAction(button, async () => { receive((await bridge.importCapabilitySkill({ directory: $('#cap-skill-dir').value })).state); show('skills'); toast('Skill 已导入。到工作区分配中启用。'); });
-    if (action === 'save-binding') return modalAction(button, async () => { const workspaceId = $('#cap-workspace').value; receive((await bridge.bindCapabilities({ workspaceId, serverIds: selected('cap-server'), skillIds: selected('cap-skill') })).state); show('assignment', '', workspaceId); toast('已保存，新 Agent 会继承此分配。'); });
+    if (action === 'import-skill') return modalAction(button, async () => { await client.dispatch({ type: 'importSkill', key: crypto.randomUUID(), directory: $('#cap-skill-dir').value }); if (!button.isConnected) return; show('skills'); toast('Skill 已导入。到工作区分配中启用。'); });
+    if (action === 'save-binding') return modalAction(button, async () => { const workspaceId = $('#cap-workspace').value; await client.dispatch({ type: 'bindCapabilities', key: crypto.randomUUID(), workspaceId, serverIds: selected('cap-server'), skillIds: selected('cap-skill') }); if (!button.isConnected) return; show('assignment', '', workspaceId); toast('已保存，新 Agent 会继承此分配。'); });
   });
   document.addEventListener('change', event => {
     if (event.target.id === 'cap-transport') { $('#cap-local').hidden = event.target.value !== 'stdio'; $('#cap-remote').hidden = event.target.value === 'stdio'; }
@@ -85,9 +90,9 @@ window.createCapabilityUI = ({ bridge, getState, receive, getWorkspace, showModa
     if (event.target?.dataset?.capTab && ['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) {
       event.preventDefault(); const ids = ['servers', 'skills', 'assignment']; let index = ids.indexOf(tab);
       index = event.key === 'Home' ? 0 : event.key === 'End' ? 2 : (index + (event.key === 'ArrowRight' ? 1 : 2)) % 3;
-      show(ids[index], ''); requestAnimationFrame(() => document.querySelector(`[data-cap-tab="${ids[index]}"]`)?.focus());
+      void show(ids[index], '').then(() => requestAnimationFrame(() => { if (tab === ids[index]) document.querySelector(`[data-cap-tab="${ids[index]}"]`)?.focus(); }));
     }
   });
-  return { show, decorateLaunch, updateLaunch, launchPayload: () => ({ capabilities: { mode: $('#launch-cap-mode')?.value || 'workspace', serverIds: selected('launch-cap-server'), skillIds: selected('launch-cap-skill') } }),
-    member: agent => agent.capabilities ? `<div class="member-capabilities"><span>${agent.capabilities.servers.length} MCP · ${agent.capabilities.skills.length} Skills</span><small>${esc([...agent.capabilities.servers.map(s => `${s.name}${s.enabled ? '' : '（已停用）'}`), ...agent.capabilities.skills.map(s => s.name)].join('、'))}</small><small>${agent.capabilities.status === 'connected' ? '已连接能力库' : agent.capabilities.status === 'stopped' ? '能力连接已停止' : '已分配，等待引擎连接'}${agent.capabilities.errors.length ? ` · ${esc(agent.capabilities.errors.join('、'))} 连接异常` : ''}</small></div>` : '' };
+  return { watch(onChange) { return client.watch({ type: 'capabilities' }, result => { if (result.status === 'ready') { model = result.value; onChange(); } }); }, show, decorateLaunch, updateLaunch, launchPayload: () => ({ capabilities: { mode: $('#launch-cap-mode')?.value || 'workspace', serverIds: selected('launch-cap-server'), skillIds: selected('launch-cap-skill') } }),
+    member: agent => { const assigned = model.agents.find(a => a.agentId === agent.id); return assigned ? `<div class="member-capabilities"><span>${assigned.servers.length} MCP · ${assigned.skills.length} Skills</span><small>${esc([...assigned.servers.map(s => `${s.name}${s.enabled ? '' : '（已停用）'}`), ...assigned.skills.map(s => s.name)].join('、'))}</small><small>${assigned.status === 'connected' ? '已连接能力库' : assigned.status === 'stopped' ? '能力连接已停止' : '已分配，等待引擎连接'}${assigned.errors.length ? ` · ${esc(assigned.errors.join('、'))} 连接异常` : ''}</small></div>` : ''; } };
 };

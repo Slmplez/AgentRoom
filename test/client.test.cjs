@@ -20,6 +20,19 @@ test('two Agent runs keep independent identities and cancellation waits for obse
   assert.equal(client.read().messages.filter(m => m.runId === alpha.id).length, 1);
 });
 
+test('unknown approval delivery stays visible and cannot silently grant twice', async t => {
+  const { createAgentRoomClient } = await import('../renderer/client/client.mjs');
+  const { createMockTransport } = await import('../renderer/client/mock.mjs');
+  const mock = createMockTransport({ manual: true }), client = createAgentRoomClient(mock.transport);
+  t.after(() => { client.close(); mock.control.dispose(); }); await client.open();
+  mock.control.approval(); mock.control.decisionUnknown();
+  const request = client.read().approvals[0];
+  const command = { type: 'decide', approvalId: request.id, expectedRevision: request.revision, allow: true };
+  await assert.rejects(client.dispatch(command), { code: 'decision_unknown', outcome: 'unknown' });
+  assert.equal(client.read().approvalHistory[0].delivery, 'unknown');
+  await assert.rejects(client.dispatch(command), { code: 'outcome_unknown' });
+});
+
 test('mock controls isolate an empty workspace and resume a paused deterministic conversation', async t => {
   const { createAgentRoomClient } = await import('../renderer/client/client.mjs');
   const { createMockTransport } = await import('../renderer/client/mock.mjs');

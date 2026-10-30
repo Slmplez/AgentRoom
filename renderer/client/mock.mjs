@@ -1,4 +1,6 @@
 import { commandSchema, clientError } from '../../contracts/chat.mjs';
+import { createMockSettings } from './mock-settings.mjs';
+import { createMockAdmin } from './mock-admin.mjs';
 
 const stamp = '2026-10-30T08:00:00.000Z';
 const samplePatch = 'diff --git a/welcome.ts b/welcome.ts\n--- a/welcome.ts\n+++ b/welcome.ts\n@@ -1 +1 @@\n-export const title = "Hello";\n+export const title = "一起完成下一件事";\n';
@@ -19,7 +21,7 @@ function initial(instanceId) {
     messages: [
       { id: 'welcome-user', roomId: 'room-design', sequence: 1, role: 'user', authorId: 'user', authorName: '你', text: '保留现有设计，让消息和操作更清楚。', status: 'complete', createdAt: stamp, tools: [] },
       { id: 'welcome-alpha', roomId: 'room-design', sequence: 2, role: 'assistant', authorId: 'alpha', authorName: 'Alpha', text: '我们先让每一步都清楚。\n\n- 正文保留完整的阅读空间\n- 工具过程默认收起，需要时再展开\n- 重要操作统一等待你的确认\n\n可以输入 `@` 选择参与者，或者切换到单个 Agent 继续。', status: 'complete', createdAt: stamp, tools: [] },
-    ], approvals: [], runs: [],
+    ], approvals: [], approvalHistory: [], runs: [],
   };
 }
 
@@ -27,7 +29,10 @@ function initial(instanceId) {
 export function createMockTransport({ manual = false } = {}) {
   let incarnation = 1, state = initial('mock-1'), online = true, sequence = 2, requestNumber = 0, timer, paused = false, elapsed = 0;
   const listeners = new Set(), receipts = new Map(), pending = new Map();
-  let holdSnapshots = false;
+  const settings = createMockSettings();
+  const toolDetails = new Map();
+  const admin = createMockAdmin(() => state, publish);
+  let holdSnapshots = false, decisionUnknown = false;
   const delayedSnapshots = [];
   const emit = event => { for (const listener of listeners) listener(event); };
   const snapshot = () => structuredClone(state);
@@ -44,6 +49,7 @@ export function createMockTransport({ manual = false } = {}) {
       const m = state.messages.find(item => item.id === id);
       if (!m) { pending.delete(id); continue; }
       const run = state.runs.find(r => r.id === m.runId);
+      if (['cancelled', 'complete', 'failed'].includes(run.status)) { m.status = run.status; pending.delete(id); continue; }
       if (run.status === 'cancel_requested') { m.status = run.status = 'cancelled'; run.canCancel = false; pending.delete(id); continue; }
       if (run.status === 'unknown') { m.status = 'unknown'; run.canCancel = false; pending.delete(id); continue; }
       if (run.status === 'queued') {
@@ -61,11 +67,18 @@ export function createMockTransport({ manual = false } = {}) {
   }
   function schedule() { if (!manual && !paused && !timer && pending.size) timer = setInterval(advance, 650); }
   const transport = {
+    async query(input) {
+      if (!online) throw clientError('unavailable', '模拟连接已断开。');
+      if (input.type === 'toolDetails') { if (!toolDetails.has(input.ref)) throw clientError('expired', '模拟工具输出已过期。'); return structuredClone(toolDetails.get(input.ref)); }
+      return ['connections', 'testConnection'].includes(input.type) ? settings.query(input) : admin.query(input);
+    },
     subscribe(listener) { listeners.add(listener); return () => listeners.delete(listener); },
     async snapshot() { if (!online) throw clientError('unavailable', '模拟连接已断开。'); const value = snapshot(); return holdSnapshots ? new Promise(resolve => delayedSnapshots.push(() => resolve(value))) : value; },
     async command(input) {
       if (!online) throw clientError('unavailable', '模拟连接已断开。');
       const c = commandSchema.parse(input);
+      if (['saveConnection', 'removeConnection'].includes(c.type)) return settings.execute(c);
+      if (!['send', 'decide', 'cancelRun'].includes(c.type)) return admin.execute(c);
       if (c.type === 'cancelRun') {
         const run = state.runs.find(r => r.id === c.runId);
         if (!run?.canCancel) throw clientError('not_running', '执行已结束或不能取消。');
@@ -103,13 +116,20 @@ export function createMockTransport({ manual = false } = {}) {
       if (!request) throw clientError('expired', '确认请求已失效。');
       if (request.revision !== c.expectedRevision) throw clientError('conflict', '请求已变化，请重新检查。');
       if (c.allow && request.kind === 'questions' && request.questions.some((q, index) => !c.answers[index]?.some(answer => answer.trim()))) throw clientError('required', '请回答每个问题。');
+      if (c.allow && request.kind === 'input' && (!c.value.trim() || request.options.length && !request.options.includes(c.value))) throw clientError('invalid_answers', '请输入有效回答。');
       state.approvals = state.approvals.filter(r => r.id !== request.id);
+      if (decisionUnknown) { decisionUnknown = false; state.approvalHistory.push({ ...request, decision: c.allow ? 'allow' : 'deny', status: 'unknown', delivery: 'unknown' }); publish(); throw clientError('decision_unknown', '模拟答复投递结果未知。', 'unknown'); }
+      state.approvalHistory.push({ ...request, decision: c.allow ? 'allow' : 'deny', status: c.allow ? 'allowed' : 'denied', delivery: 'confirmed' });
       message(request.roomId, request.agentId, c.allow ? '已收到本次确认。模拟场景处理完成。' : '已取消这次模拟操作。');
-      publish(); return { accepted: true, operationId: `decision-${request.id}` };
+      publish(); return { accepted: true, operationId: `decision-${request.id}`, delivery: 'confirmed' };
     },
   };
   const control = {
     advance,
+    failNext(type) { settings.failNext(type); admin.failNext(type); },
+    telemetry: admin.telemetry,
+    launchUnknown: admin.launchUnknown,
+    decisionUnknown() { decisionUnknown = true; },
     holdSnapshots() { holdSnapshots = true; },
     releaseSnapshots() { holdSnapshots = false; delayedSnapshots.splice(0).forEach(resolve => resolve()); },
     duplicate() { if (online) emit({ type: 'snapshot', data: snapshot() }); },
@@ -123,6 +143,9 @@ export function createMockTransport({ manual = false } = {}) {
     reset(empty = false) {
       clearInterval(timer); timer = undefined; pending.clear(); receipts.clear(); sequence = 2; requestNumber = 0; elapsed = 0; paused = false;
       state = initial(`mock-${++incarnation}`); if (empty) state.messages = [];
+      settings.reset();
+      toolDetails.clear();
+      admin.reset(); decisionUnknown = false;
       if (empty === 'empty-workspace') { state.rooms = []; state.agents = []; }
       online = true; publish();
     },
@@ -135,15 +158,26 @@ export function createMockTransport({ manual = false } = {}) {
         questions: kind === 'questions' ? [{ id: 'layout', title: '希望保留哪些设计？', multiple: true, options: ['保持现有布局', '保留头像与配色'] }] : [],
       }); publish();
     },
-    expire() { state.approvals = []; publish(); },
+    expire() { state.approvalHistory.push(...state.approvals.map(r => ({ ...r, status: 'expired' }))); state.approvals = []; publish(); },
     tools(roomId = 'room-design') {
       const room = state.rooms.find(r => r.id === roomId) || state.rooms[0];
       const m = message(room.id, room.memberIds[0], '检查完成，差异已整理。可以展开查看过程。');
       m.tools = [
         { id: `read-${m.id}`, name: '读取文件', status: 'completed', detail: 'welcome.ts', output: '已读取 1 个文件', patches: [] },
         { id: `patch-${m.id}`, name: '修改预览', status: 'completed', detail: '调整欢迎语', output: '1 行新增，1 行删除（模拟数据）', patches: [samplePatch] },
-      ]; publish();
+      ];
+      for (const tool of m.tools) {
+        tool.detailRef = `mock-detail-${tool.id}`; tool.hasDiff = Boolean(tool.patches.length);
+        toolDetails.set(tool.detailRef, { id: tool.detailRef, runId: null, output: tool.output, patches: tool.patches, truncated: false });
+        tool.patches = []; tool.output = tool.output.slice(0, 300);
+      }
+      publish();
     },
+    longTools(roomId) { control.tools(roomId); const tool = state.messages.at(-1).tools[1]; const detail = toolDetails.get(tool.detailRef); detail.output = '模拟长输出\n'.repeat(2000).slice(0, 16000); detail.truncated = true; tool.truncated = true; publish(); },
+    invalidDiff(roomId) { control.tools(roomId); toolDetails.get(state.messages.at(-1).tools[1].detailRef).patches = ['这不是有效 patch']; },
+    largeDiff(roomId) { control.tools(roomId); toolDetails.get(state.messages.at(-1).tools[1].detailRef).patches = ['--- a/large.txt\n+++ b/large.txt\n@@ -1,400 +1,400 @@\n' + Array.from({ length: 400 }, (_, i) => `-旧行 ${i}\n+新行 ${i}\n`).join('')]; },
+    failedTools(roomId) { control.tools(roomId); state.messages.at(-1).tools[1].status = 'failed'; toolDetails.get(state.messages.at(-1).tools[1].detailRef).output = '模拟工具执行失败，请检查输入。'; publish(); },
+    expireTools() { toolDetails.clear(); },
     history(roomId = 'room-design') { for (let i = 0; i < 35; i++) message(roomId, i % 2 ? 'beta' : 'alpha', `讨论记录 ${i + 1}\n\n保留清楚的文字层级与稳定的消息位置。\n\n| 项目 | 状态 |\n| --- | --- |\n| 布局 | 已讨论 |\n| 交互 | 待验证 |`); publish(); },
     dispose() { clearInterval(timer); listeners.clear(); pending.clear(); delayedSnapshots.splice(0).forEach(resolve => resolve()); },
   };

@@ -24,7 +24,8 @@ test('approval requires explicit single-use decision and rejects duplicate in-fl
   const submitted = broker.respond(id, { allow: false }, engine);
   await assert.rejects(broker.respond(id, { allow: true }, engine), /重复提交/);
   finish(); await submitted;
-  assert.equal(writes, 1); assert.equal(broker.history[0].status, 'denied');
+  assert.equal(writes, 1); assert.equal(broker.history[0].status, 'unknown');
+  assert.equal(broker.history[0].delivery, 'unknown'); assert.equal(broker.history[0].decision, 'deny');
   await assert.rejects(broker.respond(id, { allow: true }, engine), /失效/);
 });
 

@@ -1,9 +1,11 @@
-/* Agent Room renderer. The bridge is the only boundary to the local machine. */
+/* Workbench presentation. Business state belongs to AgentRoomClient. */
 (() => {
   const $ = selector => document.querySelector(selector);
   const esc = value => String(value ?? '').replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]);
   const icon = window.icon;
-  const storage = { get(key, fallback) { try { return JSON.parse(localStorage.getItem(key)) ?? fallback; } catch { return fallback; } }, set(key, value) { localStorage.setItem(key, JSON.stringify(value)); } };
+  const mock = document.documentElement.dataset.mode === 'mock';
+  const storageKey = key => mock ? `ar-mock-workbench-${key}` : key;
+  const storage = { get(key, fallback) { try { return JSON.parse(localStorage.getItem(storageKey(key))) ?? fallback; } catch { return fallback; } }, set(key, value) { localStorage.setItem(storageKey(key), JSON.stringify(value)); } };
   const html = (selector, value) => { const element = $(selector); if (element.dataset.rendered !== value) { element.innerHTML = value; element.dataset.rendered = value; } };
   let theme = storage.get('ar-theme', 'light');
   let sidebarCollapsed = storage.get('ar-sidebar-collapsed', false);
@@ -21,32 +23,12 @@
   applyTheme(); applySidebar();
   const portraits = window.AgentAvatars.create({ saved: storage.get('ar-agent-avatars', {}) });
   let avatarRevision = 0;
-  async function http(route, payload) {
-    const response = await fetch(`/api/${route}`, payload === undefined ? {} : { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-    const result = await response.json();
-    if (!response.ok) throw new Error(result.error || '连接失败');
-    return result;
-  }
-  const bridge = window.agentRoom || {
-    desktop: false, getState: () => http('state'), refresh: () => http('refresh', {}),
-    send: payload => http('send', payload), createRoom: payload => http('rooms', payload),
-    createWorkspace: payload => http('workspaces', payload), terminal: id => http('terminal', { id }),
-    inspectSession: id => http('session/inspect', { id }), respondSession: (id, requestId, answer) => http('session/respond', { id, requestId, answer }),
-    cancelSession: id => http('session/cancel', { id }), stopSession: id => http('session/stop', { id }),
-    saveConnection: payload => http('connections/save', payload), removeConnection: id => http('connections/remove', { id }),
-    testConnection: payload => http('connections/test', payload), chooseCertificate: async () => null,
-    getUsage: () => http('usage'),
-    saveCapabilityServer: payload => http('capabilities/server-save', payload), importCapabilitySkill: payload => http('capabilities/skill-import', payload),
-    removeCapability: payload => http('capabilities/remove', payload), bindCapabilities: payload => http('capabilities/bind', payload), testCapabilityServer: payload => http('capabilities/test', payload),
-    launch: payload => http('launch', payload), chooseDirectory: async () => null,
-    openSource: () => window.open('https://github.com/aannoo/hcom', '_blank', 'noopener'),
-    onState: callback => { const stream = new EventSource('/api/events'); stream.onmessage = event => callback(JSON.parse(event.data)); return () => stream.close(); },
-  };
-  if (!bridge.desktop) $('.window-controls').hidden = true;
   let state = { connection: 'connecting', agents: [], rooms: [], workspaces: [], messages: [], engines: [] };
   const chat = window.AgentRoomChat.createClient();
   const platform = window.AgentRoomChat.createPlatform();
-  let chatState = chat.read();
+  let chatState = chat.read(), catalog = { engines: [], version: '', configurationError: '' }, contexts = new Map();
+  if (!platform.capabilities.windowControls) $('.window-controls').hidden = true;
+  if (mock) $('.local-badge').textContent = '模拟开发';
   let workspace = storage.get('ar-workspace', '');
   let active = storage.get('ar-room', '');
   let filter = 'all';
@@ -61,7 +43,6 @@
   let renderedMessageKey = '';
   let lastSeen = storage.get('ar-seen', {});
   let modalReturnFocus;
-  let terminalTimer;
   let toastTimer;
   let diffUI;
   const input = $('#message-input');
@@ -108,8 +89,8 @@
     const last = messagesOf(room).at(-1);
     if (last) { lastSeen[room.id] = last.sequence; storage.set('ar-seen', lastSeen); }
   }
-  function receive(next) {
-    state = next;
+  function receive() {
+    state = { ...chatState, ...catalog, connection: chatState.connection === 'live' ? 'connected' : 'disconnected', agents: chatState.agents.map(a => ({ ...a, tool: a.engineId || a.engine.toLowerCase(), label: a.engine, context: contexts.get(a.id) })) };
     if (portraits.sync(state.agents)) {
       storage.set('ar-agent-avatars', portraits.export());
       avatarRevision++;
@@ -118,7 +99,7 @@
     reconcileRoom();
     markSeen();
     render();
-    permissions.sync(state);
+
   }
   function selectRoom(id) {
     drafts[active] = input.value;
@@ -143,7 +124,7 @@
   function render() {
     $('#workspace-name').textContent = currentWorkspace()?.title || '我的工作区';
     $('#workspace-subtitle').textContent = `${workspaceAgents().length} 个 Agent · ${groupRooms().length} 个群聊`;
-    $('#connection-text').textContent = state.connection === 'connected' ? `hcom 已连接 · ${state.agents.length} 个会话` : state.connection === 'connecting' ? '正在连接 hcom…' : 'hcom 连接已断开';
+    $('#connection-text').textContent = state.connection === 'connected' ? `服务已连接 · ${state.agents.length} 个会话` : state.connection === 'connecting' ? '正在连接 hcom…' : 'hcom 连接已断开';
     $('.connection-line').classList.toggle('offline', state.connection === 'disconnected');
     $('#connection-alert').hidden = state.connection !== 'disconnected';
     $('#connection-alert').textContent = state.error || '连接已断开，输入内容会保留。';
@@ -187,18 +168,13 @@
     return `<div class="welcome"><div class="welcome-mark">${icon('room-mark')}</div><div class="welcome-kicker">${esc(currentWorkspace()?.title || 'AGENT ROOM')} / ${room?.type === 'dm' ? 'DIRECT MESSAGE' : 'WORKSPACE'}</div><h2>${room?.type === 'dm' ? `和 ${esc(room.agent.label)} 一起开始。` : '今天，一起完成什么？'}</h2><p>${room?.type === 'dm' ? '描述任务，继续你们的独立对话。' : '一个问题，多个视角。让你的 Agent 在这里协作。<br>输入 @ 选择成员或标签，也可以向整个房间提问。'}</p><div class="welcome-members">${stack(members)}<span>${members.length ? `${members.length} 个 Agent 已加入当前房间` : '先添加一个 Agent，再开始对话'}</span></div><div class="quick-prompts"><button class="prompt-card" data-prompt="请一起梳理当前项目的目标、结构和下一步计划。">${icon('folder')}<strong>梳理项目</strong><small>目标、结构与下一步</small>${icon('arrow', 'prompt-arrow')}</button><button class="prompt-card" data-prompt="请从实现和维护两个角度讨论当前方案，给出建议。">${icon('agents')}<strong>讨论方案</strong><small>听听不同的视角</small>${icon('arrow', 'prompt-arrow')}</button><button class="prompt-card" data-prompt="请审阅当前代码改动，指出潜在问题和改进建议。">${icon('code')}<strong>审阅代码</strong><small>找出问题与改进点</small>${icon('arrow', 'prompt-arrow')}</button></div></div>`;
   }
   const toolStatus = status => ({ running: '执行中', pending: '等待执行', completed: '完成', failed: '失败', ended: '任务已结束', cancelled: '已中断', unknown: '结果未确认' })[status] || '状态未知';
-  function toolTrace(agent, thread, turnId) {
-    const tools = (agent?.rpc?.tools || []).filter(t => t.thread === thread && (turnId === undefined || t.turnId === String(turnId)));
-    const key = `${agent.id}:${thread}:${turnId || 'all'}`;
-    return renderToolTrace(agent, tools, key);
-  }
   function messageToolTrace(message) {
     const tools = message.tools.map(t => ({ ...t, kind: t.name, diffs: t.patches.map(patch => ({ patch })) }));
     return renderToolTrace({ id: message.authorId }, tools, message.id, message.id);
   }
   function renderToolTrace(agent, tools, key, messageId) {
     if (!tools.length) return '';
-    return `<details class="tool-trace" data-tool-trace="${esc(key)}"><summary>工具使用 · ${tools.length} 次</summary>${tools.map(t => `<details class="tool-step" data-tool-step="${esc(agent.id + ':' + t.id)}"><summary>${esc(t.kind)} <span>${esc(toolStatus(t.status))}</span></summary><pre>${esc(t.detail)}</pre>${t.output ? `<pre>${esc(t.output)}</pre>` : ''}${t.diffs?.some(d => d.unavailable) ? '<p class="form-hint">部分差异超过预览限制</p>' : ''}${t.diffs?.some(d => d.patch) ? `<button class="button" ${messageId ? `data-message-tool="${esc(messageId)}"` : ''} data-diff-agent="${esc(agent.id)}" data-tool-diff="${esc(t.id)}">查看文件差异</button>` : ''}</details>`).join('')}</details>`;
+    return `<details class="tool-trace" data-tool-trace="${esc(key)}"><summary>工具使用 · ${tools.length} 次</summary>${tools.map(t => `<details class="tool-step" data-tool-step="${esc(agent.id + ':' + t.id)}"><summary>${esc(t.kind)} <span>${esc(toolStatus(t.status))}</span></summary><pre>${esc(t.detail)}</pre>${t.output ? `<pre>${esc(t.output)}</pre>` : ''}${t.detailRef ? `<button class="button" data-tool-output="${esc(t.detailRef)}">查看输出详情</button>` : ''}${t.diffs?.some(d => d.unavailable) ? '<p class="form-hint">部分差异超过预览限制</p>' : ''}${(t.hasDiff || t.diffs?.some(d => d.patch)) ? `<button class="button" ${messageId ? `data-message-tool="${esc(messageId)}"` : ''} data-diff-agent="${esc(agent.id)}" data-tool-diff="${esc(t.id)}">查看文件差异</button>` : ''}</details>`).join('')}</details>`;
   }
   $('#messages').addEventListener('toggle', event => { const key = event.target.dataset.toolTrace || event.target.dataset.toolStep; if (key) { if (event.target.open) expandedTools.add(key); else expandedTools.delete(key); } }, true);
   function renderMessages() {
@@ -231,7 +207,7 @@
     if (!details) return;
     const room = currentRoom(); const members = membersOf(room);
     const tags = [...new Set(members.map(agent => agent.tag).filter(Boolean))];
-    html('#details-panel', `<div class="details-title">工作区与成员<button class="icon-button" data-action="members" aria-label="关闭详情">${icon('close')}</button></div><section class="context-card"><div class="context-heading">工作环境<span class="context-local">本机</span></div><div class="context-path">${icon('folder')}<span><strong>${esc(currentWorkspace()?.title || '本地工作区')}</strong><small>${esc(currentWorkspace()?.directory || '请选择工作目录')}</small></span></div><button class="context-switch" data-action="workspace-menu">切换工作区 ${icon('chevron-down')}</button></section><section class="context-card"><div class="context-summary"><span>当前会话</span><strong>${room?.type === 'dm' ? '私聊' : '群聊'}</strong></div><div class="context-summary"><span>房间成员</span><strong>${members.length} 个 Agent</strong></div><div class="context-summary"><span>消息记录</span><strong>${messagesOf(room).length} 条</strong></div></section><div class="details-section-title">房间成员</div>${members.map(agent => `<div class="member-card">${avatar(agent, 'small', true)}<div><strong>${esc(agent.displayName)}</strong><small class="member-tags">${esc(statusLabel(agent.status))}${agent.tag ? `<span class="tag-pill">#${esc(agent.tag)}</span>` : ''}</small></div><button class="icon-button" data-terminal="${esc(agent.id)}" title="${agent.mode === 'rpc' ? '会话状态与权限确认' : '应用内交互终端'}" aria-label="查看 ${esc(agent.displayName)} 的会话">${icon('terminal')}</button></div><div class="member-context">${window.AgentContext.render(agent.context, true)}${capabilities.member(agent)}</div>`).join('') || '<p class="detail-note">还没有成员。添加 Agent 时选择这个工作目录，会自动出现在这里。</p>'}<button class="detail-add-button" data-action="launch">${icon('plus')} 添加 Agent</button>${tags.length ? `<div class="details-section-title">按标签提及</div><div class="detail-tags">${tags.map(tag => `<button data-invite="${esc(tag)}">#${esc(tag)}</button>`).join('')}</div><p class="detail-note">点击标签插入 @ 提及，发送前可继续编辑消息。</p>` : ''}`);
+    html('#details-panel', `<div class="details-title">工作区与成员<button class="icon-button" data-action="members" aria-label="关闭详情">${icon('close')}</button></div><section class="context-card"><div class="context-heading">工作环境<span class="context-local">本机</span></div><div class="context-path">${icon('folder')}<span><strong>${esc(currentWorkspace()?.title || '本地工作区')}</strong><small>${esc(currentWorkspace()?.directory || '请选择工作目录')}</small></span></div><button class="context-switch" data-action="workspace-menu">切换工作区 ${icon('chevron-down')}</button></section><section class="context-card"><div class="context-summary"><span>当前会话</span><strong>${room?.type === 'dm' ? '私聊' : '群聊'}</strong></div><div class="context-summary"><span>房间成员</span><strong>${members.length} 个 Agent</strong></div><div class="context-summary"><span>消息记录</span><strong>${messagesOf(room).length} 条</strong></div></section><div class="details-section-title">房间成员</div>${members.map(agent => `<div class="member-card">${avatar(agent, 'small', true)}<div><strong>${esc(agent.displayName)}</strong><small class="member-tags">${esc(statusLabel(agent.status))}${agent.tag ? `<span class="tag-pill">#${esc(agent.tag)}</span>` : ''}</small></div><button class="icon-button" data-terminal="${esc(agent.id)}" title="${'会话状态与权限确认'}" aria-label="查看 ${esc(agent.displayName)} 的会话">${icon('terminal')}</button></div><div class="member-actions"><button class="button" data-remove-agent="${esc(agent.id)}">移除 Agent</button></div><div class="member-context">${window.AgentContext.render(agent.context, true)}${capabilities.member(agent)}</div>`).join('') || '<p class="detail-note">还没有成员。添加 Agent 时选择这个工作目录，会自动出现在这里。</p>'}<button class="detail-add-button" data-action="launch">${icon('plus')} 添加 Agent</button>${room?.type === 'group' && !room.pinned ? '<button class="button" data-action="edit-members">编辑房间成员</button>' : ''}${tags.length ? `<div class="details-section-title">按标签提及</div><div class="detail-tags">${tags.map(tag => `<button data-invite="${esc(tag)}">#${esc(tag)}</button>`).join('')}</div><p class="detail-note">点击标签插入 @ 提及，发送前可继续编辑消息。</p>` : ''}`);
   }
   function updateComposer() {
     $('#send-button').disabled = sending || !input.value.trim() || chatState.connection !== 'live';
@@ -299,6 +275,9 @@
     clearTimeout(toastTimer); $('#toast').textContent = text; $('#toast').hidden = false;
     toastTimer = setTimeout(() => { $('#toast').hidden = true; }, 6500);
   }
+  let modalGeneration = 0;
+  const modalCurrent = () => { const epoch = modalGeneration; return () => epoch === modalGeneration; };
+  const beginModalLoad = () => { ++modalGeneration; return modalCurrent(); };
   function showModal(title, subtitle, content, footer, wide = false) {
     const returnFocus = document.querySelector('.modal') ? modalReturnFocus : document.activeElement;
     closeModal(false); modalReturnFocus = returnFocus;
@@ -306,7 +285,7 @@
     requestAnimationFrame(() => $('#modal-root').querySelector('input,button:not(.icon-button),textarea')?.focus());
   }
   let terminalDispose;
-  function closeModal(restore = true) { diffUI?.dispose(); clearInterval(terminalTimer); terminalDispose?.(); terminalDispose = null; $('#modal-root').innerHTML = ''; if (restore) modalReturnFocus?.focus(); }
+  function closeModal(restore = true) { ++modalGeneration; diffUI?.dispose(); usage.close(); terminalDispose?.(); terminalDispose = null; $('#modal-root').innerHTML = ''; if (restore) modalReturnFocus?.focus(); }
   const modalButtons = (label, action) => `<button class="button" data-action="close-modal">取消</button><button class="button primary" id="modal-submit" data-action="${action}">${esc(label)} ${icon('arrow')}</button>`;
   function showNewRoom() {
     const members = workspaceAgents();
@@ -336,28 +315,7 @@
     $('#workspace-menu').hidden = true;
     showModal('添加工作区', '选择本地目录，按目录组织会话和群聊。', `<label class="form-label" for="workspace-title">工作区名称</label><input class="text-input" id="workspace-title" maxlength="40" placeholder="例如：产品实验室"><label class="form-label" for="workspace-directory">本地目录</label><div class="directory-row"><input class="text-input" id="workspace-directory" placeholder="C:\\Projects\\my-app"><button data-browse="workspace-directory">选择目录</button></div>`, modalButtons('添加工作区', 'create-workspace'));
   }
-  async function showTerminal(id) {
-    const agent = state.agents.find(item => item.id === id);
-    if (agent?.mode === 'rpc') return showRpcSession(agent);
-    if (state.runtimeMode === 'native') {
-      showModal(agent ? `${agent.displayName} 的终端` : '终端', '会话在 Agent Room 内运行。首次信任或登录提示可在这里完成。', '<div id="terminal-status" class="terminal-status">正在连接…</div><div id="native-terminal" style="height:440px;padding:12px;background:#18202c;border-radius:12px"></div>', `<button class="button" id="stop-native-session">停止会话</button><button class="button" data-action="close-modal">关闭面板</button>`, true);
-      const element = $('#native-terminal');
-      $('#stop-native-session').onclick = () => bridge.stopSession(id).catch(error => toast(error.message));
-      const dispose = await window.AgentRoomTerminal.mount({ id, bridge, element, status: $('#terminal-status'), onError: toast });
-      if (element.isConnected) terminalDispose = dispose; else dispose();
-      return;
-    }
-    showModal(agent ? `${agent.displayName} 的终端` : '终端', '只读实时画面 · 这里显示原始会话状态，不会向终端注入输入。', `<div id="terminal-status" class="terminal-status">正在读取…</div><pre id="terminal-output" class="terminal-output">连接终端中…</pre>`, '<button class="button" data-action="close-modal">关闭</button>', true);
-    const refresh = async () => {
-      try {
-        const screen = await bridge.terminal(id);
-        if (!$('#terminal-output')) return;
-        $('#terminal-output').textContent = screen.lines.join('\n');
-        $('#terminal-status').textContent = `${screen.ready ? '终端就绪' : '请留意原始终端提示'} · ${new Date().toLocaleTimeString('zh-CN')} 更新`;
-      } catch (error) { if ($('#terminal-output')) $('#terminal-output').textContent = error.message; }
-    };
-    await refresh(); terminalTimer = setInterval(refresh, 3000);
-  }
+  async function showTerminal(id) { const agent = state.agents.find(a => a.id === id); if (agent) return showRpcSession(agent); }
   async function showRpcSession(agent) {
     if (chatState.approvals.some(r => r.agentId === agent.id)) return permissions.open(agent.id);
     showModal(`${agent.displayName} 的会话`, '执行结束不代表任务已验收。关闭此面板不会停止执行。', '<p id="rpc-status" role="status"></p><p id="rpc-error" class="form-hint"></p><div id="rpc-history"></div>', '<button class="button" id="rpc-open-approvals">查看待确认</button><button class="button" id="rpc-cancel">中断当前任务</button><button class="button" id="rpc-stop">停止 Agent</button><button class="button" data-action="close-modal">关闭</button>', true);
@@ -372,11 +330,18 @@
       $('#rpc-cancel').onclick = async () => { try { await chat.dispatch({ type: 'cancelRun', key: crypto.randomUUID(), runId: current.id }); } catch (e) { toast(e.message); } };
     };
     $('#rpc-open-approvals').onclick = () => permissions.open(agent.id);
-    $('#rpc-stop').onclick = () => bridge.stopSession(agent.id).catch(e => toast(e.message));
+    $('#rpc-stop').onclick = () => chat.dispatch({ type: 'stopAgent', key: crypto.randomUUID(), agentId: agent.id }).catch(e => toast(e.message));
     terminalDispose = chat.subscribe(refresh); refresh();
   }
+  function showRoomMembers() {
+    const room = currentRoom(); if (!room || room.type !== 'group' || room.pinned) return;
+    showModal('编辑房间成员', room.title, `<div class="member-picker">${workspaceAgents().map(a => `<label><input type="checkbox" name="edit-member" value="${esc(a.id)}" ${room.memberIds.includes(a.id) ? 'checked' : ''}>${esc(a.displayName)}</label>`).join('')}</div>`, `<button class="button primary" data-save-members="${esc(room.id)}">保存成员</button><button class="button" data-action="close-modal">关闭</button>`);
+  }
+  function showPermissions() {
+    showModal('权限与请求', '每次决定均有明确范围；稍后处理不会授权。', `<p>工具请求由对应引擎提交，在应用中逐项确认。未启用永久授权或自动批量批准。</p><button class="button" data-action="capabilities">管理 MCP 工具范围与禁用项</button>${chatState.approvals.map(r => `<p>${esc(r.title)} · ${esc(r.scopeLabel)} <button class="button" data-review-agent="${esc(r.agentId)}">处理请求</button></p>`).join('') || '<p>当前没有待确认请求。</p>'}${chatState.approvalHistory.map(r => `<p>${esc(r.title)} · ${esc(r.status)} · ${esc(r.delivery)}</p>`).join('')}`, '<button class="button" data-action="close-modal">关闭</button>');
+  }
   function showSettings() {
-    showModal('连接与设置', 'Agent Room · 本地桌面预览版 0.1.0', `<div class="settings-row"><span>消息连接</span><strong>${state.connection === 'connected' ? 'hcom 已连接' : '连接中断'}</strong></div><div class="settings-row"><span>hcom 版本</span><strong>${esc(state.version || '—')}</strong></div><div class="settings-row"><span>工作区</span><strong>${state.workspaces.length} 个本地目录</strong></div><div class="settings-row"><span>已发现的会话</span><strong>${state.agents.length} 位 Agent</strong></div><button class="button settings-connections" data-action="usage">Token 用量与砖块图 ${icon('layers')}</button><button class="button primary settings-connections" data-action="connections">连接、网关与模型 ${icon('arrow')}</button><button class="button settings-avatars" data-action="avatars">${icon('smile')} Agent 头像<span>随机自动分配 · 优先不重复</span>${icon('arrow')}</button><p class="settings-description">桌面版会话由应用内 Rust 核心托管。关闭窗口时有活跃会话会驻留托盘；退出应用会停止本应用托管的会话。应用按工作目录组织成员，tag 用于筛选与提及，群聊成员可自由组合。</p><p class="settings-description">桌面版内置 hcom 原生核心，无需独立安装或启动 hcom。通过“添加 Agent”创建会话，原有外部 hcom 会话与应用数据互不混用。</p>`, `<button class="button" data-action="source">hcom 开源项目 ${icon('globe')}</button><button class="button primary" data-action="close-modal">知道了</button>`);
+    showModal('连接与设置', 'Agent Room · 本地桌面预览版 0.1.0', `<div class="settings-row"><span>消息连接</span><strong>${state.connection === 'connected' ? '服务已连接' : '连接中断'}</strong></div><div class="settings-row"><span>hcom 版本</span><strong>${esc(state.version || '—')}</strong></div><div class="settings-row"><span>工作区</span><strong>${state.workspaces.length} 个本地目录</strong></div><div class="settings-row"><span>已发现的会话</span><strong>${state.agents.length} 位 Agent</strong></div><button class="button settings-connections" data-action="usage">Token 用量与砖块图 ${icon('layers')}</button><button class="button primary settings-connections" data-action="connections">连接、网关与模型 ${icon('arrow')}</button><button class="button settings-avatars" data-action="avatars">${icon('smile')} Agent 头像<span>随机自动分配 · 优先不重复</span>${icon('arrow')}</button><p class="settings-description">桌面版会话由应用内 Rust 核心托管。关闭窗口时有活跃会话会驻留托盘；退出应用会停止本应用托管的会话。应用按工作目录组织成员，tag 用于筛选与提及，群聊成员可自由组合。</p><p class="settings-description">桌面版内置 hcom 原生核心，无需独立安装或启动 hcom。通过“添加 Agent”创建会话，原有外部 hcom 会话与应用数据互不混用。</p>`, `<button class="button" data-action="source">hcom 开源项目 ${icon('globe')}</button><button class="button primary" data-action="close-modal">知道了</button>`);
   }
   function showAvatars() {
     showModal('每位伙伴，都有自己的模样', '随机遇见，记住彼此。新 Agent 会优先分到尚未使用的头像，分配后自动保存。',
@@ -389,10 +354,10 @@
     finally { if (button.isConnected) { button.disabled = false; button.textContent = previous; } }
   }
   diffUI = window.createDiffUI({ showModal, esc });
-  const permissions = window.createPermissionUI({ bridge, receive, esc, toast });
-  const connections = window.createConnectionUI({ bridge, getState: () => state, receive, showModal, toast, icon, esc, modalAction });
-  window.createUsageUI({ bridge, showModal, icon, esc });
-  const capabilities = window.createCapabilityUI({ bridge, getState: () => state, receive, getWorkspace: currentWorkspace, showModal, toast, icon, esc, modalAction });
+  const permissions = window.createPermissionUI({ client: chat, esc, toast });
+  const connections = window.createConnectionUI({ client: chat, platform, showModal, beginModalLoad, modalCurrent, toast, icon, esc, modalAction });
+  const usage = window.createUsageUI({ client: chat, showModal, icon, esc });
+  const capabilities = window.createCapabilityUI({ client: chat, getState: () => state, getWorkspace: currentWorkspace, showModal, beginModalLoad, modalCurrent, toast, icon, esc, modalAction });
   document.addEventListener('click', async event => {
     const button = event.target.closest('button');
     if (button?.dataset.room) return selectRoom(button.dataset.room);
@@ -402,51 +367,63 @@
     if (button?.dataset.invite) { insertText(`${input.value && !/\s$/.test(input.value.slice(0, input.selectionStart)) ? ' ' : ''}@${button.dataset.invite} `); return; }
     if (button?.dataset.engine) { document.querySelectorAll('[data-engine]').forEach(item => { item.classList.toggle('selected', item === button); item.setAttribute('aria-pressed', String(item === button)); }); connections.updateLaunch(); capabilities.updateLaunch(); return; }
     if (button?.dataset.window) return platform.windowAction(button.dataset.window);
-    if (button?.dataset.toolDiff) {
-      if (button.dataset.messageTool) {
-        const tool = chatState.messages.find(m => m.id === button.dataset.messageTool)?.tools.find(t => t.id === button.dataset.toolDiff);
-        if (tool) return diffUI.open({ ...tool, kind: tool.name, diffs: tool.patches.map(patch => ({ patch })) });
-      } else {
-        const tool = state.agents.find(a => a.id === button.dataset.diffAgent)?.rpc?.tools?.find(t => t.id === button.dataset.toolDiff);
-        if (tool) return diffUI.open(tool);
-      }
-      toast('该工具记录已过期'); return;
+    if (button?.dataset.toolOutput || button?.dataset.toolDiff) {
+      const roomId = active;
+      const tool = chatState.messages.find(m => m.id === button.dataset.messageTool)?.tools.find(t => t.id === button.dataset.toolDiff);
+      const ref = button.dataset.toolOutput || tool?.detailRef;
+      try {
+        const result = ref ? await chat.query({ type: 'toolDetails', ref }) : tool;
+        if (roomId !== active) return;
+        if (!result) throw new Error('该工具记录已过期');
+        if (button.dataset.toolOutput) showModal('工具输出', result.truncated ? '部分内容超过预览限制' : '只读输出', `<pre class="terminal-output">${esc(result.output)}</pre>`, '<button class="button" data-action="close-modal">关闭</button>', true);
+        else if (result.patches.length) diffUI.open({ ...tool, kind: tool.name, diffs: [...result.patches.map(patch => ({ patch })), ...(result.truncated ? [{ unavailable: '部分差异超过预览限制' }] : [])] });
+        else toast('没有可用差异');
+      } catch (error) { if (roomId === active) toast(error.message); }
+      return;
     }
+    if (button?.dataset.reviewAgent) { closeModal(); permissions.open(button.dataset.reviewAgent); return; }
+    if (button?.dataset.removeAgent) { showModal('移除 Agent', '停止该成员受托管的会话；已有消息保留。', '<p>确认从成员列表移除此 Agent？</p>', `<button class="button" data-action="close-modal">取消</button><button class="button" data-confirm-remove="${esc(button.dataset.removeAgent)}">确认移除</button>`); return; }
+    if (button?.dataset.confirmRemove) return modalAction(button, async () => { await chat.dispatch({ type: 'removeAgent', key: crypto.randomUUID(), agentId: button.dataset.confirmRemove }); closeModal(); });
+    if (button?.dataset.saveMembers) return modalAction(button, async () => { await chat.dispatch({ type: 'setRoomMembers', key: crypto.randomUUID(), roomId: button.dataset.saveMembers, memberIds: [...document.querySelectorAll('[name=edit-member]:checked')].map(el => el.value) }); closeModal(); });
     if (button?.dataset.terminal) return showTerminal(button.dataset.terminal);
     if (button?.dataset.prompt) { input.value = button.dataset.prompt; input.focus(); updateComposer(); return; }
     if (button?.dataset.expand) { const id = button.dataset.expand; expanded.has(id) ? expanded.delete(id) : expanded.add(id); renderMessages(); return; }
     if (button?.dataset.jump) { document.getElementById(`message-${button.dataset.jump}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' }); return; }
     if (button?.dataset.copyMessage) { const message = chatState.messages.find(item => item.id === button.dataset.copyMessage); if (message) { try { await navigator.clipboard.writeText(message.text); toast('消息已复制'); } catch { toast('无法访问剪贴板'); } } return; }
-    if (button?.dataset.browse) { const directory = await bridge.chooseDirectory(); if (directory) $(`#${button.dataset.browse}`).value = directory; else if (!bridge.desktop) toast('浏览器预览中请手动填写目录；Electron 版本支持文件夹选择。'); return; }
+    if (button?.dataset.browse) { try { const directory = await platform.chooseDirectory(); if (directory) $(`#${button.dataset.browse}`).value = directory; } catch (error) { toast(error.message); } return; }
     const action = button?.dataset.action;
     if (action === 'theme') { theme = theme === 'dark' ? 'light' : 'dark'; storage.set('ar-theme', theme); applyTheme(); return; }
     if (action === 'toggle-sidebar') { sidebarCollapsed = !sidebarCollapsed; storage.set('ar-sidebar-collapsed', sidebarCollapsed); applySidebar(); renderHeader(); return; }
     if (action === 'workspace-menu') return showWorkspaceMenu();
     if (action === 'new-room') return showNewRoom();
     if (action === 'launch') return showLaunch();
+    if (action === 'edit-members') return showRoomMembers();
+    if (action === 'permissions') return showPermissions();
     if (action === 'settings') return showSettings();
     if (action === 'avatars') return showAvatars();
     if (action === 'new-workspace') return showNewWorkspace();
     if (action === 'close-modal') return closeModal();
-    if (action === 'source') return bridge.openSource();
+    if (action === 'source') return platform.openSource();
     if (action === 'members') { details = !details; storage.set('ar-details', details); renderHeader(); renderDetails(); return; }
     if (action === 'conversations') { filter = 'all'; query = ''; $('#search').value = ''; render(); return; }
     if (action === 'search') { $('#search').focus(); return; }
     if (action === 'mention') { insertText(`${input.value && !/\s$/.test(input.value.slice(0, input.selectionStart)) ? ' ' : ''}@`); return; }
     if (action === 'emoji') { insertText(' 🙂 '); return; }
     if (action === 'create-room') return modalAction(button, async () => {
-      const result = await bridge.createRoom({ title: $('#room-name').value, members: [...document.querySelectorAll('[name="room-member"]:checked')].map(item => item.value), workspaceId: workspace });
-      receive(result.state); closeModal(); selectRoom(result.room.id); toast('新的房间已创建');
+      const result = await chat.dispatch({ type: 'createRoom', key: crypto.randomUUID(), title: $('#room-name').value, memberIds: [...document.querySelectorAll('[name="room-member"]:checked')].map(item => item.value), workspaceId: workspace });
+      closeModal(); selectRoom(result.entityId); toast('新的房间已创建');
     });
     if (action === 'create-workspace') return modalAction(button, async () => {
-      const result = await bridge.createWorkspace({ title: $('#workspace-title').value, directory: $('#workspace-directory').value });
-      receive(result.state); closeModal(); selectWorkspace(result.workspace.id); toast('工作区已添加');
+      const result = await chat.dispatch({ type: 'createWorkspace', key: crypto.randomUUID(), title: $('#workspace-title').value, directory: $('#workspace-directory').value });
+      closeModal(); selectWorkspace(result.entityId); toast('工作区已添加');
     });
     if (action === 'launch-agent') return modalAction(button, async () => {
       const tool = document.querySelector('[data-engine].selected')?.dataset.engine;
-      const result = await bridge.launch({ tool, directory: $('#agent-directory').value, tag: $('#agent-tag').value, ...connections.launchPayload(), ...capabilities.launchPayload() });
-      receive(result.state); closeModal();
-      toast(result.result.handles?.[0]?.mode === 'rpc' ? 'Agent 已就绪，可以直接 @ 它聊天。' : 'Agent 已启动，请查看会话状态。');
+      const directory = $('#agent-directory').value;
+      let target = state.workspaces.find(w => w.directory === directory)?.id;
+      if (!target) target = (await chat.dispatch({ type: 'createWorkspace', key: crypto.randomUUID(), title: '新工作区', directory })).entityId;
+      await chat.dispatch({ type: 'launchAgent', key: crypto.randomUUID(), engineId: tool, workspaceId: target, tag: $('#agent-tag').value, ...connections.launchPayload(), ...capabilities.launchPayload() });
+      closeModal(); toast('启动请求已受理，请查看成员状态。');
     });
     if (event.target.classList.contains('modal-backdrop')) closeModal();
     if (!event.target.closest('#workspace-menu') && !event.target.closest('#workspace-button')) $('#workspace-menu').hidden = true;
@@ -486,14 +463,18 @@
   $('#search').addEventListener('input', event => { query = event.target.value; renderSidebar(); });
   $('#workspace-button').addEventListener('click', showWorkspaceMenu);
   $('#send-button').addEventListener('click', send);
-  $('#refresh-button').addEventListener('click', async () => { try { receive(await bridge.refresh()); toast('会话列表已刷新'); } catch (error) { toast(error.message); } });
-  bridge.onState(receive);
+  $('#refresh-button').addEventListener('click', async () => { try { await chat.open(); catalog = await chat.query({ type: 'catalog' }); receive(); toast('会话列表已刷新'); } catch (error) { toast(error.message); } });
   const unsubscribeChat = chat.subscribe(() => {
     chatState = chat.read();
-    reconcileRoom();
-    markSeen(); render();
+    permissions.sync(chatState);
+    receive();
   });
   window.addEventListener('beforeunload', () => { unsubscribeChat(); chat.close(); }, { once: true });
-  void chat.open();
-  bridge.getState().then(receive).catch(error => toast(error.message));
+  void chat.open().then(async () => {
+    catalog = await chat.query({ type: 'catalog' }); receive();
+    capabilities.watch(() => renderDetails());
+    chat.watch({ type: 'contexts' }, result => { if (result.status === 'ready') { contexts = new Map(result.value.agents.map(a => [a.agentId, a.context])); receive(); } else if (result.status === 'error') { contexts = new Map(chatState.agents.map(a => [a.id, { used: null, window: null, source: 'unknown', reason: result.error }])); receive(); } });
+    const section = new URLSearchParams(location.search).get('section');
+    if (section === 'connections') void connections.show(); else if (section === 'capabilities') void capabilities.show(); else if (section === 'usage') usage.show(); else if (section === 'launch') showLaunch(); else if (section === 'permissions') showPermissions();
+  }).catch(error => toast(error.message));
 })();

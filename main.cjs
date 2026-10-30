@@ -58,6 +58,7 @@ if (single) app.whenReady().then(async () => {
   ipcMain.handle('chat:request', (_, input) => chatApi.request(input));
   chatApi.subscribe(event => { if (window && !window.isDestroyed()) window.webContents.send('chat:event', event); });
   app.once('will-quit', () => chatApi.close());
+  ipcMain.handle('room:workbench', (_, section = '') => { if (!['', 'connections', 'capabilities', 'usage', 'launch', 'members', 'permissions'].includes(section)) throw new Error('未知管理入口'); return window.loadFile(path.join(__dirname, 'renderer', 'index.html'), { query: { section } }); });
   ipcMain.handle('room:state', () => service.snapshot());
   ipcMain.handle('room:refresh', () => service.rescan());
   ipcMain.handle('room:send', (_, payload) => service.send(payload));

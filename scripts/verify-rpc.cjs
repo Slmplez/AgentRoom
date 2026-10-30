@@ -76,13 +76,25 @@ async function main({ fork } = {}) {
     }
     const evidence = { passed: true, engine: tool, transport: tool === 'opencode' ? 'HTTP + authenticated SSE' : 'stdio RPC', upstream: 'loopback deterministic model', requests, terminalEvents, ptySessions: runtime.sessions.size, paidModelCalls: 0, checks: ['actual CLI', 'native registration', 'hcom inbox delivery', 'gateway auth replacement', 'streamed final reply in original thread', 'no PTY'], time: new Date().toISOString() };
     if (relay) evidence.checks.push('actual bash tool sends hcom message to another RPC agent');
-    await runtime.stop(id); assert.equal(runtime.activeSessions, 0); passed = true;
+    await runtime.stop(id); assert.equal(runtime.activeSessions, 0);
+    await runtime.close();
+    assert.equal(runtime.exited, true, 'native host must exit before lifecycle completion');
+    assert.ok([...runtime.rpcSessions.values()].every(s => s.engine.pipe.exited), 'all owned CLI processes must exit');
+    evidence.checks.push('owned CLI and native host processes exited'); passed = true;
     await fs.writeFile(path.resolve(__dirname, `../artifacts/rpc-real-${tool}.json`), JSON.stringify(evidence, null, 2)); console.log(evidence);
   } catch (error) {
     await fs.writeFile(path.resolve(__dirname, `../artifacts/rpc-real-${tool}-error.json`), JSON.stringify({ error: error.stack, directory, requests, sessions: [...runtime.rpcSessions.values()].map(s => ({ name: s.name, ...runtime.view(s), stderr: s.engine?.pipe.stderr })) }, null, 2)); throw error;
   } finally {
     await runtime.close(); gateway?.close(); server.closeAllConnections(); await new Promise(r => server.close(r));
-    if (passed) await fs.rm(directory, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
+    if (passed) {
+      try { await fs.rm(directory, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 }); }
+      catch (error) {
+        if (error.code !== 'EBUSY') throw error;
+        const cleanup = { retainedDirectory: directory, reason: error.code, ownedProcessesExited: runtime.exited && [...runtime.rpcSessions.values()].every(s => s.engine.pipe.exited) };
+        await fs.writeFile(path.resolve(__dirname, `../artifacts/rpc-real-${tool}-cleanup.json`), JSON.stringify(cleanup, null, 2));
+        console.warn('Windows retained test artifacts after verified process exit:', directory);
+      }
+    }
   }
 }
 if (require.main === module || process.versions.electron && process.type === 'browser') {

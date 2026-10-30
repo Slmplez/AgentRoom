@@ -13,10 +13,12 @@ function createPreviewServer({ mode = 'mock' } = {}) {
       const url = new URL(req.url, 'http://127.0.0.1');
       let relative = decodeURIComponent(url.pathname).replace(/^\//, '');
       if (['', 'index.html', 'chat.html'].includes(relative)) relative = 'chat.html';
+      if (relative === 'workbench.html') relative = 'index.html';
       const file = path.resolve(renderer, relative);
       if (!file.startsWith(renderer + path.sep) || !mime[path.extname(file)] || /[\\]/.test(relative) || relative.startsWith('api/')) { res.writeHead(404); res.end(); return; }
       let content = await fs.readFile(file);
       if (relative === 'chat.html' && mode === 'mock') content = Buffer.from(content.toString().replace('data-mode="live"', 'data-mode="mock"'));
+      if (relative === 'index.html' && mode === 'mock') content = Buffer.from(content.toString().replace('<html', '<html data-mode="mock"'));
       res.writeHead(200, { 'Content-Type': mime[path.extname(file)], 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' });
       res.end(req.method === 'HEAD' ? undefined : content);
     } catch { res.writeHead(404); res.end('Not found'); }

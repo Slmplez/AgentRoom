@@ -23,7 +23,7 @@ app.whenReady().then(async () => {
     rpc.current = { id, thread: payload.thread }; rpc.partial = '正在检查';
     return { event_id: id };
   };
-  runtime.respond = async (id, requestId, answer) => { decisions.push({ id, requestId, answer }); rpc.approvals = rpc.approvals.filter(r => r.id !== requestId); await service.refresh(); return { accepted: true }; };
+  runtime.respond = async (id, requestId, answer) => { decisions.push({ id, requestId, answer }); rpc.approvals = rpc.approvals.filter(r => r.id !== requestId); await service.refresh(); return { accepted: true, delivery: 'confirmed' }; };
   service = new HcomService({ dataDir: directory, runtime });
   await service.connections.load(); await service.usage.load(); await service.refresh();
   const roomId = `lobby:${workspaceId(directory)}`;
@@ -75,13 +75,13 @@ app.whenReady().then(async () => {
     assert.deepEqual(sent.at(-1).targets, ['alpha']);
     const current = { ...rpc.current }, replyId = `reply:alpha:${current.id}`;
     await until(`Array.from(document.querySelectorAll('.message')).some(el => el.dataset.messageId === '${replyId}')`);
-    rpc.approvals = [{ id: `approval-${mode}`, kind: 'permission', grantScope: 'turn', data: { command: ['npm', 'run', 'check'], method: 'item/permissions/requestApproval' } }];
+    rpc.approvals = [{ id: `approval-${view}-${mode}`, kind: 'permission', grantScope: 'turn', data: { command: ['npm', 'run', 'check'], method: 'item/permissions/requestApproval' } }];
     await service.refresh();
     await until('Boolean(document.querySelector(".permission-dialog[open]"))');
     assert.ok(await run('document.querySelector(".permission-dialog").textContent.includes("当前任务轮次")'));
-    await run('Array.from(document.querySelectorAll(".permission-dialog button")).find(b=>b.textContent === "允许本次").click()');
+    await run('Array.from(document.querySelectorAll(".permission-dialog button")).find(b=>b.textContent === "允许本轮").click()');
     await until('!document.querySelector(".permission-dialog[open]")');
-    assert.equal(decisions.at(-1).requestId, `approval-${mode}`);
+    assert.equal(decisions.at(-1).requestId, `approval-${view}-${mode}`);
     events.push({ id: events.length + 1, type: 'message', ts: new Date().toISOString(), data: { sender_kind: 'agent', from: 'alpha', text: `检查完成 ${mode}`, thread: current.thread, reply_to: String(current.id) } });
     rpc.current = null; rpc.partial = ''; await service.refresh();
     await until(`document.querySelector('#messages').textContent.includes('检查完成 ${mode}')`);

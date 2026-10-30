@@ -12,9 +12,10 @@ app.whenReady().then(async () => {
   const getState = () => ({ connection: 'connected', runtimeMode: 'native', agents: [{ id: 'alpha', name: 'alpha', baseName: 'alpha', tool: 'pi', label: 'Pi', displayName: 'Pi · Alpha', mode: 'rpc', status: 'blocked', directory: 'C:\\Projects\\agent-room', workspaceId: 'workspace', rpc }, ...extraAgents], rooms: [{ id: 'test-room', title: 'RPC 协作验证', thread: 'test-room', workspaceId: 'workspace', allMembers: true, type: 'group' }], workspaces: [{ id: 'workspace', title: 'Agent Room', directory: 'C:\\Projects\\agent-room' }], messages: [{ id: '1', sender: 'user', senderName: '你', human: true, tool: 'human', text: '@alpha 检查工作区', timestamp: new Date().toISOString(), thread: 'test-room', recipients: ['alpha'], deliveredTo: ['alpha'] }], engines: [], connections: [] });
   ipcMain.handle('fixture:state', getState);
   const { installChatFixture } = require('../test/fixtures/chat-api-fixture.cjs');
-  const chatFixture = await installChatFixture(ipcMain, () => window, { snapshot: getState });
+  const respond = (id, requestId, answer) => { answers.push({ id, requestId, answer }); const target = id === 'alpha' ? rpc : extraAgents.find(a => a.id === id).rpc; target.approvals = target.approvals.filter(r => r.id !== requestId); return { accepted: true, delivery: 'confirmed' }; };
+  const chatFixture = await installChatFixture(ipcMain, () => window, { snapshot: getState, respondSession: respond });
   ipcMain.handle('fixture:inspect', () => rpc);
-  ipcMain.handle('fixture:respond', (_, id, requestId, answer) => { answers.push({ id, requestId, answer }); const target = id === 'alpha' ? rpc : extraAgents.find(a => a.id === id).rpc; target.approvals = target.approvals.filter(r => r.id !== requestId); return { accepted: true }; });
+  ipcMain.handle('fixture:respond', (_, id, requestId, answer) => { answers.push({ id, requestId, answer }); const target = id === 'alpha' ? rpc : extraAgents.find(a => a.id === id).rpc; target.approvals = target.approvals.filter(r => r.id !== requestId); return { accepted: true, delivery: 'confirmed' }; });
   ipcMain.handle('fixture:cancel', () => ({ accepted: true })); ipcMain.handle('fixture:stop', () => ({ accepted: true }));
   window = new BrowserWindow({ width: 1400, height: 940, show: false, webPreferences: { offscreen: true, preload: path.resolve(__dirname, '../test/fixtures/rpc-ui-preload.cjs'), sandbox: true, contextIsolation: true, nodeIntegration: false } });
   window.webContents.on('console-message', event => { if (event.level === 'error') errors.push(event.message); });
@@ -43,6 +44,9 @@ app.whenReady().then(async () => {
   const retainedTools = rpc.tools;
   rpc.tools = [];
   window.webContents.send('fixture:update', getState());
+  await run('document.querySelector("[data-tool-diff]").click()');
+  await until('document.querySelector("#toast").textContent.includes("已过期")');
+  rpc.tools = retainedTools;
   await run('document.querySelector("[data-tool-diff]").click()');
   await until('document.querySelector("#diff-content .diff-file")?.shadowRoot?.textContent.includes("newValue")');
   assert.match(await run('document.querySelector("#diff-content .diff-file").shadowRoot.textContent'), /oldValue/);

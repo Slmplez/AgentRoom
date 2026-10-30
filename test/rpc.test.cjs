@@ -23,7 +23,8 @@ for (const tool of ['codex', 'pi', 'claude', 'opencode']) {
     const approval = once(engine, 'approval'); let completed = false;
     const reply = engine.prompt('approve operation').then(v => { completed = true; return v; });
     const [r] = await approval; assert.equal(completed, false);
-    await engine.respond(r.id, { allow: false });
+    const delivered = await engine.respond(r.id, { allow: false });
+      if (tool === 'opencode') assert.equal(delivered.delivery, 'confirmed');
     assert.match(await reply, /decline|false|deny|reject/);
     const pending = engine.prompt('wait');
     await new Promise(r => setTimeout(r, 40)); await engine.cancel(); assert.match(await pending, /interrupted/);

@@ -1,0 +1,24 @@
+# 聊天展示层
+
+此目录负责 React 界面和本地交互。保持现有暖灰、陶土强调、头像和双主题；业务命令通过注入的 `ChatClient` 发出，不在组件中解析引擎协议。
+
+管理、审批和工具详情均通过统一 Client；桌面操作由 PlatformClient 提供。界面与后端契约由主集成会话完成整合。
+
+- 会话列表：简化 Markdown 摘要；搜索会话及成员，支持清除空结果。
+- 输入区：展示已选择的参与者，移除时同步更新文本与其余提及位置；无匹配项时 Enter 关闭候选，避免误发送。
+- 确认中心：显示 Agent、所属会话、授权范围；问题说明可折叠；答复结果未知或已提交时禁止重复提交，稍后重新打开也保留状态。
+- 结果面板：仅 Mock 模式显示“结果示例”。json-render 按固定组件目录渲染概览、表格和表单；不接受模型输出，不发送业务命令。表单草稿按会话保留在本页，刷新清除。正式产物和表单提交等待后续业务契约。
+
+前端验证：
+
+```text
+npm run check:chat
+npm run verify:chat-ui
+npx electron scripts/verify-chat-polish.cjs --disable-gpu
+```
+
+运行验证前需要构建前端资源。新脚本验证搜索、提及移除后的接收者、结果面板、草稿隔离、键盘与焦点、双主题文字对比度、窄屏以及未知确认结果。脚本使用静态 Mock 页面和独立确认组件夹具，不启动生产后端。截图输出到 `artifacts/chat-polish-*.png`。
+
+使用现有 `npm run dev:ui` 查看模拟前端；这不代表真实模型或完整解耦迁移已验收。
+
+结果示例使用 `@json-render/core` 与 `@json-render/react` 0.21.3（Apache-2.0），完整许可证见本目录 `LICENSE.json-render.txt`。它们现在会按需打包进入 Mock 结果面板；根级 THIRD_PARTY_NOTICES.md 已同步说明。

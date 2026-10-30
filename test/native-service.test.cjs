@@ -7,6 +7,15 @@ const path = require('node:path');
 const { HcomService, workspaceId } = require('../lib/hcom-service.cjs');
 const { validateTerminalInput, validateTerminalSize } = require('../lib/terminal-contract.cjs');
 
+test('native runtime close waits for its owned host exit', async () => {
+  const { NativeRuntime } = require('../lib/native-runtime.cjs');
+  const runtime = new NativeRuntime(), child = new EventEmitter(); let settled = false;
+  child.kill = () => {}; runtime.child = child;
+  const closing = runtime.close().then(() => { settled = true; });
+  await new Promise(resolve => setImmediate(resolve)); assert.equal(settled, false);
+  child.emit('exit', 0); await closing; assert.equal(settled, true);
+});
+
 async function setup(t) {
   const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'ar-native-service-'));
   const runtime = new EventEmitter(); runtime.binary = path.join(directory, 'hcom.exe'); runtime.activeSessions = 2;

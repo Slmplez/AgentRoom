@@ -1,4 +1,5 @@
-import { snapshotSchema, commandSchema, clientError } from '../../contracts/chat.mjs';
+import { snapshotSchema, commandSchema, receiptSchema, clientError } from '../../contracts/chat.mjs';
+import { querySchema, queryResults } from '../../contracts/settings.mjs';
 
 function freeze(value) {
   if (value && typeof value === 'object' && !Object.isFrozen(value)) { Object.freeze(value); Object.values(value).forEach(freeze); }
@@ -10,6 +11,7 @@ const empty = () => ({ instanceId: '', revision: -1, agents: [], rooms: [], work
 export function createAgentRoomClient(transport) {
   let state = freeze({ ...empty(), connection: 'connecting', error: '', scope: {}, pendingOperations: [] });
   let generation = 0, unsubscribe, refreshNumber = 0, retryTimer, attempts = 0, closed = true, streamOffline = false, scope = {};
+  const watches = new Set();
   const listeners = new Set(), inFlight = new Set(), retired = new Set(), uncertain = new Map();
   const publish = patch => { state = freeze({ ...state, ...patch }); for (const listener of listeners) listener(); };
   const scopeKey = () => JSON.stringify(scope);
@@ -65,9 +67,28 @@ export function createAgentRoomClient(transport) {
       await refresh(epoch);
     } catch (error) { if (epoch === generation) { publish({ connection: 'offline', error: error.message }); retry(epoch); } }
   }
+  async function query(input) {
+      const parsed = querySchema.safeParse(input);
+      if (!parsed.success) throw clientError('invalid_query', '查询不符合公开契约。');
+      const epoch = generation;
+      const result = await transport.query(parsed.data);
+      if (epoch !== generation) throw clientError('stale_query', '查询范围已变化。');
+      return freeze(queryResults[parsed.data.type].parse(result));
+    }
   return {
     read: () => state,
     subscribe(listener) { listeners.add(listener); return () => listeners.delete(listener); },
+    query,
+    watch(input, listener, { intervalMs = 5000 } = {}) {
+      let disposed = false, timer;
+      const poll = async () => {
+        try { const value = await query(input); if (!disposed) listener({ status: "ready", value }); }
+        catch (error) { if (!disposed) listener({ status: "error", error: error.message }); }
+        if (!disposed) { timer = setTimeout(poll, Math.max(250, intervalMs)); timer.unref?.(); }
+      };
+      const dispose = () => { disposed = true; clearTimeout(timer); watches.delete(dispose); };
+      watches.add(dispose); listener({ status: "loading" }); void poll(); return dispose;
+    },
     async open(nextScope = scope) {
       closed = false;
       const next = { ...(nextScope.workspaceId ? { workspaceId: String(nextScope.workspaceId) } : {}), ...(nextScope.roomId ? { roomId: String(nextScope.roomId) } : {}) };
@@ -80,24 +101,27 @@ export function createAgentRoomClient(transport) {
       if (!parsed.success) throw clientError('invalid_command', '请求不符合聊天契约。');
       const command = parsed.data;
       const token = command.type === 'decide' ? command.approvalId : command.key;
-      if (uncertain.has(token)) throw clientError('outcome_unknown', '此前操作结果未知，请核查后端记录；不会重复提交。', 'unknown');
+      const target = command.agentId || command.roomId || command.workspaceId || command.id || '';
+      if (uncertain.has(token) || !['send', 'decide', 'cancelRun'].includes(command.type) && [...uncertain.values()].some(item => item.type === command.type && item.target === target)) throw clientError('outcome_unknown', '此前同类操作结果未知，请核查后端记录；不会使用新请求键重复提交。', 'unknown');
       if (inFlight.has(token)) throw clientError('busy', '操作正在处理。');
       inFlight.add(token);
       const epoch = generation;
       const submittedInstance = state.instanceId, submittedScope = scopeKey();
       try {
-        const receipt = await transport.command(command);
+        const parsedReceipt = receiptSchema.safeParse(await transport.command(command));
+        if (!parsedReceipt.success) throw clientError('invalid_response', '操作回执不符合公开契约，请核查结果。', 'unknown');
+        const receipt = parsedReceipt.data;
         if (epoch === generation) await refresh(epoch);
         return receipt;
       } catch (error) {
         if (error.outcome === 'unknown') {
           // Store identifiers only: credentials and user content never enter diagnostic state.
-          uncertain.set(token, { key: token, type: command.type, scope: submittedScope, instanceId: submittedInstance, requestId: error.requestId || '', outcome: 'unknown' });
+          uncertain.set(token, { key: token, type: command.type, target, scope: submittedScope, instanceId: submittedInstance, requestId: error.requestId || '', outcome: 'unknown' });
           if (!closed && submittedScope === scopeKey()) publish({ pendingOperations: [...uncertain.values()].filter(item => item.scope === scopeKey()) });
         }
         throw error;
       } finally { inFlight.delete(token); }
     },
-    close() { closed = true; ++generation; ++refreshNumber; clearTimeout(retryTimer); retryTimer = undefined; unsubscribe?.(); unsubscribe = undefined; publish({ connection: 'offline' }); },
+    close() { for (const dispose of [...watches]) dispose(); closed = true; ++generation; ++refreshNumber; clearTimeout(retryTimer); retryTimer = undefined; unsubscribe?.(); unsubscribe = undefined; publish({ connection: 'offline' }); },
   };
 }

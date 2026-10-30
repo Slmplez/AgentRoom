@@ -1,9 +1,10 @@
 /* Connection editor and launch picker. Secrets are never returned by the backend. */
-window.createConnectionUI = ({ bridge, getState, receive, showModal, toast, icon, esc, modalAction }) => {
+window.createConnectionUI = ({ client, platform, showModal, beginModalLoad, modalCurrent, toast, icon, esc, modalAction }) => {
   const $ = selector => document.querySelector(selector);
   const protocols = { multi: 'Magpie / 多协议网关', responses: 'OpenAI Responses', chat: 'OpenAI Chat Completions', anthropic: 'Anthropic Messages' };
-  let editingId = '';
-  function profiles() { return getState().connections || []; }
+  let editingId = '', connectionState = { profiles: [], secureStorageAvailable: false }, generation = 0;
+  async function load() { connectionState = await client.query({ type: 'connections' }); }
+  function profiles() { return connectionState.profiles; }
   function updateLaunchModel() {
     const profile = profiles().find(item => item.id === $('#launch-connection')?.value);
     $('#launch-model-fields').hidden = !profile;
@@ -23,9 +24,13 @@ window.createConnectionUI = ({ bridge, getState, receive, showModal, toast, icon
   function decorateLaunch() {
     const label = $('#agent-directory').closest('.directory-row').previousElementSibling;
     label.insertAdjacentHTML('beforebegin', `<div class="form-label-row"><label class="form-label" for="launch-connection">连接方案</label><button class="text-link" data-action="connections">管理网关与模型 ${icon('arrow')}</button></div><select class="text-input" id="launch-connection"><option value="">使用 CLI 原配置</option></select><div id="launch-model-fields" hidden><label class="form-label" for="launch-model">本次使用的模型</label><input class="text-input" id="launch-model" maxlength="200" placeholder="模型 ID"><p class="form-hint" id="launch-connection-hint"></p></div>`);
-    updateLaunch();
+    const current = modalCurrent(); void load().then(() => { if (current()) updateLaunch(); }).catch(error => { if (current()) toast(error.message); });
   }
-  function show(selectedId = '') {
+  async function show(selectedId = '') {
+    const current = beginModalLoad();
+    const epoch = ++generation;
+    try { await load(); } catch (error) { toast(error.message); return; }
+    if (epoch !== generation || !current()) return;
     editingId = selectedId;
     const profile = profiles().find(item => item.id === selectedId) || { name: '', baseUrl: 'http://127.0.0.1:3425/v1', protocol: 'multi', model: '', authMode: 'bearer', contextWindow: 128000, maxTokens: 8192 };
     const file = (id, label, value, key = false) => `<label class="form-label" for="${id}">${label}</label><div class="directory-row"><input class="text-input" id="${id}" value="${esc(value || '')}" placeholder="可选 · PEM 文件路径"><button data-certificate="${id}" data-kind="${key ? 'key' : 'cert'}">选择文件</button></div>`;
@@ -33,7 +38,7 @@ window.createConnectionUI = ({ bridge, getState, receive, showModal, toast, icon
       <div class="connections-layout"><aside class="connection-sidebar">
         <button class="button primary" data-action="connection-new">${icon('plus')} 新建连接方案</button>
         <div class="connection-profile-list">${profiles().map(item => `<button class="connection-profile ${item.id === selectedId ? 'selected' : ''}" data-connection="${esc(item.id)}"><strong>${esc(item.name)}</strong><small>${esc(protocols[item.protocol])}</small><span>${esc(item.model)}</span></button>`).join('') || '<p class="form-hint">添加一个连接方案，启动 Agent 时即可选择。</p>'}</div>
-        <div class="connection-storage-note">${icon('settings')}<span>${getState().secureStorageAvailable ? 'Key 由系统加密保存' : '当前环境无法保存 Key，请使用桌面版'}<br>编辑时不回显已保存的 Key。</span></div>
+        <div class="connection-storage-note">${icon('settings')}<span>${connectionState.secureStorageAvailable ? 'Key 由系统加密保存' : '当前环境无法保存 Key，请使用桌面版'}<br>编辑时不回显已保存的 Key。</span></div>
       </aside><div class="connection-editor">
         <div class="connection-presets"><span>快速填写</span><button data-preset="magpie">Magpie</button><button data-preset="ollama">Ollama</button><button data-preset="lmstudio">LM Studio</button><button data-preset="custom">自定义</button></div>
         <label class="form-label" for="connection-name">方案名称</label><input class="text-input" id="connection-name" maxlength="60" value="${esc(profile.name)}" placeholder="例如：公司网关、Magpie、本地 Qwen">
@@ -60,6 +65,11 @@ window.createConnectionUI = ({ bridge, getState, receive, showModal, toast, icon
       clientKeyPath: $('#connection-private-key').value, clientKeyPassphrase: $('#connection-passphrase').value, clearPassphrase: $('#connection-clear-passphrase').checked,
       contextWindow: Number($('#connection-context').value), maxTokens: Number($('#connection-max-tokens').value), reasoning: $('#connection-reasoning').checked };
   }
+  function writePayload(testing = false) {
+    const { id, apiKey, clientKeyPassphrase, clearApiKey, clearPassphrase, ...profile } = payload(testing);
+    const change = (value, clear) => clear ? { action: 'clear' } : value ? { action: 'replace', value } : { action: 'keep' };
+    return { id, profile, credentials: { apiKey: change(apiKey, clearApiKey), passphrase: change(clientKeyPassphrase, clearPassphrase) } };
+  }
   function compatibility() {
     const labels = { multi: 'Codex、Claude Code、Pi、OpenCode。需要上游 Magpie 或网关本身支持多协议转换。', responses: 'Codex、Pi、OpenCode。上游需要支持 Responses API。', chat: 'Pi、OpenCode。Codex 需要 Responses，Claude Code 需要 Anthropic 协议。', anthropic: 'Claude Code、Pi、OpenCode。上游需要支持 Anthropic Messages API。' };
     if ($('#connection-compatibility')) $('#connection-compatibility').textContent = `适用引擎：${labels[$('#connection-protocol').value]}`;
@@ -72,29 +82,29 @@ window.createConnectionUI = ({ bridge, getState, receive, showModal, toast, icon
     const button = event.target.closest('button'); if (!button) return;
     if (button.dataset.connection) return show(button.dataset.connection);
     if (button.dataset.certificate) {
-      try { const value = await bridge.chooseCertificate(button.dataset.kind); if (value && $(`#${button.dataset.certificate}`)) $(`#${button.dataset.certificate}`).value = value; else if (!bridge.desktop) toast('浏览器预览请手动填写证书路径。'); } catch { toast('无法打开文件选择器。'); }
+      try { const value = await platform.chooseCertificate(button.dataset.kind); if (value && $(`#${button.dataset.certificate}`)) $(`#${button.dataset.certificate}`).value = value; else if (!platform.capabilities.chooseCertificate) toast('浏览器预览请手动填写证书路径。'); } catch (error) { toast(error.message); }
       return;
     }
     if (button.dataset.preset) {
       const presets = { magpie: ['Magpie', 'http://127.0.0.1:3425/v1', 'multi', 'bearer'], ollama: ['Ollama', 'http://127.0.0.1:11434/v1', 'chat', 'none'], lmstudio: ['LM Studio', 'http://127.0.0.1:1234/v1', 'chat', 'none'], custom: ['', '', 'responses', 'bearer'] };
       const values = presets[button.dataset.preset];
       // A preset starts a fresh profile so an old saved credential is never reused at a new host.
-      show();
+      await show();
       ['connection-name', 'connection-url', 'connection-protocol', 'connection-auth'].forEach((id, index) => { $(`#${id}`).value = values[index]; });
       compatibility(); return;
     }
     const action = button.dataset.action;
     if (action === 'connections' || action === 'connection-new') return show();
     if (action === 'connection-save') return modalAction(button, async () => {
-      const result = await bridge.saveConnection(payload()); receive(result.state); show(result.id); toast('连接方案已保存，可在启动 Agent 时选择。');
+      const result = await client.dispatch({ type: 'saveConnection', key: crypto.randomUUID(), ...writePayload() }); if (!button.isConnected) return; await show(result.entityId); toast('连接方案已保存，可在启动 Agent 时选择。');
     });
-    if (action === 'connection-delete') return modalAction(button, async () => { receive(await bridge.removeConnection(editingId)); show(); toast('连接方案已删除；正在运行的会话继续使用启动时的配置。'); });
+    if (action === 'connection-delete') return modalAction(button, async () => { await client.dispatch({ type: 'removeConnection', key: crypto.randomUUID(), id: editingId }); if (!button.isConnected) return; await show(); toast('连接方案已删除；正在运行的会话继续使用启动时的配置。'); });
     if (action === 'connection-test') {
       const status = $('#connection-test-result'), models = $('#connection-model-list'), model = $('#connection-model');
       return modalAction(button, async () => {
         status.textContent = '正在检查网络、TLS 和 GET /models…'; status.className = 'connection-test-result';
         let result;
-        try { result = await bridge.testConnection(payload(true)); }
+        try { result = await client.query({ type: 'testConnection', ...writePayload(true) }); }
         catch (error) { if (status.isConnected) { status.textContent = error.message; status.className = 'connection-test-result error'; } return; }
         if (!status.isConnected) return;
         status.textContent = `${result.message}${result.latencyMs != null ? ` ${result.latencyMs} ms` : ''}`;
