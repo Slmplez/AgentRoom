@@ -106,7 +106,7 @@ root 必须存在；节点必须可达、无环、无共享子节点；仅 Secti
 
 1. E0 [#26](https://github.com/Slmplez/AgentRoom/issues/26) 已整合为 `40999b8`，提供真实本机执行、原生问答与持久恢复边界。
 2. A0 [#27](https://github.com/Slmplez/AgentRoom/issues/27) 依赖 #26：受控发布工具、不可变报告、原子消息引用与鉴权查询。接口和验证说明见 [报告发布接入](ARTIFACT-PUBLISHING.md)。
-3. A1 [#29](https://github.com/Slmplez/AgentRoom/issues/29) 依赖 #27：从真实消息读取报告、切换历史版本及处理错误。#27/#29 均为 #24 的原生子 Issue。#28 为另一项真实任务 UI 工作，不属于产物票据。
+3. A1 [#29](https://github.com/Slmplez/AgentRoom/issues/29) 依赖 #27：从真实消息读取报告、切换历史版本及处理错误。启动开关、界面和验证见 [真实报告界面](ARTIFACT-VIEW.md)。#27/#29 均为 #24 的原生子 Issue。#28 为另一项真实任务 UI 工作，不属于产物票据。
 4. A2 的动作目录、权限撤销、预期版本、回执和继续执行规则由真实问答规格共同冻结，保持后置。
 
 当前明确不实施：本机 JSON 报告导入、Agent 无限自动互问、重启重跑未知执行、多人登录、Teams 和未经定义的表单动作。

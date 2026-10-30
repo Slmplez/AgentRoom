@@ -2,6 +2,7 @@ import { commandSchema, clientError } from '../../contracts/chat.mjs';
 import { createMockSettings } from './mock-settings.mjs';
 import { createMockAdmin } from './mock-admin.mjs';
 import { createMockQuestions } from './mock-questions.mjs';
+import { createMockArtifacts } from './mock-artifacts.mjs';
 
 const stamp = '2026-10-30T08:00:00.000Z';
 const samplePatch = 'diff --git a/welcome.ts b/welcome.ts\n--- a/welcome.ts\n+++ b/welcome.ts\n@@ -1 +1 @@\n-export const title = "Hello";\n+export const title = "一起完成下一件事";\n';
@@ -34,6 +35,7 @@ export function createMockTransport({ manual = false } = {}) {
   const toolDetails = new Map();
   const admin = createMockAdmin(() => state, publish);
   const questions = createMockQuestions(() => state, publish, message);
+  const artifacts = createMockArtifacts(() => state, publish, message);
   let holdSnapshots = false, decisionUnknown = false;
   const delayedSnapshots = [];
   const emit = event => { for (const listener of listeners) listener(event); };
@@ -71,6 +73,7 @@ export function createMockTransport({ manual = false } = {}) {
   const transport = {
     async query(input) {
       if (!online) throw clientError('unavailable', '模拟连接已断开。');
+      if (['artifact', 'artifactVersions'].includes(input.type)) return artifacts.query(input);
       if (input.type === 'questionOperation') return questions.query(input);
       if (input.type === 'toolDetails') { if (!toolDetails.has(input.ref)) throw clientError('expired', '模拟工具输出已过期。'); return structuredClone(toolDetails.get(input.ref)); }
       return ['connections', 'testConnection', 'modelCatalog'].includes(input.type) ? settings.query(input) : admin.query(input);
@@ -135,6 +138,7 @@ export function createMockTransport({ manual = false } = {}) {
     },
   };
   const control = {
+    artifact: roomId => artifacts.add(roomId),
     question: questions.create, questionFailure: questions.fail, questionChange: questions.change,
     adviceResults: questions.results, adviceMemberLeft: questions.memberLeft,
     advance,

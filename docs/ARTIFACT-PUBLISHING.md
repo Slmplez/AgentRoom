@@ -25,7 +25,7 @@ const runtime = await createApplicationRuntime({
 });
 ```
 
-以上变量由宿主配置产生。现有启动入口尚不默认启用报告发布；任务 UI 和启动入口由 #28 维护，正式入口接入需要组合上述工厂。发布适配器保留 `read/grep/find/ls`，显式增加 `publish_report`，不授予 shell 或文件写入工具。
+以上变量由宿主配置产生。#29 在正式启动入口增加 `--agent-reports`，必须同时指定 `--agent-workspace`；详见 [真实报告界面](ARTIFACT-VIEW.md)。默认不启用报告发布。发布适配器保留 `read/grep/find/ls`，显式增加 `publish_report`，不授予 shell 或文件写入工具。
 
 每次执行创建独立的回环桥接和短期凭证，仅生成的 Pi 扩展持有；关闭时释放监听器并删除扩展。桥接只接受正确 Host、Bearer 和 JSON POST，拒绝 Origin、重复 JSON 键与原型键。外部 CLI 异常退出时 Runtime 关闭适配器；宿主被强杀时 OS 回收监听器，可能残留的临时扩展凭证无法授权新执行。不要把扩展源文件或桥接凭证写入消息、日志或产物。
 
@@ -59,4 +59,4 @@ SQLite 从 v2 迁移到 v3，扩展作者类型和消息引用，新增 artifact
 
 `node scripts/verify-artifact-agent.cjs` 使用已安装的真实 Pi、真实发布扩展、持久 HTTP API 和 SQLite；本机模型端点发出工具调用，Pi 发布后继续第二次推理。它验证真实 CLI/工具协议，不代表外部模型供应商的可用性或自动生成质量，也不会调用付费供应商。
 
-#29 负责真实报告的前端入口、历史版本和交互验收。本任务未实现表单动作、文件导入、多人身份或自动重试。
+#29 提供真实报告的前端入口、历史版本和交互验收；本文记录 #27 的后端行为。未实现表单动作、文件导入、多人身份或自动重试。

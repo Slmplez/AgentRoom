@@ -1,0 +1,31 @@
+// Explicit Mock-only coverage for many-version navigation and room switching.
+const { app, BrowserWindow } = require('electron');
+const assert = require('node:assert/strict'), path = require('node:path');
+const { createPreviewServer } = require('./dev-ui.cjs');
+app.disableHardwareAcceleration(); app.setPath('userData', path.resolve(__dirname, '../artifacts/report-mock-profile'));
+let server, win;
+app.whenReady().then(async () => {
+  server = createPreviewServer(); await new Promise(r => server.listen(0, '127.0.0.1', r));
+  win = new BrowserWindow({ width: 1440, height: 960, show: false, webPreferences: { offscreen: true, sandbox: true, contextIsolation: true, nodeIntegration: false } });
+  const run = code => win.webContents.executeJavaScript(code);
+  const until = async code => { const end = Date.now() + 8000; while (!await run(code)) { if (Date.now() > end) throw Error(code); await new Promise(r => setTimeout(r, 20)); } };
+  const click = label => run(`Array.from(document.querySelectorAll('button')).find(b=>b.textContent.trim()===${JSON.stringify(label)}).click()`);
+  await win.loadURL(`http://127.0.0.1:${server.address().port}`); await until('document.querySelector("#connection-text")?.textContent==="演示模式"');
+  await run('document.querySelector(".dev-controls").open=true');
+  for (let i = 0; i < 25; i++) await click('发布模拟报告');
+  await run('document.querySelector(".dev-controls").open=false;document.querySelector("[data-artifact-version]").scrollIntoView({block:"center"})');
+  const position = await run('document.querySelector("#messages").scrollTop');
+  await run('document.querySelector("[data-artifact-version]").click()'); await until('Boolean(document.querySelector(".artifact-panel .result-section"))');
+  assert.ok(await run('document.querySelector(".artifact-panel").textContent.includes("模拟报告 · 演示数据")'));
+  assert.ok(await run('document.querySelector(".artifact-panel .result-section").textContent.includes("模拟检查报告 1")'));
+  await click('更早版本'); await until('document.querySelectorAll("[aria-label=报告版本] option").length===25');
+  await run('document.querySelector("[aria-label=报告版本]").value="7";document.querySelector("[aria-label=报告版本]").dispatchEvent(new Event("change",{bubbles:true}))');
+  await until('document.querySelector(".artifact-panel .result-section")?.textContent.includes("模拟检查报告 7")');
+  await click('返回对话'); await until('!document.querySelector(".artifact-panel")');
+  assert.ok(Math.abs(await run('document.querySelector("#messages").scrollTop') - position) < 3, 'Opening/closing a report preserves the reading position');
+  await run('document.querySelector("[data-artifact-version]").click()'); await until('Boolean(document.querySelector(".artifact-panel"))');
+  await run('document.querySelector("[data-room=room-code]").click()'); await until('!document.querySelector(".artifact-panel")');
+  assert.equal(await run('document.querySelectorAll("[data-artifact-version]").length'), 0);
+  console.log('Passed: explicitly simulated reports, 25-version pagination, exact older selection, preserved message reading position, room switch closes old content.');
+  win.destroy(); server.close(); app.quit();
+}).catch(e => { console.error(e); win?.destroy(); server?.close(); app.exit(1); });

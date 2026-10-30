@@ -34,7 +34,7 @@ export function createAgentRoomClient(transport) {
       const data = persistenceSnapshotSchema.parse(event.data), boot = event.boot;
       if (data.room.id !== scope.roomId) throw clientError('invalid_scope', '快照范围不匹配。');
       // The projection and applied cursor are published together; listeners never see a cursor ahead of data.
-      const next = snapshotSchema.parse({ instanceId: data.instanceId, revision: data.room.revision, agents: [], rooms: [{ ...data.room, type: 'group', memberIds: [boot.user.id] }], workspaces: [{ ...boot.workspace, directory: '' }], messages: data.messages, approvals: [], runs: [], currentUserId: boot.user.id, localTasks: data.localTasks, localAgentId: boot.localAgentId || null, capabilities: { tasks: false, idempotentSend: true, localExecution: boot.capabilities.localExecution } });
+      const next = snapshotSchema.parse({ instanceId: data.instanceId, revision: data.room.revision, agents: [], rooms: [{ ...data.room, type: 'group', memberIds: [boot.user.id] }], workspaces: [{ ...boot.workspace, directory: '' }], messages: data.messages, approvals: [], runs: [], currentUserId: boot.user.id, localTasks: data.localTasks, localAgentId: boot.localAgentId || null, capabilities: { tasks: false, idempotentSend: true, localExecution: boot.capabilities.localExecution, readOnlyArtifacts: boot.capabilities.readOnlyArtifacts, artifactPublishing: boot.capabilities.artifactPublishing } });
       applied = { databaseId: data.databaseId, roomId: data.room.id, cursor: data.cursor };
       publish({ ...next, messages: data.messages, databaseId: data.databaseId, cursor: data.cursor, roomSequenceUpperBound: data.roomSequenceUpperBound, beforeSequence: data.beforeSequence });
     } else if (event.type === 'persistence.frame') {
@@ -61,7 +61,7 @@ export function createAgentRoomClient(transport) {
       publish({ pendingOperations: event.data.filter(item => item.roomId === scope.roomId) });
     } else if (event.type === 'persistence.ready') {
       attempts = 0; streamOffline = false;
-      publish({ instanceId: event.data.instanceId, currentUserId: event.data.user?.id ?? state.currentUserId, localAgentId: event.data.capabilities ? event.data.localAgentId || null : state.localAgentId, capabilities: { ...state.capabilities, localExecution: event.data.capabilities?.localExecution ?? state.capabilities.localExecution }, connection: 'live', syncNotice: state.syncNotice ? '事件记录已不可续订，已重新加载消息；旧历史仍可分页读取。' : '', error: state.databaseChanged ? '后端数据库已更换，请重新确认；旧请求不会重发。' : '' });
+      publish({ instanceId: event.data.instanceId, currentUserId: event.data.user?.id ?? state.currentUserId, localAgentId: event.data.capabilities ? event.data.localAgentId || null : state.localAgentId, capabilities: { ...state.capabilities, localExecution: event.data.capabilities?.localExecution ?? state.capabilities.localExecution, readOnlyArtifacts: event.data.capabilities?.readOnlyArtifacts ?? state.capabilities.readOnlyArtifacts, artifactPublishing: event.data.capabilities?.artifactPublishing ?? state.capabilities.artifactPublishing }, connection: 'live', syncNotice: state.syncNotice ? '事件记录已不可续订，已重新加载消息；旧历史仍可分页读取。' : '', error: state.databaseChanged ? '后端数据库已更换，请重新确认；旧请求不会重发。' : '' });
     }
   }
   function accept(raw) {

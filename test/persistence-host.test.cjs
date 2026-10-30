@@ -28,6 +28,19 @@ async function fixture(t) {
   };
 }
 const cookieOf = response => response.headers.get('set-cookie')?.split(';')[0];
+test('report publication requires explicit host opt-in and an Agent workspace', async t => {
+  const env = await fixture(t);
+  await assert.rejects(env.start({ agentReports: true }), { code: 'invalid_configuration' });
+  let host = await env.start({ agentWorkspace: env.root });
+  let auth = await session(host), boot = (await request(host, '/api/v1/bootstrap', auth.cookie)).value;
+  assert.equal(boot.capabilities.artifactPublishing, false); assert.equal(boot.capabilities.readOnlyArtifacts, true);
+  await host.close();
+  host = await env.start({ agentWorkspace: env.root, agentReports: true }); auth = await session(host);
+  boot = (await request(host, '/api/v1/bootstrap', auth.cookie)).value;
+  assert.equal(boot.capabilities.artifactPublishing, true);
+  assert.equal((await request(host, `/api/v1/rooms/${auth.info.roomId}/artifacts/missing/versions/1`, auth.cookie)).status, 404);
+  assert.equal((await request(host, `/api/v1/rooms/${auth.info.roomId}/artifacts/missing/versions/1`)).status, 401);
+});
 async function session(host) { const response = await fetch(host.origin + '/api/persistence/session'); return { info: await response.json(), cookie: cookieOf(response) }; }
 async function request(host, route, cookie, body, headers = {}) {
   const response = await fetch(host.origin + route, { method: body ? 'POST' : 'GET', headers: { ...(cookie ? { Cookie: cookie } : {}), ...(body ? { 'Content-Type': 'application/json', 'Idempotency-Key': randomUUID() } : {}), ...headers }, body: body ? JSON.stringify(body) : undefined, signal: AbortSignal.timeout(10000) });

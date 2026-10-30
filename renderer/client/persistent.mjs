@@ -143,6 +143,21 @@ export function createPersistentTransport({ session, backendId, localUserId, sto
   }
   return {
     synchronize,
+    async query(input) {
+      const context = active;
+      if (!context?.boot || context.controller.signal.aborted) throw clientError('unavailable', '连接尚未恢复。');
+      if (!['artifact', 'artifactVersions'].includes(input.type) || !context.boot.capabilities.readOnlyArtifacts) throw clientError('unsupported', '当前后端不支持报告读取。');
+      if (input.roomId !== context.scope.roomId) throw clientError('invalid_scope', '报告不属于当前房间。');
+      const { artifactQuerySchema, artifactVersionSchema, artifactVersionsSchema } = await import('../../contracts/artifacts.mjs');
+      const q = artifactQuerySchema.parse(input);
+      const route = `/rooms/${encodeURIComponent(q.roomId)}/artifacts/${encodeURIComponent(q.artifactId)}/versions`;
+      let data;
+      try { data = await json(context, q.type === 'artifact' ? `${route}/${q.version}` : `${route}?` + new URLSearchParams({ limit: q.limit, ...(q.beforeVersion ? { beforeVersion: q.beforeVersion } : {}) }), q.type === 'artifact' ? artifactVersionSchema : artifactVersionsSchema); }
+      catch (error) { if (active !== context || context.controller.signal.aborted) throw clientError('stale_query', '报告读取范围已变化。'); throw error; }
+      if (active !== context || context.controller.signal.aborted) throw clientError('stale_query', '报告读取范围已变化。');
+      if ((q.type === 'artifact' ? [data] : data.versions).some(v => v.roomId !== q.roomId || v.artifactId !== q.artifactId || (q.type === 'artifact' && v.version !== q.version))) throw clientError('invalid_response', '报告版本或范围不匹配。');
+      return data;
+    },
     async history({ roomId, beforeSequence, upperBound, limit = 100 }) {
       const context = active;
       if (!context?.boot || context.controller.signal.aborted) throw clientError('unavailable', '连接尚未恢复。');

@@ -35,7 +35,7 @@ export function LocalTasks({ client, state, roomId }: { client: ChatClient; stat
     <div className="local-tasks-body">
       {state.capabilities.localExecution && <details className="local-new-task" open={!tasks.length}><summary>发起只读任务</summary><form onSubmit={e => { e.preventDefault(); if (!enabled || busy || active || operations.length || !drafts.goal.trim()) return; const goal = drafts.goal; void act(async () => { await client.dispatch({ type: 'createLocalTask', key: crypto.randomUUID(), workspaceId: state.rooms.find(r => r.id === roomId)!.workspaceId, roomId, ownerAgentId: state.localAgentId!, goal }); setDrafts(old => old.goal === goal ? { ...old, goal: '' } : old); }); }}>
         <label>交给本机 Pi 的目标<textarea aria-label="本机任务目标" maxLength={16000} rows={2} value={drafts.goal} onChange={e => setDrafts(old => ({ ...old, goal: e.target.value }))} /></label>
-        <p className="local-task-note">负责人：{state.localAgentId} · 仅只读工具。普通聊天不会启动执行。</p>
+        <p className="local-task-note">负责人：{state.localAgentId} · {state.capabilities.artifactPublishing ? '只读工作目录，可发布任务报告' : '仅只读工具'}。普通聊天不会启动执行。</p>
         <button className="button" data-create-local-task type="submit" disabled={!enabled || busy || active || operations.length > 0 || !drafts.goal.trim()}>启动只读任务</button>
       </form></details>}
       {operations.map(o => <div key={o.key} className="local-task-notice" role="status">原任务请求结果待核查。

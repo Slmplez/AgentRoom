@@ -4,6 +4,7 @@ import { capabilityQueries, capabilityQueryResults } from './capabilities.mjs';
 import { telemetryQueries, telemetryQueryResults } from './telemetry.mjs';
 import { questionQueries, questionQueryResults } from './questions.mjs';
 import { modelDiscoverySchema } from './models.mjs';
+import { artifactQuerySchema, artifactVersionSchema, artifactVersionsSchema } from './artifacts.mjs';
 
 const id = z.string().min(1).max(300);
 const text = z.string().max(2048);
@@ -21,6 +22,7 @@ export const connectionCommands = [
   z.object({ type: z.literal('removeConnection'), key: id, id }),
 ];
 export const querySchema = z.discriminatedUnion('type', [
+  ...artifactQuerySchema.options,
   z.object({ type: z.literal('toolDetails'), ref: id }),
   ...questionQueries,
   ...capabilityQueries, ...telemetryQueries,
@@ -30,6 +32,7 @@ export const querySchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('modelCatalog'), connectionId: id, model: z.string().max(200).optional() }),
 ]);
 export const queryResults = {
+  artifact: artifactVersionSchema, artifactVersions: artifactVersionsSchema,
   ...questionQueryResults,
   toolDetails: z.object({ id, runId: id.nullable(), output: z.string().max(16000), patches: z.array(z.string()), truncated: z.boolean() }),
   ...capabilityQueryResults, ...telemetryQueryResults,
