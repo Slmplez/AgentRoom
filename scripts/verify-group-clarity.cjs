@@ -14,7 +14,7 @@ app.whenReady().then(async()=>{
   const run=async s=>{try{return await win.webContents.executeJavaScript(s);}catch(e){console.error(s,errors);throw e;}};
   const until=async s=>{const deadline=Date.now()+8000;while(!await run(s)){if(Date.now()>deadline)throw Error(`Timeout: ${s}\n${errors}`);await new Promise(r=>setTimeout(r,25));}};
   const click=text=>run(`Array.from(document.querySelectorAll('button')).find(b=>b.textContent.trim()===${JSON.stringify(text)}).click()`);
-  await win.loadURL(`http://127.0.0.1:${server.address().port}`);await until('document.querySelector("#connection-text")?.textContent==="模拟连接正常"');
+  await win.loadURL(`http://127.0.0.1:${server.address().port}`);await until('document.querySelector("#connection-text")?.textContent==="演示模式"');
   assert.equal(await run('document.querySelectorAll(".messages .message-engine").length'),0);
   assert.equal(await run('document.querySelectorAll(".message-results,.tool-trace").length'),0,'Plain discussion has no empty action area');
   await run('document.querySelector(".dev-controls").open=true');await click('工具与差异');await until('Boolean(document.querySelector(".tool-trace"))');

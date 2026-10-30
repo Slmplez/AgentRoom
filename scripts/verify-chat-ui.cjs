@@ -19,7 +19,7 @@ app.whenReady().then(async () => {
   const clickText = async text => run(`Array.from(document.querySelectorAll('button')).find(b => b.textContent.trim() === ${JSON.stringify(text)}).click()`);
   const setInput = async value => { await run('document.querySelector("#message-input").focus(); document.querySelector("#message-input").select()'); await win.webContents.insertText(value); };
   const key = code => { win.webContents.sendInputEvent({ type: 'keyDown', keyCode: code }); win.webContents.sendInputEvent({ type: 'keyUp', keyCode: code }); };
-  await until('document.querySelector("#connection-text")?.textContent === "模拟连接正常"');
+  await until('document.querySelector("#connection-text")?.textContent === "演示模式"');
   assert.equal(await run('typeof window.agentRoom'), 'undefined', 'Mock must work without a preload or Electron business bridge');
   await until('document.querySelectorAll(".message[data-message-id]").length === 2');
   await new Promise(resolve => setTimeout(resolve, 200));

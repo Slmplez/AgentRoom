@@ -18,7 +18,7 @@ app.whenReady().then(async () => {
   const rect = selector => run(`(() => {const r=document.querySelector(${JSON.stringify(selector)}).getBoundingClientRect();return {x:Math.round(r.x+r.width/2),y:Math.round(r.y+r.height/2),width:r.width};})()`);
   const mouse = (type,x,y) => win.webContents.sendInputEvent({type,x,y,button:'left',clickCount:1});
   await win.loadURL(`http://127.0.0.1:${server.address().port}`);
-  await until('document.querySelector("#connection-text")?.textContent === "模拟连接正常"');
+  await until('document.querySelector("#connection-text")?.textContent === "演示模式"');
   await run(`document.documentElement.dataset.theme='light'; document.querySelector('.dev-controls').open=true`);
   await click('工具与差异');
   await until('Boolean(document.querySelector(".tool-trace"))');

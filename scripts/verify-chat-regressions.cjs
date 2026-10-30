@@ -17,7 +17,7 @@ app.whenReady().then(async () => {
   const click = text => run(`(() => { const button = Array.from(document.querySelectorAll('button')).find(b => b.textContent.trim() === ${JSON.stringify(text)}); button.focus(); button.click(); })()`);
   const input = async (selector, text) => { await run(`document.querySelector(${JSON.stringify(selector)}).focus(); document.querySelector(${JSON.stringify(selector)}).select()`); await win.webContents.insertText(text); };
   const capture = async file => { await new Promise(resolve=>setTimeout(resolve,250)); await fs.writeFile(path.resolve(__dirname,'../artifacts',file),(await win.webContents.capturePage()).toPNG()); };
-  await win.loadURL(origin); await until('document.querySelector("#connection-text")?.textContent === "模拟连接正常"');
+  await win.loadURL(origin); await until('document.querySelector("#connection-text")?.textContent === "演示模式"');
   await input('#message-input','@'); await until('document.querySelectorAll(".mention-option img").length === 3');
   assert.ok(await run('Array.from(document.querySelectorAll(".mention-option img")).every(img=>img.complete && img.naturalWidth>0)'));
   assert.equal(await run('document.querySelector(".mention-option img").getAttribute("src")'), await run(`document.querySelector('[data-room="dm:alpha"] img').getAttribute('src')`));

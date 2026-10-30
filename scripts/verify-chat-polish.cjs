@@ -21,7 +21,7 @@ app.whenReady().then(async () => {
   const capture = async name => { await new Promise(resolve => setTimeout(resolve, 250)); await fs.writeFile(path.resolve(__dirname, `../artifacts/${name}`), (await win.webContents.capturePage()).toPNG()); };
   const key = keyCode => { win.webContents.sendInputEvent({ type: 'keyDown', keyCode }); win.webContents.sendInputEvent({ type: 'keyUp', keyCode }); };
   await win.loadURL(origin);
-  await until('document.querySelector("#connection-text")?.textContent === "模拟连接正常"');
+  await until('document.querySelector("#connection-text")?.textContent === "演示模式"');
   await input('[aria-label="搜索会话"]', 'NO-MATCH');
   await until('Boolean(document.querySelector(".chat-search-empty"))');
   await click('清除搜索');

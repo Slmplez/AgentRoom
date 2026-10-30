@@ -5,13 +5,18 @@ import { useEntrance } from './motion';
 type AnswerDraft = { answers: Record<string, string[]>; custom: Record<string, string>; other: Record<string, boolean>; value: string };
 type Request = Approval & { status?: string; delivery?: string; allowedDecisions?: string[] };
 const emptyDraft = (): AnswerDraft => ({ answers: {}, custom: {}, other: {}, value: '' });
-export function ApprovalCenter({ client, state, activeRoomId }: { client: ChatClient; state: Snapshot; activeRoomId?: string }) {
+export function ApprovalCenter({ client, state, activeRoomId, requestedId, requestHandled }: { client: ChatClient; state: Snapshot; activeRoomId?: string; requestedId?: string | null; requestHandled?(): void }) {
   const [snoozed, setSnoozed] = useState(false), [selected, setSelected] = useState<string | null>(null);
   const [drafts, setDrafts] = useState<Record<string, AnswerDraft>>({});
   const [submitted, setSubmitted] = useState<Record<string, { revision: number; outcome: 'accepted' | 'unknown' }>>({});
   const requests = state.approvals as Request[];
   const history = (state.approvalHistory || []).filter(r => !activeRoomId || r.roomId === activeRoomId);
   const current = requests.find(a => a.id === selected) || (!snoozed ? requests.find(a => !activeRoomId || a.roomId === activeRoomId) : undefined);
+  useEffect(() => {
+    if (!requestedId) return;
+    if (requests.some(request => request.id === requestedId)) { setSnoozed(false); setSelected(requestedId); }
+    requestHandled?.();
+  }, [requestedId, requests, requestHandled]);
   useEffect(() => { setSelected(current?.id || null); }, [current?.id]);
   useEffect(() => {
     const ids = new Set(requests.map(a => a.id));
