@@ -5,7 +5,7 @@ window.createDiffUI = ({ showModal, esc }) => {
     return { diffStyle: style, theme: { light: 'pierre-light', dark: 'pierre-dark' },
       themeType: document.documentElement.dataset.theme === 'dark' ? 'dark' : 'light',
       preferredHighlighter: 'shiki-js', overflow: 'scroll', disableErrorHandling: true,
-      unsafeCSS: ':host { --diffs-font-family: Consolas, monospace; --diffs-font-size: 13px; }' };
+      unsafeCSS: ':host { --diffs-font-family: var(--font-mono); --diffs-font-size: var(--font-size-code); }' };
   }
   new MutationObserver(() => { for (const view of views) view.setThemeType(document.documentElement.dataset.theme === 'dark' ? 'dark' : 'light'); }).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
   return {

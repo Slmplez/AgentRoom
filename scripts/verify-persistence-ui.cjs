@@ -46,6 +46,10 @@ app.whenReady().then(async () => {
     windows.push(win); await win.loadURL(origin);
     win.webContents.on('console-message', event => { if (event.level === 'error') console.error('Renderer:', event.message); });
     await until(win, 'document.querySelector("#connection-text")?.textContent === "已连接"');
+    for (const family of ['Inter', 'Newsreader', 'JetBrains Mono']) {
+      const loaded = await win.webContents.executeJavaScript(`document.fonts.load('400 15px "${family}"', 'Agent').then(faces => faces.map(face => face.status))`);
+      assert.ok(loaded.length > 0 && loaded.every(status => status === 'loaded'), `${family} must load in persistent ${desktop ? 'desktop' : 'web'}`);
+    }
     assert.equal(await win.webContents.executeJavaScript('!!document.querySelector(".dev-controls, [aria-label=消息类型], .sidebar-create")'), false);
     assert.equal(await win.webContents.executeJavaScript('document.cookie'), '');
   }

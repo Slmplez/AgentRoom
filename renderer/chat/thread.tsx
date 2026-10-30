@@ -118,7 +118,7 @@ export function DiffDialog({ patches, close, theme }: { patches: string[]; close
       if (!files.length) throw new Error('没有可解析的差异');
       for (const fileDiff of files) {
         const element = document.createElement('diffs-container'); host.append(element);
-        const view = new library.FileDiff({ diffStyle: style, theme: { light: 'pierre-light', dark: 'pierre-dark' }, themeType: theme, preferredHighlighter: 'shiki-js', overflow: 'scroll', disableErrorHandling: true });
+        const view = new library.FileDiff({ unsafeCSS: ':host { --diffs-font-family: var(--font-mono); --diffs-font-size: var(--font-size-code); }', diffStyle: style, theme: { light: 'pierre-light', dark: 'pierre-dark' }, themeType: theme, preferredHighlighter: 'shiki-js', overflow: 'scroll', disableErrorHandling: true });
         views.push(view); view.render({ fileDiff, fileContainer: element });
       }
       setLoading(false);

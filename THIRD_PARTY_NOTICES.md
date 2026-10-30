@@ -87,3 +87,12 @@ All chat resources are bundled locally. The Mock-only results examples use
 `@json-render/core` and `@json-render/react` 0.21.3 under Apache-2.0. Their license
 is retained in `renderer/chat/LICENSE.json-render.txt`; the fixed example catalog
 does not execute model output or submit business commands.
+
+## Bundled typography
+
+Inter, Newsreader and JetBrains Mono are distributed locally as variable WOFF2
+fonts (Latin and extended Latin, upright and italic), from the corresponding
+`@fontsource-variable` packages pinned to 5.3.0. They are licensed under SIL OFL
+1.1; the original licenses and exact source URLs / file hashes are retained in
+`renderer/assets/fonts/`. No runtime font CDN is used. Chinese glyphs fall back
+to the configured platform fonts.

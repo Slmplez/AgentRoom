@@ -1,7 +1,7 @@
 /* Chat interaction refinements; shared warm palette and original navigation remain. */
 .chat-app { --danger-text: #a62e36; --warning-text: #805417; }
 :root[data-theme="dark"] .chat-app { --danger-text: #f1a1a6; --warning-text: #e2bd80; }
-.chat-app .message-bubble { font-size: 15px; line-height: 1.75; }
+.chat-app .message-bubble { font-size: var(--font-size-body); line-height: var(--line-height-body); }
 .chat-app .message-heading { font-size: 13px; }
 .chat-app .message-process-menu { margin-top: 8px; color: var(--text-secondary); font-size: 13px; }
 .message-process-menu > summary { cursor: pointer; width: fit-content; padding: 5px 8px; border-radius: var(--radius-control); list-style: none; }

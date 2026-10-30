@@ -22,6 +22,14 @@ app.whenReady().then(async () => {
   await until('document.querySelector("#connection-text")?.textContent === "演示模式"');
   assert.equal(await run('typeof window.agentRoom'), 'undefined', 'Mock must work without a preload or Electron business bridge');
   await until('document.querySelectorAll(".message[data-message-id]").length === 2');
+  // Font names alone can silently fall back. Require actual local font faces,
+  // including italic/extended Latin, while all external requests are blocked.
+  for (const family of ['Inter', 'Newsreader', 'JetBrains Mono']) {
+    for (const style of ['normal', 'italic']) {
+      const loaded = await run(`document.fonts.load('${style} 500 15px "${family}"', 'Agent Ā').then(faces => faces.map(face => face.status))`);
+      assert.ok(loaded.length > 0 && loaded.every(status => status === 'loaded'), `${family} ${style} must load locally`);
+    }
+  }
   await new Promise(resolve => setTimeout(resolve, 200));
   await fs.mkdir(path.resolve(__dirname, '../artifacts'), { recursive: true });
   await capture('chat-g1-light.png');
@@ -61,6 +69,7 @@ app.whenReady().then(async () => {
   assert.equal(await run('document.querySelector(".tool-trace").open'), true, 'Expansion survives room switches');
   await clickText('查看文件差异');
   await until('Boolean(document.querySelector("diffs-container")?.shadowRoot?.textContent.includes("一起完成下一件事"))');
+  assert.match(await run('getComputedStyle(document.querySelector("diffs-container").shadowRoot.querySelector("code")).fontFamily'), /JetBrains Mono/, 'Diff code must use the shared monospace font');
   await clickText('并排');
   await until('Boolean(document.querySelector("diffs-container")?.shadowRoot?.querySelector("[data-diff-type=split]"))');
   await capture('chat-g1-diff.png');
