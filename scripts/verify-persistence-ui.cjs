@@ -42,7 +42,7 @@ app.whenReady().then(async () => {
   directory = await fs.mkdtemp(path.join(os.tmpdir(), 'ar-persistence-ui-'));
   host = await start(); const origin = host.origin;
   for (const desktop of [true, false]) {
-    const win = new BrowserWindow({ show: false, width: 1300, height: 900, webPreferences: { sandbox: true, contextIsolation: true, nodeIntegration: false, ...(desktop ? { preload: path.resolve(__dirname, '../preload.cjs'), additionalArguments: ['--persistent-ui'] } : {}) } });
+    const win = new BrowserWindow({ show: false, width: 1300, height: 900, webPreferences: { offscreen: true, backgroundThrottling: false, sandbox: true, contextIsolation: true, nodeIntegration: false, ...(desktop ? { preload: path.resolve(__dirname, '../preload.cjs'), additionalArguments: ['--persistent-ui'] } : {}) } });
     windows.push(win); await win.loadURL(origin);
     win.webContents.on('console-message', event => { if (event.level === 'error') console.error('Renderer:', event.message); });
     await until(win, 'document.querySelector("#connection-text")?.textContent === "已连接"');
