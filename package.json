@@ -38,7 +38,9 @@
     "predev:persistent": "npm run build:renderer",
     "desktop:persistent": "electron . --persistent",
     "predesktop:persistent": "npm run build:renderer",
-    "verify:persistence-ui": "electron scripts/verify-persistence-ui.cjs --disable-gpu"
+    "verify:persistence-ui": "electron scripts/verify-persistence-ui.cjs --disable-gpu",
+    "verify:rich-messages": "electron scripts/verify-rich-messages.cjs --disable-gpu",
+    "verify:inline-artifact": "electron scripts/verify-inline-artifact.cjs --disable-gpu"
   },
   "devDependencies": {
     "@types/react": "19.3.0",
@@ -54,8 +56,10 @@
     "@json-render/react": "0.21.3",
     "@modelcontextprotocol/sdk": "1.32.2",
     "@pierre/diffs": "1.6.2",
+    "mermaid": "12.2.0",
     "react": "19.3.1",
     "react-dom": "19.3.1",
+    "remark-gfm": "4.0.1",
     "zod": "4.6.7"
   }
 }

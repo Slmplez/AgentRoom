@@ -1,5 +1,21 @@
 # 聊天展示层
 
+## 消息内生成式报告（#40）
+
+真实 Agent 的 `publish_report` 产物引用进入阅读区域后，消息内自动查询并展示 report v1 组件预览。消息与侧栏复用 `report-content.tsx` 的只读 json-render 注册表；消息预览最多展示 3 个内容块、4 项指标/条形、5 行 × 4 列表格，保留对应分组标题与说明、完整报告与历史版本入口。固定预览高度避免异步读取影响历史阅读位置。
+
+预览通过公共 Client 按精确版本读取，旧查询、错误房间和非法组件均不能进入显示；不新增 SSE 正文或业务缓存。Mock 明确标注模拟报告，生产发布仍需可信宿主启用 `--agent-reports`。本项不包含 #39 表单提交或继续任务，后者仍依赖 #37/#38。
+
+验证：`npx electron scripts/verify-inline-artifact.cjs --disable-gpu`、`npx electron scripts/verify-artifact-ui.cjs --disable-gpu`、`npx electron scripts/verify-artifact-mock-ui.cjs --disable-gpu`。真实 Pi 测试使用本机回环推理，不调用付费供应商；截图为 `artifacts/report-inline-light.png`。
+
+## 富文本消息
+
+消息启用 GFM 表格、任务列表和删除线。`mermaid` 围栏按需使用本地 Mermaid 绘制，支持明暗主题、源码查看；流式内容短暂防抖，语法错误保留源码，后续更新可恢复。普通 HTML 不作为可执行界面处理。
+
+生成式 UI 有两个入口：Mock 的“结果示例”展示概览、表格和本地表单；消息的“查看报告”展示通过契约校验的结构化只读产物。面板默认简短视图，选择“完整”查看组件。普通 Markdown 或任意 JSON 不自动执行交互动作。
+
+验证：`npx electron scripts/verify-rich-messages.cjs --disable-gpu`；结构化面板验证使用 `scripts/verify-preview-modes.cjs`。
+
 ## 本机真实任务（#28）
 
 持久服务通过可信启动参数 `--agent-workspace <目录>` 明确启用只读 Pi 时，真实界面显示“本机只读任务”。Task/Run、原生问题、答复投递及待验收结果通过同一 AgentRoomClient 的快照/SSE 投影；创建与答复沿用持久提交日志、原 key 核查和显式重试。默认持久讨论仍无任务入口，原 Mock 问题/建议仍是独立模拟能力。

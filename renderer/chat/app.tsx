@@ -16,6 +16,7 @@ import './sidebar.css';
 import { SettingsPanel, type SettingsSection } from './settings-panel';
 import { useResultSplit } from './split-pane';
 import type { ArtifactSelection } from './artifact-view';
+import InlineArtifact from './inline-artifact';
 import './artifact-view.css';
 
 const ResultPanel = lazy(() => import('./results'));
@@ -95,7 +96,11 @@ export function App({ client, platform, control, persistent = false }: { client:
         {persistent && room && <LocalTasks key={`local:${state.backendId}:${state.databaseId}:${state.currentUserId}:${room.id}`} client={client} state={state} roomId={room.id} onConsult={task => setConsultRequest({ taskId:task.id,questionId:task.question!.id,questionRevision:task.question!.revision,nonce:crypto.randomUUID() })} />}
         {persistent && room && <Consultations key={`consultations:${state.backendId}:${state.databaseId}:${state.currentUserId}:${room.id}`} client={client} state={state} roomId={room.id} request={consultRequest} />}
         <RunPanel client={client} state={state} roomId={room?.id} />
-        <ChatThread client={client} renderArtifacts={message => state.capabilities.readOnlyArtifacts && message.artifactRefs.length > 0 ? <div className="artifact-links" aria-label="交付报告">{message.artifactRefs.map(ref => <button className="button" key={`${ref.artifactId}:${ref.version}`} data-artifact-id={ref.artifactId} data-artifact-version={ref.version} onClick={() => { setDiff(null); setResultsOpen(false); setDetails(false); setArtifact({ ...ref, roomId: message.roomId, messageId: message.id }); if (window.innerWidth < 760) setSidebar(false); }}>查看报告 · {ref.title} · 版本 {ref.version}</button>)}</div> : null} suppressWelcome={persistent && (state.localTasks.length > 0 || state.consultations.length > 0)} renderQuestions={messageId => state.capabilities.collaborationQuestions && state.currentUserId ? state.questions.filter(q => q.sourceMessageId === messageId && q.roomId === room?.id).map(q => {
+        <ChatThread client={client} renderArtifacts={message => state.capabilities.readOnlyArtifacts && message.artifactRefs.length > 0 ? <div className="artifact-links" aria-label="交付报告">{message.artifactRefs.map(ref => {
+          const selection = { ...ref, roomId: message.roomId, messageId: message.id };
+          const open = () => { setDiff(null); setResultsOpen(false); setDetails(false); setArtifact(selection); if (window.innerWidth < 760) setSidebar(false); };
+          return <InlineArtifact key={JSON.stringify([state.backendId, state.databaseId || state.instanceId, state.currentUserId, message.roomId, ref.artifactId, ref.version])} client={client} selection={selection} mock={mock} open={open} />;
+        })}</div> : null} suppressWelcome={persistent && (state.localTasks.length > 0 || state.consultations.length > 0)} renderQuestions={messageId => state.capabilities.collaborationQuestions && state.currentUserId ? state.questions.filter(q => q.sourceMessageId === messageId && q.roomId === room?.id).map(q => {
           const key = `${state.instanceId}:${state.currentUserId}:${q.roomId}:${q.id}`;
           const draft = questionDrafts[key] || { revision: q.revision, optionIds: [], text: '' };
           return <QuestionInteraction key={key} client={client} question={q} members={members} adviceEnabled={state.capabilities.questionAdvice} userId={state.currentUserId!} draft={draft} update={value => { const latest = client.read(); if (latest.instanceId === state.instanceId && latest.currentUserId === state.currentUserId && latest.questions.some(item => item.id === q.id && (item.canAnswer || item.status === 'expired'))) setQuestionDrafts(old => ({ ...old, [key]: value })); }} />;

@@ -88,6 +88,13 @@ All chat resources are bundled locally. The Mock-only results examples use
 is retained in `renderer/chat/LICENSE.json-render.txt`; the fixed example catalog
 does not execute model output or submit business commands.
 
+## Rich message rendering
+
+Chat Markdown tables, task lists and strikethrough use `remark-gfm` 4.0.1 (MIT).
+Mermaid fenced blocks use `mermaid` 12.2.0 (MIT), bundled locally and loaded on demand.
+Their licenses are copied into `renderer/vendor/chat/LICENSE-remark-gfm.txt` and
+`renderer/vendor/chat/LICENSE-mermaid.txt` during the renderer build.
+
 ## Bundled typography
 
 Inter, Newsreader and JetBrains Mono are distributed locally as variable WOFF2

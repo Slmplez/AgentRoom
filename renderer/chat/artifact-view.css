@@ -31,4 +31,16 @@
 .artifact-panel .result-table-wrap td { max-width: 340px; }
 .artifact-links { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
 .artifact-links button { max-width: 100%; text-align: left; white-space: normal; overflow-wrap: anywhere; }
+.inline-artifact { width: 100%; min-width: 0; max-width: 720px; padding: 16px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface-1); overflow-wrap: anywhere; }
+.inline-artifact > header { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px; margin-bottom: 14px; }
+.inline-artifact > header strong { font-size: 14px; }
+.inline-artifact > header span, .inline-artifact-note { color: var(--text-secondary); font-size: 12px; }
+.inline-artifact-content { height: 300px; overflow: auto; margin-bottom: 14px; scrollbar-gutter: stable; }
+.inline-artifact .result-section h3 { font-size: 15px; margin-top: 0; }
+.inline-artifact .result-metrics { grid-template-columns: repeat(auto-fit, minmax(90px, 1fr)); }
+.inline-artifact .result-metrics dd { font-size: 22px; }
+.inline-artifact .result-chart { margin-inline: 0; }
+.inline-artifact .result-table-wrap { max-width: 100%; }
+.inline-artifact .result-table-wrap td { max-width: 220px; }
+.inline-artifact-content:focus-visible { outline: 2px solid var(--clay-text); outline-offset: -2px; }
 @media (max-width: 759px) { .artifact-panel .result-content { padding: 18px; } }
