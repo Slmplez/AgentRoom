@@ -1,0 +1,46 @@
+{
+  "kind": "real-magpie-external-deepseek",
+  "externalModelInference": "passed",
+  "model": "ar-deepseek/deepseek-flash",
+  "upstreamHost": "api.deepseek.com",
+  "inferenceRequests": 3,
+  "binarySha256": "e545e079d55086d798c19f567e536e94355a64564d530210f8dfcb8f081bb29a",
+  "checks": [
+    "model discovery",
+    "streamed text",
+    "model-generated tool call",
+    "tool result continuation"
+  ],
+  "usage": [
+    {
+      "prompt_tokens": 9,
+      "completion_tokens": 1,
+      "total_tokens": 10,
+      "prompt_tokens_details": {
+        "cached_tokens": 0
+      },
+      "prompt_cache_hit_tokens": 0,
+      "prompt_cache_miss_tokens": 9
+    },
+    {
+      "prompt_tokens": 289,
+      "completion_tokens": 31,
+      "total_tokens": 320,
+      "prompt_tokens_details": {
+        "cached_tokens": 0
+      },
+      "prompt_cache_hit_tokens": 0,
+      "prompt_cache_miss_tokens": 289
+    },
+    {
+      "prompt_tokens": 67,
+      "completion_tokens": 1,
+      "total_tokens": 68,
+      "prompt_tokens_details": {
+        "cached_tokens": 0
+      },
+      "prompt_cache_hit_tokens": 0,
+      "prompt_cache_miss_tokens": 67
+    }
+  ]
+}

@@ -1,0 +1,17 @@
+{
+  "kind": "real-magpie-controlled-upstream",
+  "externalModelInference": "not-tested",
+  "binarySha256": "e545e079d55086d798c19f567e536e94355a64564d530210f8dfcb8f081bb29a",
+  "model": "ar-fixture/fixture-model",
+  "checks": [
+    "AgentRoom models discovery",
+    "AgentRoom authenticated gateway -> real Magpie -> fixture",
+    "streaming text",
+    "tool call and tool result continuation",
+    "422 error propagation",
+    "Anthropic streaming conversion",
+    "Responses streaming conversion",
+    "upstream cancellation"
+  ],
+  "upstreamCalls": 7
+}
