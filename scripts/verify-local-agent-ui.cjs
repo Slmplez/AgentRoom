@@ -48,7 +48,7 @@ app.whenReady().then(async () => {
   }
   const [a, b] = windows;
   await until(a, 'Boolean(document.querySelector("[data-create-local-task]"))');
-  await a.webContents.executeJavaScript('document.querySelector("textarea[aria-label=本机任务目标]").focus()'); await a.webContents.insertText('检查接口兼容，请先询问期限');
+  await a.webContents.executeJavaScript('document.querySelector(".local-tasks > summary").click();document.querySelector("textarea[aria-label=本机任务目标]").focus()'); await a.webContents.insertText('检查接口兼容，请先询问期限');
   await a.webContents.executeJavaScript('document.querySelector("[data-create-local-task]").click()');
   await until(a, 'Boolean(document.querySelector("[data-local-phase=awaiting_input]"))');
   await until(b, 'Boolean(document.querySelector("[data-local-phase=awaiting_input]"))');

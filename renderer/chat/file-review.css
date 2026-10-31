@@ -40,3 +40,22 @@
  .review-file-toolbar > span { margin-left:0; }
  .diff-heading { flex-wrap:wrap; }
 }
+
+/* One writing surface and one focus boundary for an inline comment. */
+.review-comment-thread { margin:12px 16px; max-width:760px; box-shadow:none; border-radius:12px; }
+.review-comment-draft { padding:16px; border-radius:inherit; }
+.review-comment-thread:has(.review-comment-draft textarea:focus) { border-color:var(--clay-text); box-shadow:0 0 0 1px var(--clay-text); }
+.review-comment-thread header { align-items:center; gap:12px; }
+.review-comment-author { display:flex; align-items:center; gap:8px; }
+.review-comment-author > span { display:grid; place-items:center; width:26px; height:26px; border-radius:50%; background:var(--selected); color:var(--text-secondary); font-size:11px; }
+.review-comment-location { font-size:11px; }
+.chat-app .diff-preview .review-comment-draft textarea { display:block; min-height:88px; padding:12px 0; border:0; border-radius:0; outline:none; box-shadow:none; }
+.review-comment-thread footer { align-items:center; gap:8px; margin-top:6px; }
+.review-comment-draft-note { margin-right:auto; font-size:11px; color:var(--text-secondary); }
+.review-comment-thread button { min-height:30px; padding:6px 12px; }
+.review-comment-thread button:hover:not(:disabled) { background:var(--hover); }
+.review-comment-thread button[type=submit] { background:var(--clay-text); color:var(--surface-2); }
+.review-comment-thread button[type=submit]:hover:not(:disabled) { background:var(--clay-text); filter:brightness(.94); }
+.review-comment-thread button[type=submit]:disabled { background:var(--selected); color:var(--text-secondary); opacity:1; }
+.review-comment-thread [role=alert] { color:var(--danger-text); }
+@media(max-width:480px) { .review-comment-thread { margin:10px 8px; } .review-comment-draft { padding:12px; } .review-comment-location { max-width:130px; text-align:right; } }

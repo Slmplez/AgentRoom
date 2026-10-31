@@ -44,10 +44,21 @@ app.whenReady().then(async()=>{
     assert.equal(await win.webContents.executeJavaScript(`Boolean(document.querySelector('.dev-controls'))`),false);
   }
   let [a,b]=windows;const run=(win,code)=>win.webContents.executeJavaScript(code);
+  assert.equal(await run(a,`document.querySelector('.consultation-creator').open`),false);
+  await run(a,`document.querySelector('.consultation-new').focus();document.querySelector('.consultation-new').click()`);
+  await until(a,`document.activeElement?.getAttribute('aria-label')==='咨询问题'`);
+  await a.webContents.insertText('可保留的咨询草稿');
+  a.webContents.sendInputEvent({type:'keyDown',keyCode:'Escape'});a.webContents.sendInputEvent({type:'keyUp',keyCode:'Escape'});
+  await until(a,`!document.querySelector('.consultation-creator').open && document.activeElement?.matches('.consultation-new')`);
+  await run(a,`document.querySelector('.consultation-new').click()`);
+  await until(a,`document.activeElement?.getAttribute('aria-label')==='咨询问题'`);
+  assert.equal(await run(a,`document.activeElement.value`),'可保留的咨询草稿');
+  await run(a,`document.activeElement.select()`);await a.webContents.insertText('');
+  await run(a,`document.querySelector('.consultation-close').click()`);
   await run(a,`(async()=>{const boot=await fetch('/api/v1/bootstrap').then(r=>r.json());for(const name of ['A','B']){for(const [type,extra]of [['editAgentSoul',{agentId:'advisor-'+name.toLowerCase(),expectedRevision:0,personality:'SOUL_'+name,expression:'',workStyle:''}],['saveExplicitMemory',{scope:{kind:'agent',agentId:'advisor-'+name.toLowerCase()},text:'MEMORY_'+name,source:{kind:'owner-note'}}]]){const r=await fetch('/api/v1/agent-memory/commands',{method:'POST',headers:{'content-type':'application/json','idempotency-key':crypto.randomUUID()},body:JSON.stringify({type,workspaceId:boot.workspace.id,...extra})});if(!r.ok)throw Error('Could not seed explicit context');}}})()`);
-  const open=win=>run(win,`document.querySelector('.consultations').open=true;document.querySelector('.consultation-creator').open=true`);
+  const open=win=>run(win,`if(document.querySelector('.consultation-creator').open)document.querySelector('.consultation-close').click();if(document.querySelector('.consultation-history-toggle').getAttribute('aria-expanded')==='false')document.querySelector('.consultation-history-toggle').click()`);
   const create=async(win,title,agents=['Advisor A','Advisor B'])=>{
-    await open(win);await run(win,`document.querySelector('textarea[aria-label=咨询问题]').focus()`);await win.webContents.insertText(title);
+    await run(win,`document.querySelector('.consultation-new').click()`);await until(win,`document.querySelector('.consultation-creator').open && document.activeElement?.getAttribute('aria-label')==='咨询问题'`);await win.webContents.insertText(title);
     if(!requests.length) { await run(win,`(()=>{const input=document.querySelector('textarea[aria-label=咨询问题]');input.dispatchEvent(new CompositionEvent('compositionstart',{bubbles:true,data:'案'}));input.dispatchEvent(new KeyboardEvent('keydown',{bubbles:true,key:'Enter',isComposing:true}));input.dispatchEvent(new CompositionEvent('compositionend',{bubbles:true,data:'案'}));})()`); assert.equal(requests.length,0); }
     for(const name of ['Advisor A','Advisor B'])await run(win,`(()=>{const el=document.querySelector('input[aria-label=${JSON.stringify('咨询 '+name)}]');if(el.checked!==${agents.includes(name)})el.click()})()`);
     await run(win,`document.querySelector('input[aria-label="咨询 Advisor B"]').focus()`);
@@ -59,7 +70,7 @@ app.whenReady().then(async()=>{
   a.webContents.session.webRequest.onHeadersReceived({urls:[host.origin+'/api/v1/consultations/commands']},(_details,callback)=>{if(!dropped){dropped=true;callback({cancel:true});}else callback({});});
   await create(a,'比较两种方案');
   await until(a,`Boolean(document.querySelector('[data-check-consultation-operation]:enabled'))`);
-  await run(a,`document.querySelector('[data-check-consultation-operation]').click()`);
+  await open(a);await run(a,`document.querySelector('[data-check-consultation-operation]').click()`);
   await until(a,`!document.querySelector('[data-check-consultation-operation]')`);
   await open(b);await until(b,`document.querySelectorAll('[data-assignment-status=answered]').length===2`);
   const qid=await run(b,`document.querySelector('[data-consultation-id]').dataset.consultationId`);
@@ -68,7 +79,7 @@ app.whenReady().then(async()=>{
   await run(a,`document.querySelector('textarea[aria-label^="咨询决定 "]').focus()`);await a.webContents.insertText('刷新后保留的决定草稿');
   await a.reload();await until(a,`Boolean(document.querySelector('textarea[aria-label^="咨询决定 "]'))`);await open(a);
   assert.equal(await run(a,`document.querySelector('textarea[aria-label^="咨询决定 "]').value`),'刷新后保留的决定草稿');
-  await run(a,`document.querySelector('.consultation-creator').open=false;document.querySelector('.consultations-body').scrollTop=0`);
+  await run(a,`document.querySelector('.consultations-body').scrollTop=0`);
   await fs.mkdir(path.resolve(__dirname,'../artifacts'),{recursive:true});
   await fs.writeFile(path.resolve(__dirname,'../artifacts/consultations-real-light.png'),(await a.webContents.capturePage()).toPNG());
   await run(a,`[...document.querySelectorAll('[data-consultation-assignment]')].find(el=>el.textContent.includes('Advisor B')).querySelector('[data-adopt-consultation]').click()`);
@@ -96,10 +107,17 @@ app.whenReady().then(async()=>{
   await run(b,`document.querySelector('[data-abandon-consultation]').click()`);await until(b,`Boolean(document.querySelector('[data-assignment-status=abandoned]'))`);
   await run(b,`document.querySelector('[data-resume-consultation]').click()`);await until(b,`document.querySelectorAll('[data-assignment-status=answered]').length===4`);
   assert.equal(requests.length,6);
-  await run(b,`document.documentElement.dataset.theme='dark';document.querySelector('.consultation-creator').open=false;document.querySelector('.consultations-body').scrollTop=0`);
+  await run(b,`document.documentElement.dataset.theme='dark';document.querySelector('.consultations-body').scrollTop=0`);
   b.setContentSize(420,860);await delay(150);await run(b,`document.querySelector('[aria-label=切换侧栏]').click()`);await delay(150);
   assert.ok(await run(b,`document.documentElement.scrollWidth<=innerWidth`));
   await fs.writeFile(path.resolve(__dirname,'../artifacts/consultations-real-dark-narrow.png'),(await b.webContents.capturePage()).toPNG());
+  await run(b,`document.querySelector('.consultation-new').click()`);
+  await until(b,`document.querySelector('.consultation-creator').open`);
+  assert.ok(await run(b,`(()=>{const d=document.querySelector('.consultation-creator'),r=d.getBoundingClientRect();return r.left>=0&&r.right<=innerWidth&&d.scrollWidth<=d.clientWidth})()`));
+  await run(b,`document.querySelector('.consultation-close').focus()`);
+  b.webContents.sendInputEvent({type:'keyDown',keyCode:'Tab',modifiers:['shift']});b.webContents.sendInputEvent({type:'keyUp',keyCode:'Tab',modifiers:['shift']});
+  await until(b,`document.activeElement?.closest('.consultation-creator')!==null`);
+  await fs.writeFile(path.resolve(__dirname,'../artifacts/consultation-dialog-dark-narrow.png'),(await b.webContents.capturePage()).toPNG());
   assert.deepEqual(errors,[]);
   console.log('Passed: production trusted config; two installed Pi Agents with distinct models, credentials, Souls/memories; real desktop/Web identity, lost receipt, draft reload, explicit adoption/answer, cancel, restart/inspect/abandon/resume, exact context snapshot, dark narrow UI. Six loopback model calls; zero paid calls.');
   windows.forEach(w=>w.destroy());windows=[];await host.close();host=null;await new Promise(r=>provider.close(r));provider=null;app.quit();

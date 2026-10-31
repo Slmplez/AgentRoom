@@ -14,3 +14,9 @@
 .local-tasks [role=alert], [data-local-phase=unknown] { color: var(--danger-text); }
 .local-tasks :focus-visible { outline: 2px solid var(--clay-text); outline-offset: 3px; }
 @media (max-width: 759px) { .local-tasks { margin: 8px 12px; } .local-tasks-body { max-height: 42vh; } }
+
+.local-tasks { margin:0 20px; border-color:var(--line); font-size:13px; }
+.local-tasks > summary { padding:13px 0; color:var(--text-secondary); }
+.local-tasks > summary:hover { color:var(--ink); }
+.local-tasks-body { padding:4px 0 16px; }
+@media(max-width:759px) { .local-tasks { margin:0 12px; } }
