@@ -36,7 +36,7 @@ export const persistenceFrameSchema = z.discriminatedUnion('type', [
 export const persistenceBootstrapSchema = z.object({
   schemaVersion: z.literal(1), databaseId: id, instanceId: id,
   user: z.object({ id, name: z.string() }), workspace: z.object({ id, title: z.string() }),
-  capabilities: z.object({ forms: z.boolean().default(false), attachments: z.boolean().default(false), persistentMessages: z.literal(true), eventStream: z.literal(true), idempotentSend: z.literal(true), tasks: z.literal(false), consultations: z.boolean().default(false), memoryCuration: z.boolean().default(false), agentMemory: z.boolean().default(false), readOnlyArtifacts: z.boolean().default(false), artifactPublishing: z.boolean().default(false), localExecution: z.boolean().default(false) }), localAgentId: id.optional(), knownAgents: z.array(id).default([]), consultationAgents: z.array(consultationAgentSchema).default([]),
+  capabilities: z.object({ fileReview: z.boolean().default(false), forms: z.boolean().default(false), attachments: z.boolean().default(false), persistentMessages: z.literal(true), eventStream: z.literal(true), idempotentSend: z.literal(true), tasks: z.literal(false), consultations: z.boolean().default(false), memoryCuration: z.boolean().default(false), agentMemory: z.boolean().default(false), readOnlyArtifacts: z.boolean().default(false), artifactPublishing: z.boolean().default(false), localExecution: z.boolean().default(false) }), localAgentId: id.optional(), knownAgents: z.array(id).default([]), consultationAgents: z.array(consultationAgentSchema).default([]),
 });
 export const persistenceSnapshotSchema = z.object({
   schemaVersion: z.literal(1), databaseId: id, instanceId: id, cursor,

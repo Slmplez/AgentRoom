@@ -1,6 +1,7 @@
 import type { formStateSchema } from '../../contracts/forms.mjs';
 import type { attachmentSchema } from '../../contracts/attachments.mjs';
 import type { z } from 'zod';
+import type { reviewRequestSchema, reviewResultSchema } from '../../contracts/file-review.mjs';
 import type { snapshotSchema, messageSchema, approvalSchema, commandSchema } from '../../contracts/chat.mjs';
 import type { querySchema, queryResults } from '../../contracts/settings.mjs';
 export type Query = z.input<typeof querySchema>;
@@ -13,6 +14,7 @@ export type Command = z.infer<typeof commandSchema>;
 export type Agent = Snapshot['agents'][number];
 export type Room = Snapshot['rooms'][number];
 export interface ChatClient {
+  review?(input:z.input<typeof reviewRequestSchema>):Promise<z.infer<typeof reviewResultSchema>>;
   pendingMemoryOperations?(input: {workspaceId: string; scope: {kind: 'agent'; agentId: string} | {kind: 'room'; roomId: string}}): {key: string; outcome: 'unknown' | 'not_found'}[];
   uploadAttachment?(input: {key: string; roomId: string; name: string; file: Blob; signal?: AbortSignal}): Promise<{attachment?: Attachment}>;
   downloadAttachment?(input: {roomId: string; attachmentId: string}): Promise<{metadata: Attachment; blob: Blob}>;

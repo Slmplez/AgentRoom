@@ -1,11 +1,11 @@
-// Run after shared-entry integration. Uses the real persistent host and public Client, never a harness override.
+// Uses the real persistent host and public Client, never a harness override; all workspace data is isolated.
 const {app,BrowserWindow}=require('electron');
 const {execFileSync}=require('node:child_process');
 const fs=require('node:fs/promises'),path=require('node:path'),os=require('node:os'),assert=require('node:assert/strict');
 const {startPersistentHost}=require('../lib/persistence-host.cjs');
 app.disableHardwareAcceleration();app.on('window-all-closed',()=>{});app.setPath('userData',path.resolve(__dirname,'../artifacts/file-review-production-ui-profile'));
 let host,temp;const windows=[],errors=[];
-const run=(win,code)=>win.webContents.executeJavaScript(code);
+const run=(win,code)=>win.webContents.executeJavaScript(code).catch(async error=>{throw Error(code+'\n'+error.message+'\n'+await win.webContents.executeJavaScript('document.body.innerText').catch(()=>''));});
 async function until(win,code){const deadline=Date.now()+20000;while(!await run(win,code)){if(Date.now()>deadline)throw Error(code+'\n'+await run(win,'document.body.innerText'));await new Promise(r=>setTimeout(r,30));}}
 const click=(win,selector)=>run(win,`document.querySelector(${JSON.stringify(selector)}).click()`);
 async function capture(win,name){await new Promise(r=>setTimeout(r,200));await fs.writeFile(path.resolve(__dirname,`../artifacts/${name}.png`),(await win.webContents.capturePage()).toPNG());}
@@ -26,7 +26,7 @@ app.whenReady().then(async()=>{
  for(const desktop of [false,true]){
   const win=new BrowserWindow({show:false,width:1280,height:900,webPreferences:{partition:'production-review-'+desktop+'-'+Date.now(),offscreen:true,backgroundThrottling:false,sandbox:true,contextIsolation:true,nodeIntegration:false,...(desktop?{preload:path.resolve(__dirname,'../preload.cjs'),additionalArguments:['--persistent-ui']}:{})}});windows.push(win);
   win.webContents.on('console-message',event=>{if(event.level==='error'&&!/net::ERR|Failed to load resource/.test(event.message))errors.push(event.message);});await win.loadURL(origin);await until(win,'document.querySelector("#connection-text")?.textContent==="已连接"');await until(win,'!!document.querySelector("[aria-label=工作区变更]")');await click(win,'[aria-label="工作区变更"]');await until(win,'document.querySelectorAll("[data-diff-file]").length===3&&!!document.querySelector("diffs-container")');
-  assert.ok(await run(win,'document.querySelector("[aria-label=\"binary.bin\"]").textContent.includes("只读")'));
+  assert.ok(await run(win,`document.querySelector(${JSON.stringify('[aria-label="binary.bin"]')}).textContent.includes("只读")`));
  }
  const [web,desktop]=windows;const file='[aria-label="example.ts"]';
  await click(web,file+' .review-file-toolbar summary');await click(web,file+' .review-file-toolbar form button');await until(web,'!!document.querySelector(".review-comment-draft textarea")');await run(web,'document.querySelector(".review-comment-draft textarea").focus()');await web.webContents.insertText('正式公共 Client 保存的本地评论');await click(web,'.review-comment-draft button[type=submit]');await until(web,'!!document.querySelector(".review-comment-thread article")');
@@ -36,6 +36,6 @@ app.whenReady().then(async()=>{
  // A valid >128 KiB save must pass the proxy's route-specific body limit.
  await click(desktop,'[aria-label="large.txt"] .review-file-toolbar > button');await until(desktop,'document.querySelector(".review-editor textarea")?.readOnly===false');await run(desktop,'document.querySelector(".review-editor textarea").focus();document.querySelector(".review-editor textarea").select()');const saved='desktop saved\n'+large;await desktop.webContents.insertText(saved);await until(desktop,'document.querySelector(".review-editor [role=status]")?.textContent==="已自动保存"');assert.equal(await fs.readFile(path.join(root,'large.txt'),'utf8'),saved);await capture(desktop,'file-review-production-desktop');
  const snapshot=(await api(origin,`/api/v1/rooms/${scope.roomId}/snapshot`,auth.cookie)).data;assert.equal(snapshot.localTasks.length,0);
- await host.close();host=await start(Number(new URL(origin).port));await web.reload();await until(web,'!!document.querySelector("[aria-label=工作区变更]")');await click(web,'[aria-label="工作区变更"]');await until(web,'!!document.querySelector("[aria-label=\"example.ts\"] .review-file-toolbar > button")');await click(web,file+' .review-file-toolbar > button');await until(web,'!!document.querySelector(".review-conflict")');assert.ok(await run(web,'document.querySelector(".review-editor textarea").value.includes("retained draft")'));
+ await host.close();host=await start(Number(new URL(origin).port));await web.reload();await until(web,'!!document.querySelector("[aria-label=工作区变更]")');await click(web,'[aria-label="工作区变更"]');await until(web,`!!document.querySelector(${JSON.stringify(file+' .review-file-toolbar > button')})`);await click(web,file+' .review-file-toolbar > button');await until(web,'!!document.querySelector(".review-conflict")');assert.ok(await run(web,'document.querySelector(".review-editor textarea").value.includes("retained draft")'));
  assert.deepEqual(errors,[]);console.log('Passed: production persistent Web/desktop public Client, explicit authorization, cookie/origin checks, real Git entry, comments across clients, autosave bytes, >128 KiB proxy save, external conflict and host restart draft recovery; no Agent tasks.');
 }).catch(error=>{console.error(error);process.exitCode=1}).finally(async()=>{for(const win of windows)win.destroy();await host?.close();if(temp)await fs.rm(temp,{recursive:true,force:true});app.exit(process.exitCode||0)});

@@ -6,6 +6,7 @@ import { persistenceSnapshotSchema, persistenceFrameSchema, persistenceReceiptSc
 import { consultationCommandTypes } from '../../contracts/consultations.mjs';
 import { memoryCommandTypes, memoryReceiptSchema } from '../../contracts/agent-memory.mjs';
 import { querySchema, queryResults } from '../../contracts/settings.mjs';
+import { reviewRequestSchema, validateReviewResponse } from '../../contracts/file-review.mjs';
 
 function freeze(value) {
   if (value && typeof value === 'object' && !Object.isFrozen(value)) { Object.freeze(value); Object.values(value).forEach(freeze); }
@@ -38,7 +39,7 @@ export function createAgentRoomClient(transport) {
       const data = persistenceSnapshotSchema.parse(event.data), boot = event.boot;
       if (data.room.id !== scope.roomId) throw clientError('invalid_scope', '快照范围不匹配。');
       // The projection and applied cursor are published together; listeners never see a cursor ahead of data.
-      const next = snapshotSchema.parse({ instanceId: data.instanceId, revision: data.room.revision, agents: [], rooms: [{ ...data.room, type: 'group', memberIds: [boot.user.id] }], workspaces: [{ ...boot.workspace, directory: '' }], messages: data.messages, approvals: [], runs: [], currentUserId: boot.user.id, localTasks: data.localTasks, consultations: data.consultations, consultationAgents: boot.consultationAgents, localAgentId: boot.localAgentId || null, knownAgents: boot.knownAgents, capabilities: { forms:boot.capabilities.forms, attachments: boot.capabilities.attachments, tasks: false, idempotentSend: true, localExecution: boot.capabilities.localExecution, consultations: boot.capabilities.consultations, readOnlyArtifacts: boot.capabilities.readOnlyArtifacts, artifactPublishing: boot.capabilities.artifactPublishing, memoryCuration: boot.capabilities.memoryCuration, agentMemory: boot.capabilities.agentMemory } });
+      const next = snapshotSchema.parse({ instanceId: data.instanceId, revision: data.room.revision, agents: [], rooms: [{ ...data.room, type: 'group', memberIds: [boot.user.id] }], workspaces: [{ ...boot.workspace, directory: '' }], messages: data.messages, approvals: [], runs: [], currentUserId: boot.user.id, localTasks: data.localTasks, consultations: data.consultations, consultationAgents: boot.consultationAgents, localAgentId: boot.localAgentId || null, knownAgents: boot.knownAgents, capabilities: { fileReview:boot.capabilities.fileReview, forms:boot.capabilities.forms, attachments: boot.capabilities.attachments, tasks: false, idempotentSend: true, localExecution: boot.capabilities.localExecution, consultations: boot.capabilities.consultations, readOnlyArtifacts: boot.capabilities.readOnlyArtifacts, artifactPublishing: boot.capabilities.artifactPublishing, memoryCuration: boot.capabilities.memoryCuration, agentMemory: boot.capabilities.agentMemory } });
       applied = { databaseId: data.databaseId, roomId: data.room.id, cursor: data.cursor };
       publish({ ...next, messages: data.messages, databaseId: data.databaseId, cursor: data.cursor, roomSequenceUpperBound: data.roomSequenceUpperBound, beforeSequence: data.beforeSequence });
     } else if (event.type === 'persistence.frame') {
@@ -70,7 +71,7 @@ export function createAgentRoomClient(transport) {
       publish({ pendingOperations: event.data.filter(item => item.roomId === scope.roomId || item.memoryScope?.kind === 'agent' || item.memoryScope?.roomId === scope.roomId) });
     } else if (event.type === 'persistence.ready') {
       attempts = 0; streamOffline = false;
-      publish({ consultationAgents: event.data.consultationAgents ?? state.consultationAgents, knownAgents: event.data.knownAgents ?? state.knownAgents, instanceId: event.data.instanceId, currentUserId: event.data.user?.id ?? state.currentUserId, localAgentId: event.data.capabilities ? event.data.localAgentId || null : state.localAgentId, capabilities: { ...state.capabilities, forms:event.data.capabilities?.forms ?? state.capabilities.forms, attachments:event.data.capabilities?.attachments ?? state.capabilities.attachments, consultations: event.data.capabilities?.consultations ?? state.capabilities.consultations, memoryCuration: event.data.capabilities?.memoryCuration ?? state.capabilities.memoryCuration, agentMemory: event.data.capabilities?.agentMemory ?? state.capabilities.agentMemory, localExecution: event.data.capabilities?.localExecution ?? state.capabilities.localExecution, readOnlyArtifacts: event.data.capabilities?.readOnlyArtifacts ?? state.capabilities.readOnlyArtifacts, artifactPublishing: event.data.capabilities?.artifactPublishing ?? state.capabilities.artifactPublishing }, connection: 'live', syncNotice: state.syncNotice ? '事件记录已不可续订，已重新加载消息；旧历史仍可分页读取。' : '', error: state.databaseChanged ? '后端数据库已更换，请重新确认；旧请求不会重发。' : '' });
+      publish({ consultationAgents: event.data.consultationAgents ?? state.consultationAgents, knownAgents: event.data.knownAgents ?? state.knownAgents, instanceId: event.data.instanceId, currentUserId: event.data.user?.id ?? state.currentUserId, localAgentId: event.data.capabilities ? event.data.localAgentId || null : state.localAgentId, capabilities: { ...state.capabilities, fileReview:event.data.capabilities?.fileReview ?? state.capabilities.fileReview, forms:event.data.capabilities?.forms ?? state.capabilities.forms, attachments:event.data.capabilities?.attachments ?? state.capabilities.attachments, consultations: event.data.capabilities?.consultations ?? state.capabilities.consultations, memoryCuration: event.data.capabilities?.memoryCuration ?? state.capabilities.memoryCuration, agentMemory: event.data.capabilities?.agentMemory ?? state.capabilities.agentMemory, localExecution: event.data.capabilities?.localExecution ?? state.capabilities.localExecution, readOnlyArtifacts: event.data.capabilities?.readOnlyArtifacts ?? state.capabilities.readOnlyArtifacts, artifactPublishing: event.data.capabilities?.artifactPublishing ?? state.capabilities.artifactPublishing }, connection: 'live', syncNotice: state.syncNotice ? '事件记录已不可续订，已重新加载消息；旧历史仍可分页读取。' : '', error: state.databaseChanged ? '后端数据库已更换，请重新确认；旧请求不会重发。' : '' });
     }
   }
   function accept(raw) {
@@ -159,6 +160,23 @@ export function createAgentRoomClient(transport) {
     read: () => state,
     subscribe(listener) { listeners.add(listener); return () => listeners.delete(listener); },
     query,
+    async review(raw) {
+      const input=reviewRequestSchema.parse(raw);
+      if(closed||state.connection!=='live')throw clientError('unavailable','连接尚未恢复。');
+      if(!state.capabilities.fileReview||typeof transport.review!=='function')throw clientError('editing_unavailable','宿主未授权文件审阅。');
+      if(input.roomId!==scope.roomId||!state.rooms.some(room=>room.id===input.roomId&&room.workspaceId===input.workspaceId))throw clientError('invalid_scope','文件审阅不属于当前房间。');
+      const epoch=generation,identity=JSON.stringify([state.backendId,state.databaseId,state.currentUserId]),outcome=['saveFile','addComment'].includes(input.type)?'unknown':'rejected';
+      const value=await transport.review(input);
+      if(closed||epoch!==generation||state.connection!=='live'||identity!==JSON.stringify([state.backendId,state.databaseId,state.currentUserId]))throw clientError('stale_review','文件审阅范围已变化，请核查原请求。',outcome);
+      const result=validateReviewResponse(input,value,{authorId:state.currentUserId,real:true});
+      if(result.type==='file'||result.type==='saved'){
+        const text=result.type==='file'?result.text:input.text;
+        const digest=[...new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(text)))].map(n=>n.toString(16).padStart(2,'0')).join('');
+        if(digest!==result.revision)throw clientError('invalid_response','文件内容校验失败。',outcome);
+        if(closed||epoch!==generation)throw clientError('stale_review','文件审阅范围已变化。',outcome);
+      }
+      return freeze(result);
+    },
     watch(input, listener, { intervalMs = 5000 } = {}) {
       let disposed = false, timer;
       const poll = async () => {

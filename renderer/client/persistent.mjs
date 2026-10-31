@@ -8,6 +8,8 @@ import { consultationCommandSchema, consultationCommandTypes, consultationQueryS
 import { runContextSnapshotSchema } from '../../contracts/run-context.mjs';
 import { clientError } from '../../contracts/chat.mjs';
 import { persistenceBootstrapSchema, persistenceSnapshotSchema, persistenceReceiptSchema, persistenceFrameSchema, persistenceCommandSchema, persistenceHistorySchema } from '../../contracts/persistence.mjs';
+import { reviewRequestSchema, validateReviewResponse } from '../../contracts/file-review.mjs';
+import { createFileReviewTransport } from './file-review-transport.mjs';
 
 // A transport and an already-submitted-command journal, never a second message store.
 // backendId/localUserId are stable identities supplied by the trusted host, not a session token/port.
@@ -176,6 +178,17 @@ export function createPersistentTransport({ session, backendId, localUserId, sto
   }
   return {
     synchronize,
+    async review(raw) {
+      const context=active,input=reviewRequestSchema.parse(raw),outcome=['saveFile','addComment'].includes(input.type)?'unknown':'rejected';
+      if(!context?.boot||context.controller.signal.aborted)throw clientError('unavailable','连接尚未恢复。');
+      if(!context.boot.capabilities.fileReview)throw clientError('editing_unavailable','当前宿主未启用文件审阅。');
+      if(input.workspaceId!==context.boot.workspace.id||input.roomId!==context.scope.roomId)throw clientError('invalid_scope','文件审阅不属于当前房间。');
+      const send=createFileReviewTransport({fetch:fetcher,baseUrl:context.credentials.origin,signal:context.controller.signal,headers:()=>context.credentials.authentication==='cookie'?{}:{Authorization:'Bearer '+context.credentials.token}});
+      let value;
+      try{value=await send(input);}catch(error){if(active!==context||context.controller.signal.aborted)throw clientError('stale_review','文件审阅范围已变化，请核查原请求。',outcome);throw error;}
+      if(active!==context||context.controller.signal.aborted)throw clientError('stale_review','文件审阅范围已变化，请核查原请求。',outcome);
+      return validateReviewResponse(input,value,{authorId:context.boot.user.id,real:true});
+    },
     async query(input) {
       const context = active;
       if (!context?.boot || context.controller.signal.aborted) throw clientError('unavailable', '连接尚未恢复。');

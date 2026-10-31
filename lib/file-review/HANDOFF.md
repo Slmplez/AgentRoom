@@ -1,6 +1,8 @@
 # #44 集成交接
 
-本任务副本：`E:/Repo/ASCET/agent-chat-desktop-review-edit`，分支 `codex/diff-review-edit`。基线 #42 的 462f9fb + main335a618。仅新增文件审阅模块/契约/独立传输适配器/状态机/UI/测试；未修改共享 runtime/index/storage/http/host/Client。
+当前状态：正式持久 Web／桌面接线已完成，并在隔离真实 Git 与数据库上通过生产入口验收。`--editor-workspace` → runtime capability → 认证 HTTP/代理 → 公共 Client → “工作区变更”入口完整可用。Root 负责最终 main 整合及更新已有 4331 服务；本任务未操作其用户工作区。下方保留实施清单供集成核对。
+
+本任务副本：`E:/Repo/ASCET/agent-chat-desktop-review-edit`，分支 `codex/diff-review-edit`。基线 #42 的 462f9fb + main335a618。此前独立阶段新增文件审阅模块/契约/状态机/UI；正式交接后已修改 runtime/index、HTTP、host、Client 和 App，保留 #39 表单及 #43 记忆接线；未改共享数据库迁移。
 
 ## 已有可验证行为
 
@@ -9,7 +11,7 @@
 - 同文件共享控制器，关闭/重开不会产生竞争保存；待确认请求不可变，重试保持 key；外部版本变化保留草稿且停止覆盖。
 - 服务端受信根路径、授权 resolver、已有 UTF-8 文件限制、hash/文件身份复查、prepared 持久记录和同目录原子替换。不是跨外部进程的绝对 CAS，详细边界见 lib/file-review/README.md。
 
-## 共享入口交接后所需接线
+## 已完成的共享入口接线
 
 1. 宿主新增显式 `editorWorkspace` / `--editor-workspace` 配置；不能把只读 `agentWorkspace` 自动变成写入授权。
 2. Runtime 配置通过 `createRuntimeFileReview(runtime,{directory,editorWorkspace})` 实例化独立文件审阅存储；共享 HTTP 在已有身份/Origin/CSRF 校验后挂载 `createFileReviewHandler`。代理需要允许 `/api/v1/file-review`，POST 仅限 JSON，2 MiB 上限。关闭宿主时关闭文件审阅服务。
@@ -27,7 +29,7 @@
 - `npx electron scripts/verify-file-review-ui.cjs --disable-gpu`：认证 HTTP、真实临时文件落地、评论重启、冲突、刷新草稿、窄屏。
 - `npx electron scripts/verify-diff-workspace.cjs --disable-gpu`：原有差异工作区回归。
 
-本阶段不代表生产宿主已装配，不关闭 #44。需要串行接线和真实入口验收后才能完成任务。
+正式生产链路已在隔离环境验收；#44 的关闭、main 整合和已有 4331 更新由 Root 统一办理。
 
 ## 串行交接后的最小修改清单
 
@@ -63,6 +65,14 @@
 
 刷新期间保留上次结果，失败明确标为旧结果；过期响应与卸载后的结果丢弃。补丁变化后清空旧评论状态并按新 digest 读取，禁止旧批注附到新行。删除文件仍可评论原始行、不能编辑；二进制/过大/不支持项显示原因；全部只读与暂无变更都支持。
 
-`npx electron scripts/verify-workspace-changes-ui.cjs --disable-gpu` 已通过：隔离真实 Git + 认证 HTTP、完整列表/只读原因、评论版本隔离、面板自动保存落磁盘、刷新错误、空状态及窄屏暗色截图。这是独立组件验证，尚不替代正式 public Client/host/4331 的端到端验收。后续共享接线仍由本任务完成，不交由 Root 代实现。
+`npx electron scripts/verify-workspace-changes-ui.cjs --disable-gpu` 已通过：隔离真实 Git + 认证 HTTP、完整列表/只读原因、评论版本隔离、面板自动保存落磁盘、刷新错误、空状态及窄屏暗色截图。这是独立组件验证，尚不替代正式 public Client/host/4331 的端到端验收。后续本任务已完成共享接线及生产验收，Root 只需独立复核和集成部署。
 
 安全修复 `2a1faf6`：Git 使用工作区外的固定绝对可执行路径；差异由已校验文件内容与 Git blob 在独立临时目录生成。对应隔离标记测试通过。
+
+## 正式接线验证
+
+`npx electron scripts/verify-file-review-production-ui.cjs --disable-gpu` 已通过。脚本使用真正的持久宿主、公共 Client 和 Web/桌面 preload，无替换 UI harness。验证只读 Agent 目录不授权编辑、Cookie/来源/伪造 root 拒绝、评论跨客户端可见、完整文件落盘、超过 128 KiB 的保存、外部冲突、宿主重启草稿恢复，且未产生 Agent 任务。截图位于 artifacts/file-review-production-web.png 与 artifacts/file-review-production-desktop.png。
+
+新增 `test/file-review-client.test.cjs` 4 项已通过，覆盖真实认证 HTTP、公用能力和房间范围、保存回执丢失后原 key 重试、错误类型/范围/hash/评论响应，以及换房间后的晚到结果。使用说明见 docs/FILE-REVIEW.md。
+
+最终验证：全量 `npm test` 327 项通过；随后新增的 `test/file-review-host.test.cjs` 也通过，实际后端已提交文件后在代理层丢失响应，确认返回 unknown 且原 key 恢复回执。类型、边界、构建、diff 检查通过。没有重启、修改或读取 Root 4331 的用户工作区。最终 main 合入、推送和 4331 更新仍归 Root；本分支交付后冻结共享入口。

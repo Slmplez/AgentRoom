@@ -43,7 +43,7 @@ export const snapshotSchema = z.object({
   messages: z.array(messageSchema), approvals: z.array(approvalSchema), runs: z.array(runSchema).default([]), approvalHistory: z.array(approvalSchema).default([]),
   currentUserId: id.nullable().default(null), questions: z.array(collaborationQuestionSchema).default([]),
   localTasks: z.array(localTaskSchema).default([]), localAgentId: id.nullable().default(null),
-  capabilities: z.object({ forms: z.boolean().default(false), attachments: z.boolean().default(false), tasks: z.boolean(), consultations: z.boolean().default(false), idempotentSend: z.boolean().default(false), collaborationQuestions: z.boolean().default(false), questionAdvice: z.boolean().default(false), localExecution: z.boolean().default(false), readOnlyArtifacts: z.boolean().default(false), artifactPublishing: z.boolean().default(false), memoryCuration: z.boolean().default(false), agentMemory: z.boolean().default(false) }),
+  capabilities: z.object({ fileReview: z.boolean().default(false), forms: z.boolean().default(false), attachments: z.boolean().default(false), tasks: z.boolean(), consultations: z.boolean().default(false), idempotentSend: z.boolean().default(false), collaborationQuestions: z.boolean().default(false), questionAdvice: z.boolean().default(false), localExecution: z.boolean().default(false), readOnlyArtifacts: z.boolean().default(false), artifactPublishing: z.boolean().default(false), memoryCuration: z.boolean().default(false), agentMemory: z.boolean().default(false) }),
 });
 export const commandSchema = z.discriminatedUnion('type', [
   ...formCommandSchema.options,
