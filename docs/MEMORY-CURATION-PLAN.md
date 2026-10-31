@@ -4,11 +4,15 @@
 
 ## 交付状态与分工
 
-当前提交是独立前置切片：契约、SQLite schema 安装函数、整理 Module、无工具 Pi Adapter、专用模型配置解析、设置展示模块、SQLite 测试及真实 Pi + 回环推理验证。**尚未接入 ApplicationRuntime、正式数据库迁移、HTTP、Client、正式设置入口或任务启动。当前产品仍执行原来的 16 条 / 256 字符规则，不能称为后台整理已经启用。**
+当前分支已实现原始记录无 16 条上限、每条 2048 字符、分页列表、v2 预算化任务快照和旧 v1/receipt/hash 兼容；独立整理 Module、专用模型配置、设置展示及可选控制器也已完成。**自动整理的生产迁移、认证接口、Client、宿主调度及实际设置接线仍未完成，不能称为后台整理已经启用。**
 
 工作副本 `E:/Repo/ASCET/agent-chat-desktop-memory-curator`，分支 `codex/memory-curator`，基线 `335a618`，owner 为当前记忆设置聊天。没有修改共享主目录或附件、表单任务的文件。`node_modules` junction 指向主副本，仅用于读取相同依赖，不执行依赖安装或共享产物构建。
 
 装配顺序：#38 附件 → #39 表单 → 本功能 → 文件编辑/评论。共享 `runtime/index/storage/http/host/Client` 和 main 由协调任务交接；前置切片不抢占它们。schema 安装函数不分配 `user_version`，由交接后的迁移统一确定版本。
+
+当前私人切片额外完成：`agent-memory` 原始记录/分页/可选整理上下文、`run-context` v1/v2 双格式、记忆设置分页和可选 `MemoryCurationBridge` 控制器。79 项相关测试通过；真实持久 Web/桌面夹具验证 21 条 UI 分页、2048 字符、草稿、未知回执、冻结 prompt，1 次本地推理、0 付费调用。独立控制器验证 unknown 请求重挂载不重发、原 key 核查、损坏日志可刷新恢复。`memory-v1` SQL/JSON 夹具由实际旧运行时生成并验证快照原字节和原回执/hash。
+
+共享入口已在 #39 `61cb03a` 冻结后正式交接；下一步合入本地整合基线 `568d19c`，再实施生产接线。main 与 ADR7/8 仍归监督会话管理。
 
 ## 记录与有效记忆分开
 

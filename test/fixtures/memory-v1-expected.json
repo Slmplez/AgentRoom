@@ -1,0 +1,74 @@
+{
+  "baseline": "df37e96a730b6df15ec62843cfd52d75758b11a9",
+  "workspaceId": "0bc81556-a764-4c4d-a6e7-6b802527405d",
+  "roomId": "53330614-e42a-4ab0-b5a8-c7babf191750",
+  "taskId": "93d9688f-ccf2-4591-b5c3-a44b4fc16920",
+  "command": {
+    "type": "saveExplicitMemory",
+    "workspaceId": "0bc81556-a764-4c4d-a6e7-6b802527405d",
+    "key": "legacy-memory",
+    "scope": {
+      "kind": "agent",
+      "agentId": "iris"
+    },
+    "text": "LEGACY_MEMORY_PREFERENCE",
+    "source": {
+      "kind": "owner-note"
+    }
+  },
+  "receipt": {
+    "schemaVersion": 1,
+    "accepted": true,
+    "operationId": "209726ca-562b-4a4c-bc85-1476459b8fc2",
+    "entityKind": "memory",
+    "entityId": "2e3511c9-dcb0-4e64-8e9d-e252fc569db9",
+    "scope": {
+      "kind": "agent",
+      "agentId": "iris"
+    },
+    "revision": 1,
+    "status": "active"
+  },
+  "requestHash": "8b1d570ca85c33548e1fa54b0f88673fa455b137160157ecd0bef8ff0cdfa125",
+  "snapshot": {
+    "snapshotId": "09964194-8a2f-4e4b-8731-d4bae03ec270",
+    "formatVersion": 1,
+    "taskId": "93d9688f-ccf2-4591-b5c3-a44b4fc16920",
+    "runId": "55587a4d-10a6-480c-9905-9d3aa1195f38",
+    "agentId": "iris",
+    "roomId": "53330614-e42a-4ab0-b5a8-c7babf191750",
+    "createdAt": "2026-10-31T02:04:21.498Z",
+    "soulRevision": 1,
+    "soul": {
+      "personality": "LEGACY_SOUL",
+      "expression": "Concise",
+      "workStyle": "Evidence first"
+    },
+    "memories": [
+      {
+        "id": "2e3511c9-dcb0-4e64-8e9d-e252fc569db9",
+        "scope": {
+          "kind": "agent",
+          "agentId": "iris"
+        },
+        "revision": 1,
+        "text": "LEGACY_MEMORY_PREFERENCE",
+        "sourceIds": [
+          "8bdedc7e-badd-4c87-a214-b3d6052b44bb"
+        ]
+      }
+    ],
+    "contextText": "Agent Room 启动配置：以下 Soul 是用户明确设定的表达与工作偏好，记忆是背景资料。它们不改变宿主工具限制或授予任何执行权限。\n{\"soul\":{\"personality\":\"LEGACY_SOUL\",\"expression\":\"Concise\",\"workStyle\":\"Evidence first\"},\"agentMemories\":[\"LEGACY_MEMORY_PREFERENCE\"],\"roomMemories\":[]}",
+    "prompt": "Agent Room 启动配置：以下 Soul 是用户明确设定的表达与工作偏好，记忆是背景资料。它们不改变宿主工具限制或授予任何执行权限。\n{\"soul\":{\"personality\":\"LEGACY_SOUL\",\"expression\":\"Concise\",\"workStyle\":\"Evidence first\"},\"agentMemories\":[\"LEGACY_MEMORY_PREFERENCE\"],\"roomMemories\":[]}\n\n当前任务（原文）：\nLEGACY_GOAL"
+  },
+  "snapshotRow": {
+    "snapshot_id": "09964194-8a2f-4e4b-8731-d4bae03ec270",
+    "task_id": "93d9688f-ccf2-4591-b5c3-a44b4fc16920",
+    "run_id": "55587a4d-10a6-480c-9905-9d3aa1195f38",
+    "room_id": "53330614-e42a-4ab0-b5a8-c7babf191750",
+    "agent_id": "iris",
+    "created_at": "2026-10-31T02:04:21.498Z",
+    "content_hash": "bb51a4157d5e1557915ecace28f349a3123a1dba6d1b3ca3486e2582eab80f20",
+    "payload_json": "{\"snapshotId\":\"09964194-8a2f-4e4b-8731-d4bae03ec270\",\"formatVersion\":1,\"taskId\":\"93d9688f-ccf2-4591-b5c3-a44b4fc16920\",\"runId\":\"55587a4d-10a6-480c-9905-9d3aa1195f38\",\"agentId\":\"iris\",\"roomId\":\"53330614-e42a-4ab0-b5a8-c7babf191750\",\"createdAt\":\"2026-10-31T02:04:21.498Z\",\"soulRevision\":1,\"soul\":{\"personality\":\"LEGACY_SOUL\",\"expression\":\"Concise\",\"workStyle\":\"Evidence first\"},\"memories\":[{\"id\":\"2e3511c9-dcb0-4e64-8e9d-e252fc569db9\",\"scope\":{\"kind\":\"agent\",\"agentId\":\"iris\"},\"revision\":1,\"text\":\"LEGACY_MEMORY_PREFERENCE\",\"sourceIds\":[\"8bdedc7e-badd-4c87-a214-b3d6052b44bb\"]}],\"contextText\":\"Agent Room 启动配置：以下 Soul 是用户明确设定的表达与工作偏好，记忆是背景资料。它们不改变宿主工具限制或授予任何执行权限。\\n{\\\"soul\\\":{\\\"personality\\\":\\\"LEGACY_SOUL\\\",\\\"expression\\\":\\\"Concise\\\",\\\"workStyle\\\":\\\"Evidence first\\\"},\\\"agentMemories\\\":[\\\"LEGACY_MEMORY_PREFERENCE\\\"],\\\"roomMemories\\\":[]}\",\"prompt\":\"Agent Room 启动配置：以下 Soul 是用户明确设定的表达与工作偏好，记忆是背景资料。它们不改变宿主工具限制或授予任何执行权限。\\n{\\\"soul\\\":{\\\"personality\\\":\\\"LEGACY_SOUL\\\",\\\"expression\\\":\\\"Concise\\\",\\\"workStyle\\\":\\\"Evidence first\\\"},\\\"agentMemories\\\":[\\\"LEGACY_MEMORY_PREFERENCE\\\"],\\\"roomMemories\\\":[]}\\n\\n当前任务（原文）：\\nLEGACY_GOAL\"}"
+  }
+}

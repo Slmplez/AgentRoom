@@ -41,17 +41,17 @@ test('public Client persists independent Souls, notes, exact message sources, co
   assert.equal((await b.query({ ...historyQuery, beforeRevision: 2 })).revisions[0].text, '周五开会');
   await a.dispatch({ type: 'forgetExplicitMemory', workspaceId: s.workspaceId, scope, memoryId: saved.entityId, expectedRevision: 2, key: 'disable' });
   assert.deepEqual((await b.query(q)).memories, []); assert.equal((await b.query(historyQuery)).current.status, 'deleted');
-  await a.dispatch(s.save({ kind: 'agent', agentId: 'iris' }, '😀'.repeat(256)));
-  await assert.rejects(a.dispatch(s.save(scope, '😀'.repeat(257))), { code: 'invalid_command' });
+  await a.dispatch(s.save({ kind: 'agent', agentId: 'iris' }, '😀'.repeat(2048)));
+  await assert.rejects(a.dispatch(s.save(scope, '😀'.repeat(2049))), { code: 'invalid_command' });
   await assert.rejects(a.dispatch(s.save(scope, '   ')), { code: 'invalid_command' });
   for (let i = 0; i < 16; i++) await a.dispatch(s.save(scope, `note ${i}`));
-  await assert.rejects(a.dispatch(s.save(scope, 'overflow')), { code: 'limit_exceeded' });
+  await a.dispatch(s.save(scope, 'seventeenth record'));
   await assert.rejects(a.query({ ...q, scope: { kind: 'room', roomId: s.other } }), { code: 'invalid_scope' });
   await a.open({ roomId: s.other }); assert.deepEqual((await a.query({ ...q, scope: { kind: 'room', roomId: s.other } })).memories, []);
   assert.deepEqual((await a.query({ ...q, scope: { kind: 'agent', agentId: 'ember' } })).memories, []);
   await s.restart(); const c = await s.make();
   assert.equal((await c.query({ type: 'agentSoul', workspaceId: s.workspaceId, agentId: 'iris' })).personality, '谨慎');
-  assert.equal((await c.query(historyQuery)).current.status, 'deleted'); assert.equal((await c.query(q)).memories.length, 16);
+  assert.equal((await c.query(historyQuery)).current.status, 'deleted'); assert.equal((await c.query(q)).memories.length, 17);
   s.corrupt(); await assert.rejects(c.query({ type: 'agentSoul', workspaceId: s.workspaceId, agentId: 'iris' }), { code: 'invalid_response' });
 });
 test('lost memory responses retain original key, reload only checks and historical receipts never restore deleted data', async t => {

@@ -98,7 +98,7 @@ test('a before-context barrier observes a deletion committed before capture and 
   assert.equal(s.runs[0].prompt, 'Original goal'); s.runs[0].finish();
 });
 
-test('loads every active record in stable scope/ID order, with no relevance selection or silent clipping', async t => {
+test('loads budget-fitting records in deterministic update order without relevance search', async t => {
   const s = await setup(t), roomId = s.room('A');
   for (const scope of [agentScope('iris'), { kind: 'room', roomId }]) for (let i = 0; i < 16; i++) s.execute(save(scope, `note-${scope.kind}-${i}` + '😀'.repeat(220)));
   const taskId = s.create(roomId, 'Unrelated question'); await until(() => s.runs[0]?.prompt);
@@ -106,7 +106,10 @@ test('loads every active record in stable scope/ID order, with no relevance sele
   assert.equal(snapshot.memories.length, 32);
   for (const kind of ['agent', 'room']) {
     const selected = snapshot.memories.filter(row => row.scope.kind === kind);
-    assert.deepEqual(selected.map(row => row.id), selected.map(row => row.id).sort());
+    const scope = kind === 'agent' ? agentScope('iris') : { kind: 'room', roomId };
+    const expected = s.runtime.query({ type: 'explicitMemories', workspaceId: s.workspaceId, scope }, s.actor).memories.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt) || b.id.localeCompare(a.id));
+    assert.deepEqual(selected.map(row => row.id), expected.map(row => row.id));
+    assert.equal(snapshot.memoryContexts.find(c => c.scope.kind === kind).deferred, 0);
     for (const row of selected) assert.ok(snapshot.prompt.includes(row.text));
   }
   assert.equal(s.runs[0].prompt, snapshot.prompt); s.runs[0].finish();
@@ -139,7 +142,7 @@ for (const corruption of ['oversized-memory', 'oversized-soul', 'source', 'tombs
   const s = await setup(t), roomId = s.room('A'); s.execute(soul('iris', 'safe'));
   const saved = s.execute(save(agentScope('iris'), 'required context'));
   const { DatabaseSync } = await import('node:sqlite'), db = new DatabaseSync(path.join(s.directory, 'application.sqlite'));
-  if (corruption === 'oversized-memory') db.prepare('UPDATE memory_revisions SET text=? WHERE memory_id=?').run('x'.repeat(257), saved.entityId);
+  if (corruption === 'oversized-memory') db.prepare('UPDATE memory_revisions SET text=? WHERE memory_id=?').run('x'.repeat(2049), saved.entityId);
   if (corruption === 'oversized-soul') db.prepare('UPDATE agent_souls SET content_json=?').run(JSON.stringify({ personality: 'x'.repeat(2049), expression: '', workStyle: '' }));
   if (corruption === 'source') db.exec("UPDATE memory_sources SET text='tampered evidence'");
   if (corruption === 'tombstone') db.exec("INSERT INTO memory_source_tombstones SELECT scope_kind,scope_id,source_id,memory_id,2,'test' FROM memory_source_links");

@@ -90,18 +90,18 @@ test('owner, registered identity, scope and provenance are enforced for writes, 
   assert.equal((await s.command({ ...save('x'), query: 'semantic search' })).status, 400);
 });
 
-test('capacity, Unicode and competing revisions reject changes without silently losing data', async t => {
+test('unbounded record count, Unicode and competing revisions preserve data', async t => {
   const s = await setup(t);
   assert.equal((await s.command({ ...soul('iris', '😀'.repeat(2048)), expression: '', workStyle: '' }, 'unicode-soul')).status, 200);
   assert.equal((await s.command({ ...soul('iris', '😀'.repeat(2049), 1), expression: '', workStyle: '' }, 'oversize-soul')).status, 400);
-  assert.equal((await s.command(save('😀'.repeat(257)), 'oversize')).status, 400);
-  const first = (await s.command(save('😀'.repeat(256)), 'first')).data;
+  assert.equal((await s.command(save('😀'.repeat(2049)), 'oversize')).status, 400);
+  const first = (await s.command(save('😀'.repeat(2048)), 'first')).data;
   for (let i = 1; i < 16; i++) assert.equal((await s.command(save('note-' + i), 'n-' + i)).status, 200);
-  assert.equal((await s.command(save('overflow'), 'overflow')).data.code, 'limit_exceeded');
+  assert.equal((await s.command(save('seventeenth record'), 'overflow')).status, 200);
   const revise = { type: 'correctExplicitMemory', scope, memoryId: first.entityId, expectedRevision: 1, text: 'new' };
   const outcomes = await Promise.all([s.command(revise, 'race-a'), s.command({ ...revise, text: 'other' }, 'race-b')]);
   assert.deepEqual(outcomes.map(x => x.status).sort(), [200, 409]);
-  assert.equal(s.query({ type: 'explicitMemories', scope }).memories.length, 16);
+  assert.equal(s.query({ type: 'explicitMemories', scope }).memories.length, 17);
   assert.equal((await s.command({ type: 'forgetExplicitMemory', scope, memoryId: first.entityId, expectedRevision: 2 }, 'forget')).status, 200);
   assert.equal((await s.command(save('space after stop'), 'space')).status, 200);
   assert.equal(s.query({ type: 'explicitMemoryHistory', scope, memoryId: first.entityId }).current.status, 'deleted');

@@ -1,9 +1,11 @@
 import { z } from 'zod';
 
-export const MEMORY_LIMITS = Object.freeze({ perScope: 16, text: 256, soul: 2048 });
+// Storage has no per-scope count ceiling. Task context has a separate budget.
+export const MEMORY_LIMITS = Object.freeze({ perScope: null, text: 2048, soul: 2048 });
+export const MEMORY_CONTEXT_LIMITS = Object.freeze({ perScope: 16, characters: 8192 });
 const id = z.string().min(1).max(300);
 const revision = z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER);
-const text = z.string().refine(value => value.trim().length > 0 && [...value].length <= MEMORY_LIMITS.text, '记忆须为 1–256 个 Unicode 字符。');
+const text = z.string().refine(value => value.trim().length > 0 && [...value].length <= MEMORY_LIMITS.text, '记忆须为 1–2048 个 Unicode 字符。');
 export const memoryScopeSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('agent'), agentId: id }).strict(),
   z.object({ kind: z.literal('room'), roomId: id }).strict(),
@@ -28,7 +30,7 @@ export const memoryQueryTypes = ['agentSoul', 'agentSoulHistory', 'explicitMemor
 export const memoryQuerySchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('agentSoul'), workspaceId: id, agentId: id }).strict(),
   z.object({ type: z.literal('agentSoulHistory'), workspaceId: id, agentId: id, ...page }).strict(),
-  z.object({ type: z.literal('explicitMemories'), workspaceId: id, scope: memoryScopeSchema }).strict(),
+  z.object({ type: z.literal('explicitMemories'), workspaceId: id, scope: memoryScopeSchema, limit: z.number().int().min(1).max(100).default(20), afterId: id.optional() }).strict(),
   z.object({ type: z.literal('explicitMemoryHistory'), workspaceId: id, scope: memoryScopeSchema, memoryId: id, ...page }).strict(),
 ]);
 export const memoryReceiptSchema = z.object({
@@ -43,7 +45,7 @@ const memoryView = z.object({ id, scope: memoryScopeSchema, ...memoryVersion, up
 export const memoryQueryResults = {
   agentSoul: soulView,
   agentSoulHistory: z.object({ agentId: id, revisions: z.array(z.object({ revision: revision.positive(), ...soulFields, authorId: id, createdAt: z.string() }).strict()), beforeRevision: revision.positive().nullable() }).strict(),
-  explicitMemories: z.object({ scope: memoryScopeSchema, memories: z.array(memoryView).max(MEMORY_LIMITS.perScope), limits: z.object({ perScope: z.literal(16), text: z.literal(256), soul: z.literal(2048) }).strict() }).strict(),
+  explicitMemories: z.object({ scope: memoryScopeSchema, memories: z.array(memoryView).max(100), total: revision, afterId: id.nullable(), limits: z.object({ perScope: z.null(), text: z.literal(2048), soul: z.literal(2048) }).strict() }).strict(),
   explicitMemoryHistory: z.object({ current: memoryView, revisions: z.array(z.object({ ...memoryVersion, createdAt: z.string() }).strict()), sources: z.array(z.object({ id, kind: z.enum(['owner-note', 'message']), text: z.string(), authorId: id, occurredAt: z.string(), recordedAt: z.string(), roomId: id.nullable(), messageId: id.nullable(), messageRevision: revision.positive().nullable() }).strict()), beforeRevision: revision.positive().nullable() }).strict(),
 };
 export const scopeForMemory = command => command.type === 'editAgentSoul' ? { kind: 'agent', agentId: command.agentId } : command.scope;

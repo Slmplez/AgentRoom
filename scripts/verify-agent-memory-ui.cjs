@@ -65,6 +65,17 @@ app.whenReady().then(async () => {
   assert.deepEqual(await js(a, `[...document.querySelector('[aria-label=记忆归属]').options].map(o=>o.value)`), ['room', 'local-pi', 'ember']);
   await input(a, '个性', '审慎、先核对证据'); await input(a, '表达方式', '直接、简洁'); await input(a, '工作方式', '保留来源');
   await click(a, '保存 Soul'); await until(a, 'document.querySelector(".memory-scope h3").textContent.includes("v1")');
+  // Seed the other Agent through the real authenticated API, then paginate via
+  // the public Client/UI. The currently executing Agent/Room remain independent.
+  await js(a, `(async()=>{const boot=await (await fetch('/api/v1/bootstrap')).json();for(let i=0;i<21;i++){const response=await fetch('/api/v1/agent-memory/commands',{method:'POST',headers:{'content-type':'application/json','idempotency-key':'pagination-'+i},body:JSON.stringify({type:'saveExplicitMemory',workspaceId:boot.workspace.id,scope:{kind:'agent',agentId:'ember'},text:i===0?'😀'.repeat(2048):'分页记录 '+i,source:{kind:'owner-note'}})});if(!response.ok)throw Error('pagination fixture failed');}})()`);
+  await chooseAgent(a, 'ember'); await click(a, '刷新当前状态');
+  await until(a, 'document.querySelectorAll("[data-memory-id]").length===20');
+  await input(a, '新记忆', '分页期间保留的草稿');
+  await js(a, '[...document.querySelectorAll("button")].find(b=>b.textContent.startsWith("加载更多记录")).click()');
+  await until(a, 'document.querySelectorAll("[data-memory-id]").length===21');
+  assert.equal(await js(a, 'new Set([...document.querySelectorAll("[data-memory-id]")].map(e=>e.dataset.memoryId)).size'), 21);
+  assert.equal(await js(a, 'document.querySelector("textarea[aria-label=新记忆]").value'), '分页期间保留的草稿');
+  await chooseAgent(a, 'local-pi');
   await saveNote(a, '优先验证边界条件');
   await chooseAgent(a, 'ember'); assert.equal(await js(a, 'document.querySelector("textarea[aria-label=个性]").value'), '');
   await input(a, '个性', '活泼的独立草稿'); await chooseAgent(a, 'local-pi');
@@ -72,8 +83,8 @@ app.whenReady().then(async () => {
   await chooseAgent(a, 'ember'); assert.equal(await js(a, 'document.querySelector("textarea[aria-label=个性]").value'), '活泼的独立草稿');
   await click(a, '保存 Soul'); await until(a, 'document.querySelector(".memory-scope h3").textContent.includes("v1")');
   await select(a, '记忆归属', 'room'); await until(a, '!document.querySelector("textarea[aria-label=个性]") && Boolean(document.querySelector("textarea[aria-label=新记忆]"))');
-  await input(a, '新记忆', '😀'.repeat(257)); assert.ok(await js(a, `[...document.querySelectorAll('button')].find(b=>b.textContent==='保存明确记忆').disabled`));
-  await input(a, '新记忆', '😀'.repeat(256)); assert.ok(await js(a, `![...document.querySelectorAll('button')].find(b=>b.textContent==='保存明确记忆').disabled`));
+  await input(a, '新记忆', '😀'.repeat(2049)); assert.ok(await js(a, `[...document.querySelectorAll('button')].find(b=>b.textContent==='保存明确记忆').disabled`));
+  await input(a, '新记忆', '😀'.repeat(2048)); assert.ok(await js(a, `![...document.querySelectorAll('button')].find(b=>b.textContent==='保存明确记忆').disabled`));
   await input(a, '新记忆', '房间草稿');
   await js(a, `const input=document.querySelector('textarea[aria-label=新记忆]');input.dispatchEvent(new CompositionEvent('compositionstart',{bubbles:true,data:'稿'}));input.dispatchEvent(new KeyboardEvent('keydown',{bubbles:true,key:'Enter',isComposing:true}));input.dispatchEvent(new CompositionEvent('compositionend',{bubbles:true,data:'稿'}));`);
   assert.equal(await js(a, 'document.querySelectorAll("[data-memory-id]").length'), 0);

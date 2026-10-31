@@ -13,6 +13,7 @@ app.whenReady().then(async () => {
   const result = await build({ stdin: { sourcefile: 'curation-fixture.tsx', resolveDir: resolve(__dirname, '..'), loader: 'tsx', contents: `
     import React from 'react'; import {createRoot} from 'react-dom/client';
     import {MemoryCurationSection} from './renderer/chat/memory-curation-section';
+    import {MemoryCurationController} from './renderer/chat/memory-curation-controller';
     const root=createRoot(document.getElementById('root')); window.actions=[];
     const run={id:'run-1',status:'unknown',note:'结果待核查',leaseHeld:1,startedAt:1800000000000,finishedAt:null};
     const initial={configured:true,enabled:true,revision:3,summaries:[{id:'summary-1',runId:'run-0',text:'先给结论，再解释依据。',reason:'合并两条互补偏好',refs:[{id:'source-1',revision:2}]}],pending:1,stale:0,latestRun:run};
@@ -25,6 +26,17 @@ app.whenReady().then(async () => {
       onSource={(id,revision)=>window.actions.push(['source',id,revision])}
       onHistory={before=>{window.actions.push(['history',before??null]);props={...props,history};render();}}/>);}
     window.setFixture=patch=>{props={...props,...patch};render();};window.initialStatus=initial;render();
+    const listeners=new Set();let pending=[];
+    const notify=()=>listeners.forEach(fn=>fn());
+    const bridge={
+      status:async()=>initial,history:async()=>history,
+      pending:()=>{if(window.breakJournal)throw Error('unreadable journal');return pending;},subscribe:fn=>{listeners.add(fn);return()=>listeners.delete(fn);},
+      async configure(command){window.actions.push(['controller-configure',command.key]);pending=[{key:command.key,outcome:'unknown'}];notify();throw Object.assign(Error('Response unknown'),{outcome:'unknown'});},
+      async inspect(){throw Error('unexpected inspect');},
+      async check(key){window.actions.push(['controller-check',key]);pending=[];notify();return{accepted:true};},
+      async retry(key){window.actions.push(['controller-retry',key]);throw Error('unexpected retry');}
+    };
+    window.mountController=key=>root.render(<MemoryCurationController key={key} bridge={bridge} workspaceId="workspace" scope={{kind:'agent',agentId:'iris'}} scopeLabel="Iris" live={true} onSource={()=>{}}/>);
   ` }, bundle: true, write: false, outdir: 'fixture', format: 'iife', platform: 'browser', define: { 'process.env.NODE_ENV': '"production"' } });
   const js = result.outputFiles.find(f => f.path.endsWith('.js')).text, css = result.outputFiles.find(f => f.path.endsWith('.css')).text;
   server = http.createServer((req, res) => {
@@ -63,6 +75,18 @@ app.whenReady().then(async () => {
   await run('document.body.className="dark"'); win.setSize(360, 900);
   await until('window.innerWidth<=360');
   assert.equal(await run('document.documentElement.scrollWidth<=window.innerWidth'), true);
+  await run('mountController("first")'); await until('document.body.textContent.includes("自动整理已启用")');
+  await click('暂停自动整理'); await until('document.body.textContent.includes("核查原整理请求")');
+  const submittedKey = await run('window.actions.find(a=>a[0]==="controller-configure")[1]');
+  assert.equal(await run('Array.from(document.querySelectorAll("button")).find(b=>b.textContent==="暂停自动整理").disabled'), true);
+  await run('mountController("remount")'); await until('document.body.textContent.includes("核查原整理请求")');
+  assert.equal(await run('window.actions.filter(a=>a[0]==="controller-configure").length'), 1, 'Remount must not resubmit');
+  await click('核查原整理请求'); await until('!document.body.textContent.includes("核查原整理请求")');
+  assert.deepEqual(await run('window.actions.filter(a=>a[0]==="controller-check").at(-1)'), ['controller-check', submittedKey]);
+  assert.equal(await run('window.actions.filter(a=>a[0]==="controller-configure").length'), 1);
+  await run('window.breakJournal=true;mountController("broken-journal")'); await until('document.body.textContent.includes("原请求日志不可读取")');
+  assert.equal(await run('Array.from(document.querySelectorAll("button")).find(b=>b.textContent==="刷新整理状态").disabled'), false);
+  await run('window.breakJournal=false'); await click('刷新整理状态'); await until('!document.body.textContent.includes("原请求日志不可读取")');
   assert.deepEqual(errors, []);
-  console.log('PASS: isolated settings presentation verifies pause/resume intent, lease gating, busy controls, history provenance, scope remount, unconfigured state, narrow dark layout; 0 backend/model calls.');
+  console.log('PASS: isolated settings presentation/controller verifies lease/busy controls, provenance, scope remount, unconfigured/narrow states, unknown request reconciliation without resubmission, recoverable journal errors; 0 backend/model calls.');
 }).catch(error => { console.error(error); process.exitCode = 1; }).finally(async () => { win?.destroy(); if (server) await new Promise(r => server.close(r)); app.exit(process.exitCode || 0); });
