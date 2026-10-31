@@ -1,3 +1,4 @@
+import { formSchema } from './forms.mjs';
 import { z } from 'zod';
 const id = z.string().min(1).max(300);
 const short = z.string().max(200), text = z.string().max(4000);
@@ -31,13 +32,16 @@ artifactToolParameters.properties.spec.properties.elements.additionalProperties 
     children: z.array(id).max(type === 'Section' ? 100 : 0).default([]),
   }))),
 };
-export const artifactRefSchema = item({ artifactId: id, version: z.number().int().positive(), title: short, catalogVersion: z.literal(1) });
+export const artifactRefSchema = item({ kind:z.enum(['report','form']).optional(), artifactId: id, version: z.number().int().positive(), title: short, catalogVersion: z.literal(1) });
 export const artifactMetadataSchema = item({
+  kind:z.enum(['report','form']).optional(),
   artifactId: id, version: z.number().int().positive(), roomId: id, taskId: id,
   runId: id, producerAgentId: id, title: short, catalogVersion: z.number().int().positive(),
   createdAt: z.string(), contentHash: z.string().regex(/^[a-f0-9]{64}$/),
 });
-export const artifactVersionSchema = artifactMetadataSchema.extend({ catalogVersion: z.literal(1), spec: reportSchema });
+export const reportVersionSchema = artifactMetadataSchema.extend({kind:z.literal('report').optional(),catalogVersion:z.literal(1),spec:reportSchema});
+export const formVersionSchema = artifactMetadataSchema.extend({kind:z.literal('form'),catalogVersion:z.literal(1),spec:formSchema});
+export const artifactVersionSchema=z.union([reportVersionSchema,formVersionSchema]);
 export const artifactVersionsSchema = item({ versions: z.array(artifactMetadataSchema).max(100), beforeVersion: z.number().int().positive().nullable() });
 export const artifactQuerySchema = z.discriminatedUnion('type', [
   item({ type: z.literal('artifact'), roomId: id, artifactId: id, version: z.number().int().positive() }),

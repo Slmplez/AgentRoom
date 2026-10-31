@@ -75,7 +75,7 @@ test('schema 1 discussion data migrates intact and default mode never enables lo
   await s.close();
   const { DatabaseSync } = await import('node:sqlite'); const db = new DatabaseSync(path.join(directory, 'application.sqlite'));
   // Remove later tables/columns to exercise discussion-only data migration.
-  db.exec('DROP TABLE attachments; ALTER TABLE messages DROP COLUMN attachment_refs_json; DROP TABLE consultation_jobs; DROP TABLE consultations; DROP TABLE run_context_snapshots; DROP TABLE memory_source_tombstones; DROP TABLE memory_source_links; DROP TABLE memory_revisions; DROP TABLE explicit_memories; DROP TABLE memory_sources; DROP TABLE soul_revisions; DROP TABLE agent_souls; DROP TABLE artifact_versions; DROP TABLE local_tasks; ALTER TABLE messages DROP COLUMN artifact_refs_json; PRAGMA user_version=1;'); db.close();
+  db.exec('DROP TABLE form_responses; DROP TABLE form_waits; ALTER TABLE artifact_versions DROP COLUMN kind; DROP TABLE attachments; ALTER TABLE messages DROP COLUMN attachment_refs_json; DROP TABLE consultation_jobs; DROP TABLE consultations; DROP TABLE run_context_snapshots; DROP TABLE memory_source_tombstones; DROP TABLE memory_source_links; DROP TABLE memory_revisions; DROP TABLE explicit_memories; DROP TABLE memory_sources; DROP TABLE soul_revisions; DROP TABLE agent_souls; DROP TABLE artifact_versions; DROP TABLE local_tasks; ALTER TABLE messages DROP COLUMN artifact_refs_json; PRAGMA user_version=1;'); db.close();
   s = await setup(directory, { execution: null });
   try {
     assert.equal((await s.request(`/rooms/${roomId}/messages`)).data.messages[0].text, '迁移前的消息');

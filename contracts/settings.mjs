@@ -1,3 +1,4 @@
+import { formQuerySchema, formStateSchema, formResponsesSchema } from './forms.mjs';
 import { attachmentQuerySchema, attachmentSchema, pendingAttachmentsSchema } from './attachments.mjs';
 import { z } from 'zod';
 import { consultationQuerySchema, consultationSchema } from './consultations.mjs';
@@ -27,6 +28,7 @@ export const connectionCommands = [
   z.object({ type: z.literal('removeConnection'), key: id, id }),
 ];
 export const querySchema = z.discriminatedUnion('type', [
+  ...formQuerySchema.options,
   ...attachmentQuerySchema.options,
   ...consultationQuerySchema.options,
   ...memoryQuerySchema.options, taskContextQuerySchema,
@@ -40,6 +42,7 @@ export const querySchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('modelCatalog'), connectionId: id, model: z.string().max(200).optional() }),
 ]);
 export const queryResults = {
+  formState: formStateSchema, formResponses:formResponsesSchema,
   attachment: attachmentSchema, pendingAttachments: pendingAttachmentsSchema,
   consultation: consultationSchema, consultations: z.array(consultationSchema), consultationContext: runContextSnapshotSchema,
   ...memoryQueryResults, taskContextSnapshot: taskContextResultSchema,

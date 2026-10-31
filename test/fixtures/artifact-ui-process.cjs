@@ -18,7 +18,7 @@ const path = require('node:path');
       const { DatabaseSync } = await import('node:sqlite'); const db = new DatabaseSync(path.join(directory, 'application.sqlite'));
       original ||= db.prepare('SELECT * FROM artifact_versions WHERE version=1').get();
       db.prepare('DELETE FROM artifact_versions WHERE artifact_id=? AND version=1').run(original.artifact_id);
-      if (m.mode !== 'missing') db.prepare('INSERT INTO artifact_versions VALUES(?,?,?,?,?,?,?,?,?,?,?,?)').run(...Object.values({ ...original, ...(m.mode === 'corrupt' ? { content_json: '{}' } : {}), ...(m.mode === 'catalog' ? { catalog_version: 2 } : {}) }));
+      if (m.mode !== 'missing') db.prepare('INSERT INTO artifact_versions VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)').run(...Object.values({ ...original, ...(m.mode === 'corrupt' ? { content_json: '{}' } : {}), ...(m.mode === 'catalog' ? { catalog_version: 2 } : {}) }));
       db.close(); process.send({ type: 'test-state-ready' });
     }
     if (m.type === 'shutdown') { await http.close(); runtime.close(); process.disconnect(); }

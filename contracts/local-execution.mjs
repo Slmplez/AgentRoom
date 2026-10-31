@@ -17,5 +17,6 @@ export const localTaskSchema = z.object({
   result: z.string().max(16000), delivery: z.enum(['none', 'pending', 'attempting', 'submitted', 'unknown']),
   leaseHeld: z.boolean().default(false),
   question: localQuestionSchema.nullable(), history: z.array(localQuestionSchema),
+  formWait: z.object({artifactId:id,version:revision.positive(),title:z.string()}).optional(),
   contextSnapshotId: id.optional(),
 });

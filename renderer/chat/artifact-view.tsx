@@ -2,14 +2,14 @@ import React, { useEffect, useRef, useState } from 'react';
 import type { Spec } from '@json-render/core';
 import type { z } from 'zod';
 import { ReportContent } from './report-content';
-import { artifactVersionSchema, artifactVersionsSchema, reportSchema } from '../../contracts/artifacts.mjs';
+import { reportVersionSchema as artifactVersionSchema, artifactVersionsSchema, reportSchema } from '../../contracts/artifacts.mjs';
 import { useEntrance } from './motion';
 import './artifact-view.css';
 import { PreviewMode, ReportSummary } from './preview-mode';
 
 type Report = z.infer<typeof artifactVersionSchema>;
 type Version = z.infer<typeof artifactVersionsSchema>['versions'][number];
-export type ArtifactSelection = { roomId: string; artifactId: string; version: number; title: string; messageId: string };
+export type ArtifactSelection = { kind?: 'report' | 'form'; roomId: string; artifactId: string; version: number; title: string; messageId: string };
 type Reader = { query(input: { type: 'artifact'; roomId: string; artifactId: string; version: number } | { type: 'artifactVersions'; roomId: string; artifactId: string; beforeVersion?: number; limit?: number }): Promise<unknown> };
 
 function errorText(error: unknown) {

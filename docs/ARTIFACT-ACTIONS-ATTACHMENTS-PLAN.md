@@ -136,3 +136,7 @@ flowchart LR
 随后指定 UI 会话完成了实机验证，交付 `ed42314ea6f1eace382bf0424c746cabbd5f4d34`（base `30c8f1c`）。已只读核对其 docs/MAGPIE-REAL-VALIDATION.md 和脱敏证据：官方 Windows CLI v0.1.2286、真实网关加受控上游通过目录/工具流续接/错误/取消；外部 DeepSeek `deepseek-flash` 完成文本、工具调用与结果续接，共 3 次推理、398 tokens。此更新覆盖“尚缺实机证据”的旧结论，不保证其他供应商或取消后的计费停止。
 
 当前是等待监督收取该验证提交；不是等待用户发送密钥。重跑所需 CLI 位于该会话忽略目录，需显式 MAGPIE_TEST_BINARY；外部重跑仍需可用认证和付费调用授权，不自动复跑。本会话未安装/启动 Magpie、未读取密钥或发起外部推理，验证证据来自上述专项会话。
+
+## 2026-10-31 实施更新
+
+附件 #38 已集成 main `63058a3` 并关闭。表单 #39 在 `codex/artifact-actions` 完成开发分支验收：实际契约为 `contracts/forms.mjs`，内部行为为 `lib/application-runtime/forms.mjs`，独立界面为 `renderer/chat/form-view.tsx`，通过现有 local-execution 调度和 Pi 工具桥接，不新增根任务执行队列。固定产品动作映射到 submitForm / continueForm，保存与继续分别有原子回执。详细接口、恢复语义、启动方式及验证边界见 [真实表单说明](REAL-FORMS.md)。等待监督收取固定源提交后统一主线验收。

@@ -1,6 +1,6 @@
 import React, { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import type { Spec } from '@json-render/core';
-import { artifactVersionSchema } from '../../contracts/artifacts.mjs';
+import { reportVersionSchema as artifactVersionSchema } from '../../contracts/artifacts.mjs';
 import type { ChatClient } from './types';
 import type { ArtifactSelection } from './artifact-view';
 const ReportContent = lazy(() => import('./report-content'));

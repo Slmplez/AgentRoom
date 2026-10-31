@@ -5,9 +5,11 @@ const { createInterface } = require('node:readline');
 async function main() {
   const args = process.argv.slice(2);
   if (args.includes('--help')) {
-    console.log('node scripts/start-persistence-server.cjs --data-dir <isolated-directory> [--port 0] [--agent-workspace <trusted-read-only-directory>] [--agent-reports] [--consultation-config <trusted-json>]\nAgent execution is opt-in, single local owner, Pi RPC with read-only tools. Without --agent-workspace this remains discussion-only.\nStandalone launch requires a 64-character random hex token in one JSON line on stdin: {"token":"..."}. Do not log that line. With fork IPC, credentials are returned only on the private IPC channel.');
+    console.log('node scripts/start-persistence-server.cjs --data-dir <isolated-directory> [--port 0] [--agent-workspace <trusted-read-only-directory>] [--agent-reports] [--agent-forms] [--consultation-config <trusted-json>]\nAgent execution is opt-in, single local owner, Pi RPC with read-only tools. Without --agent-workspace this remains discussion-only.\nStandalone launch requires a 64-character random hex token in one JSON line on stdin: {"token":"..."}. Do not log that line. With fork IPC, credentials are returned only on the private IPC channel.');
     return;
   }
+  const agentForms=args.includes('--agent-forms');
+  if(agentForms)args.splice(args.indexOf('--agent-forms'),1);
   const agentReports = args.includes('--agent-reports');
   if (agentReports) args.splice(args.indexOf('--agent-reports'), 1);
   let directory, agentWorkspace, consultationConfig, port = 0;
@@ -16,9 +18,10 @@ async function main() {
     else if (args[i] === '--consultation-config' && args[i + 1]) consultationConfig = path.resolve(args[i + 1]);
     else if (args[i] === '--agent-workspace' && args[i + 1]) agentWorkspace = path.resolve(args[i + 1]);
     else if (args[i] === '--port' && /^\d+$/.test(args[i + 1] || '')) port = Number(args[i + 1]);
-    else throw new Error('Use --data-dir <isolated-directory> [--port 0] [--agent-workspace <trusted-directory>] [--agent-reports] [--consultation-config <trusted-json>].');
+    else throw new Error('Use --data-dir <isolated-directory> [--port 0] [--agent-workspace <trusted-directory>] [--agent-reports] [--agent-forms] [--consultation-config <trusted-json>].');
   }
   if (!directory) throw new Error('An explicit isolated --data-dir is required.');
+  if(agentForms && (!agentReports || !agentWorkspace))throw Error('--agent-forms requires --agent-reports and --agent-workspace.');
   if (agentReports && !agentWorkspace) throw new Error('--agent-reports requires --agent-workspace.');
   let token;
   if (!process.send) {
@@ -35,7 +38,7 @@ async function main() {
     const { createPiQuestionEngine } = await import(pathToFileURL(path.join(__dirname, '../lib/local-question-engine.mjs')));
     const { createPiArtifactEngine } = await import(pathToFileURL(path.join(__dirname, '../lib/pi-artifact-engine.mjs')));
     const { inspectPiStopped } = await import(pathToFileURL(path.join(__dirname, '../lib/consultation-agents.mjs')));
-    execution = { agentId: 'local-pi', artifacts: agentReports, inspectStopped: inspectPiStopped, createEngine: ({ publishArtifact, executionTag }) => agentReports ? createPiArtifactEngine({ directory: agentWorkspace, publishArtifact, executionTag }) : createPiQuestionEngine({ directory: agentWorkspace, executionTag }) };
+    execution = { agentId: 'local-pi', artifacts: agentReports, forms:agentForms, inspectStopped: inspectPiStopped, createEngine: ({ publishArtifact, requestForm, acknowledgeForm, executionTag }) => agentReports ? createPiArtifactEngine({ directory: agentWorkspace, publishArtifact, requestForm, acknowledgeForm, executionTag }) : createPiQuestionEngine({ directory: agentWorkspace, executionTag }) };
   }
   const { loadConsultationAgents } = await import(pathToFileURL(path.join(__dirname, '../lib/consultation-agents.mjs')));
   const consultationAgents = consultationConfig ? await loadConsultationAgents(consultationConfig) : [];

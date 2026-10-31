@@ -1,10 +1,11 @@
+import type { formStateSchema } from '../../contracts/forms.mjs';
 import type { attachmentSchema } from '../../contracts/attachments.mjs';
 import type { z } from 'zod';
 import type { snapshotSchema, messageSchema, approvalSchema, commandSchema } from '../../contracts/chat.mjs';
 import type { querySchema, queryResults } from '../../contracts/settings.mjs';
 export type Query = z.input<typeof querySchema>;
 export type QueryResult<T extends Query['type']> = z.infer<(typeof queryResults)[T]>;
-export type Snapshot = z.infer<typeof snapshotSchema> & { connection: string; error: string; backendId?: string; databaseId?: string; beforeSequence?: number | null; historyLoading?: boolean; syncNotice?: string; pendingOperations?: { key: string; outcome: string; type?: string; name?: string; attachmentId?: string; taskId?: string; consultationId?: string; entityId?: string; memoryScope?: { kind: 'agent'; agentId: string } | { kind: 'room'; roomId: string } }[] };
+export type Snapshot = z.infer<typeof snapshotSchema> & { connection: string; error: string; backendId?: string; databaseId?: string; beforeSequence?: number | null; historyLoading?: boolean; syncNotice?: string; pendingOperations?: { key: string; outcome: string; type?: string; artifactId?: string; version?: number; name?: string; attachmentId?: string; taskId?: string; consultationId?: string; entityId?: string; memoryScope?: { kind: 'agent'; agentId: string } | { kind: 'room'; roomId: string } }[] };
 export type Attachment = z.infer<typeof attachmentSchema>;
 export type Message = z.infer<typeof messageSchema>;
 export type Approval = z.infer<typeof approvalSchema>;
@@ -20,9 +21,9 @@ export interface ChatClient {
   open(): Promise<void>;
   close(): void;
   loadOlderMessages?(options?: { limit?: number }): Promise<number>;
-  checkOperation?(key: string, commandType?: string): Promise<{ accepted: boolean; messageId?: string | null } | null>;
-  retryOperation?(key: string): Promise<{ accepted: boolean; messageId?: string | null }>;
-  dispatch(command: Command): Promise<{ accepted: boolean; operationId?: string; entityId?: string }>;
+  checkOperation?(key: string, commandType?: string): Promise<{ accepted: boolean; messageId?: string | null; form?: z.infer<typeof formStateSchema> } | null>;
+  retryOperation?(key: string): Promise<{ accepted: boolean; messageId?: string | null; form?: z.infer<typeof formStateSchema> }>;
+  dispatch(command: Command): Promise<{ accepted: boolean; operationId?: string; entityId?: string; form?: z.infer<typeof formStateSchema> }>;
 }
 export interface PlatformClient {
   desktop: boolean; windowAction(action: string): void; openWorkbench(section?: string): void;
