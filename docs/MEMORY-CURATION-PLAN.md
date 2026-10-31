@@ -4,7 +4,7 @@
 
 ## 交付状态与分工
 
-当前提交是独立前置切片：契约、SQLite schema 安装函数、整理 Module、无工具 Pi Adapter、SQLite 测试、真实 Pi + 回环推理验证。**尚未接入 ApplicationRuntime、正式数据库迁移、HTTP、Client、设置或任务启动。当前产品仍执行原来的 16 条 / 256 字符规则，不能称为后台整理已经启用。**
+当前提交是独立前置切片：契约、SQLite schema 安装函数、整理 Module、无工具 Pi Adapter、专用模型配置解析、设置展示模块、SQLite 测试及真实 Pi + 回环推理验证。**尚未接入 ApplicationRuntime、正式数据库迁移、HTTP、Client、正式设置入口或任务启动。当前产品仍执行原来的 16 条 / 256 字符规则，不能称为后台整理已经启用。**
 
 工作副本 `E:/Repo/ASCET/agent-chat-desktop-memory-curator`，分支 `codex/memory-curator`，基线 `335a618`，owner 为当前记忆设置聊天。没有修改共享主目录或附件、表单任务的文件。`node_modules` junction 指向主副本，仅用于读取相同依赖，不执行依赖安装或共享产物构建。
 
@@ -73,3 +73,33 @@ Interface：`recover()`、`tick()`、`configure(scope, {enabled, expectedRevisio
 `node scripts/verify-memory-curator.cjs`：真实安装的 Pi CLI、流式本地推理端点、真实 SQLite；核对传出的确切 prompt、零工具、来源引用、自动应用及 Soul 不变。1 次本地请求，0 次付费调用。
 
 `node scripts/verify-memory-curator.cjs --failure`：真实 Pi 收到 HTTP 503；只产生 1 次本地请求，无内部自动重试、无摘要应用，0 次付费调用。这验证了执行协议和预算行为，不证明外部模型的语义整理质量。
+
+## 已准备的宿主配置与展示模块
+
+`loadMemoryCuratorConfig(file)` 仅由可信宿主启动时调用，返回专用引擎配置。文件最多 64 KiB，不能携带任意 argv、工作目录、扩展路径或明文密钥。密钥通过 `credentialEnv` 引用已有环境变量，在宿主网关使用，不进入可序列化配置或页面。读取配置不会启动进程、模型请求或凭据发现。生产启动参数和现有连接管理的映射仍待共享入口交接。
+
+```json
+{
+  "version": 1,
+  "agentId": "memory-curator",
+  "displayName": "记忆整理员",
+  "model": "<明确的模型 ID>",
+  "connection": {
+    "baseUrl": "https://your-gateway.example/v1",
+    "protocol": "chat",
+    "authMode": "bearer",
+    "credentialEnv": "AGENTROOM_MEMORY_API_KEY",
+    "contextWindow": 128000,
+    "maxTokens": 8192
+  }
+}
+```
+
+`MemoryCurationSection` 是独立展示模块：显示启用/暂停、待处理数量、原进程核查、明确允许重新整理、摘要来源与历史归档理由。它不直接 fetch、轮询、保存凭据或生成命令 key。将来由 Settings/Client controller 按 backend/database/owner/scope 挂载，持有正确的查询状态和幂等日志，不能跨归属复用历史。`memory-curation-view.mjs` 提供当前 Module 返回值对应的严格只读 schema。
+
+补充验证：
+
+- `node --test test/memory-curation.test.cjs test/memory-curator-config.test.cjs`：20 项通过（17 项整理 + 3 项配置），实际 Module 状态与历史通过展示契约解析。
+- `node scripts/verify-memory-curator.cjs --configured`：配置文件 → 宿主网关 → 真实 Pi → SQLite 自动应用完整通过；读取配置零请求，整轮 1 次本地请求、0 次付费调用。
+- `npm run check:chat`：设置展示 TypeScript 检查通过。
+- `electron scripts/verify-memory-curation-section.cjs --disable-gpu`：独立展示夹具验证暂停/重新开始意图、lease 控制、忙碌禁用、历史来源、跨 scope 卸载、未配置状态、窄屏深色布局。0 次生产 API/模型调用；这不是正式设置接入验收。

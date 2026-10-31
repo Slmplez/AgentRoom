@@ -1,0 +1,12 @@
+.memory-curation-section { min-width: 0; }
+.memory-curation-section header, .memory-curation-controls { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
+.memory-curation-section header > div { flex: 1 1 240px; }
+.memory-curation-section p, .memory-curation-section li, .memory-curation-section small { overflow-wrap: anywhere; }
+.memory-curation-section article, .memory-curation-run { border: 1px solid var(--line-strong); border-radius: 8px; padding: 12px; margin-block: 12px; }
+.memory-curation-section ul { padding-inline-start: 20px; }
+.memory-curation-section li { margin-block: 6px; }
+.memory-curation-section details { margin-block: 12px; }
+.memory-curation-section summary { cursor: pointer; }
+.memory-curation-section button { max-width: 100%; white-space: normal; text-align: start; }
+.memory-curation-change { border-inline-start: 2px solid var(--line-strong); padding-inline-start: 12px; margin-block: 12px; }
+.memory-curation-section :focus-visible { outline: 2px solid currentColor; outline-offset: 3px; }

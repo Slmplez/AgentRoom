@@ -9,6 +9,7 @@ const { engineConnection } = require('../lib/engine-connections.cjs');
 (async () => {
   const directory = await fs.mkdtemp(join(tmpdir(), 'ar-curator-verification-'));
   const failure = process.argv.includes('--failure');
+  const configured = process.argv.includes('--configured');
   let calls = 0, db, curator, captured, providerError;
   const provider = http.createServer(async (req, res) => {
     try {
@@ -46,7 +47,16 @@ const { engineConnection } = require('../lib/engine-connections.cjs');
       memories.apply({ type: 'editAgentSoul', agentId: 'iris', expectedRevision: 0, personality: 'SOUL_MUST_STAY_PRIVATE', expression: '清晰', workStyle: '严谨' }, actor, new Date().toISOString());
       for (const text of ['先给结论', '再解释依据']) memories.apply({ type: 'saveExplicitMemory', scope, text, source: { kind: 'owner-note' } }, actor, new Date().toISOString());
     });
-    curator = createMemoryCurator({ db, atomic, allowedScope: s => s.kind === 'agent' && s.agentId === 'iris', engine: { agentId: 'memory-curator', model: 'memory-fixture', createEngine: ({ executionTag }) => createPiMemoryCuratorEngine({ args: config.args, env: { ...process.env, ...config.env }, executionTag }) } });
+    let engine = { agentId: 'memory-curator', model: 'memory-fixture', createEngine: ({ executionTag }) => createPiMemoryCuratorEngine({ args: config.args, env: { ...process.env, ...config.env }, executionTag }) };
+    if (configured) {
+      const { loadMemoryCuratorConfig } = await import('../lib/memory-curator-config.mjs');
+      const file = join(directory, 'curator.json');
+      await fs.writeFile(file, JSON.stringify({ version: 1, agentId: 'memory-curator', displayName: '本地验证整理员', model: 'memory-fixture', connection: { baseUrl: profile.baseUrl + '/v1', protocol: 'chat', authMode: 'bearer', credentialEnv: 'CURATOR_FIXTURE_TOKEN', maxTokens: 8192 } }));
+      engine = await loadMemoryCuratorConfig(file, { env: { ...process.env, CURATOR_FIXTURE_TOKEN: 'LOOPBACK-ONLY' } });
+      assert.doesNotMatch(JSON.stringify(engine), /LOOPBACK-ONLY/);
+      assert.equal(calls, 0, 'Loading a host configuration must not call a model');
+    }
+    curator = createMemoryCurator({ db, atomic, allowedScope: s => s.kind === 'agent' && s.agentId === 'iris', engine });
     await curator.tick(); if (providerError) throw providerError;
     if (failure) {
       assert.equal(calls, 1, 'Pi must not retry transient provider failures');

@@ -54,6 +54,9 @@ test('automatic merge preserves raw source versions and Souls; queries and uncha
   assert.equal(s.starts(), 0);
   await s.curator.tick();
   const status = s.curator.status(iris);
+  const { curationStatusSchema, curationHistorySchema } = await import('../contracts/memory-curation-view.mjs');
+  assert.equal(curationStatusSchema.safeParse(status).success, true);
+  assert.equal(curationHistorySchema.safeParse(s.curator.history(iris)).success, true);
   assert.equal(status.latestRun.status, 'applied'); assert.equal(status.pending, 0);
   assert.equal(status.summaries.length, 1); assert.deepEqual(new Set(status.summaries[0].refs.map(r => r.id)), new Set([a, b]));
   assert.deepEqual(s.db.prepare('SELECT * FROM memory_revisions ORDER BY memory_id').all(), before);
