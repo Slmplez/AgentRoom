@@ -33,6 +33,15 @@ app.whenReady().then(async()=>{
  await click('.review-file-toolbar > button');await until('document.querySelector(".review-editor [role=status]")?.textContent.includes("已自动保存")');await run('document.querySelector(".review-editor textarea").focus();document.querySelector(".review-editor textarea").select()');await win.webContents.insertText('export const title = "edited";\n');await until('document.querySelector(".review-editor [role=status]")?.textContent.includes("已自动保存")');assert.equal(await fs.readFile(file,'utf8'),'export const title = "edited";\n');await capture('file-review-autosaved');
  await fs.writeFile(file,'outside edit\n');await run('document.querySelector(".review-editor textarea").focus()');await win.webContents.insertText('// local draft\n');await until('Boolean(document.querySelector(".review-conflict"))');assert.equal(await fs.readFile(file,'utf8'),'outside edit\n');await capture('file-review-conflict');
  await load();await click('.review-file-toolbar > button');await until('Boolean(document.querySelector(".review-conflict"))');assert.ok(await run('document.querySelector(".review-editor textarea").value.includes("local draft")'));
- await run('document.documentElement.dataset.theme="dark"');win.setContentSize(390,800);await capture('file-review-conflict-dark-narrow');assert.ok(await run('document.documentElement.scrollWidth<=innerWidth'));
+ await run('document.documentElement.dataset.theme="dark"');win.setContentSize(390,800);await click('[aria-label=文件列表]');await until('!document.querySelector(".diff-file-list")');
+ await run('document.querySelector(".diff-code-scroll").scrollTop=0');
+ assert.ok(await run('(()=>{const r=document.querySelector(".review-editor textarea").getBoundingClientRect();return r.left>=0&&r.right<=innerWidth})()'));
+ await run('document.querySelector(".review-conflict button").scrollIntoView({block:"center"})');
+ assert.ok(await run('(()=>{const r=document.querySelector(".review-conflict button").getBoundingClientRect();return r.left>=0&&r.right<=innerWidth&&r.top>=0&&r.bottom<=innerHeight})()'));
+ await capture('file-review-conflict-dark-narrow');assert.ok(await run('document.documentElement.scrollWidth<=innerWidth'));
+ await click('.review-conflict button');await until('document.querySelector(".review-editor [role=status]")?.textContent.includes("已自动保存")');assert.equal(await run('document.querySelector(".review-editor textarea").value'),'outside edit\n');
+ await run('document.querySelector(".review-editor-toolbar button").scrollIntoView({block:"center"})');
+ assert.ok(await run('(()=>{const r=document.querySelector(".review-editor-toolbar button").getBoundingClientRect();return r.top>=0&&r.bottom<=innerHeight})()'));
+ await click('.review-editor-toolbar button');await until('Boolean(document.querySelector("diffs-container")?.shadowRoot?.querySelector("code"))');
  assert.deepEqual(errors,[]);console.log('Passed: authenticated real-file HTTP, line comment input/save/restart, autosave to disk, conflict protection, reload draft recovery and narrow dark layout.');
 }).catch(e=>{console.error(e);process.exitCode=1}).finally(async()=>{win?.destroy();server?.close();service?.close();if(temp)await fs.rm(temp,{recursive:true,force:true});app.exit(process.exitCode||0)});
