@@ -26,7 +26,7 @@ for (const file of files('renderer')) {
   const source = fs.readFileSync(path.join(root, file), 'utf8');
   reject(file, source, /(?:from\s*|require\s*\(|import\s*\()\s*['"](?:node:|electron|(?:\.\.\/)+lib\/)/, 'renderer must not import backend or host implementations');
   if (file.startsWith('renderer/client/')) {
-    if (!['renderer/client/transport.mjs', 'renderer/client/persistent.mjs', 'renderer/client/bootstrap.mjs'].includes(file)) reject(file, source, /\b(?:fetch|EventSource|ipcRenderer)\b|\b(?:window|globalThis)\.agentRoom\w*/, 'only transport/bootstrap adapters access host or network');
+    if (!['renderer/client/transport.mjs', 'renderer/client/persistent.mjs', 'renderer/client/file-review-transport.mjs', 'renderer/client/bootstrap.mjs'].includes(file)) reject(file, source, /\b(?:fetch|EventSource|ipcRenderer)\b|\b(?:window|globalThis)\.agentRoom\w*/, 'only transport/bootstrap adapters access host or network');
     continue;
   }
   reject(file, source, /\b(?:fetch|EventSource|ipcRenderer)\b|\b(?:window|globalThis)\.agentRoom\w*|\.rpc\b|\.sessionId\b|agent-room-(?:dm-)?\$?\{/, 'pages must use Client/Platform interfaces, not wire protocols');
