@@ -10,6 +10,7 @@ const { engineConnection } = require('../lib/engine-connections.cjs');
   const directory = await fs.mkdtemp(join(tmpdir(), 'ar-curator-verification-'));
   const failure = process.argv.includes('--failure');
   const configured = process.argv.includes('--configured');
+  const oversized = process.argv.includes('--oversize');
   let calls = 0, db, curator, captured, providerError;
   const provider = http.createServer(async (req, res) => {
     try {
@@ -23,7 +24,7 @@ const { engineConnection } = require('../lib/engine-connections.cjs');
       assert.deepEqual(new Set(inputs.map(i => i.text)), new Set(['先给结论', '再解释依据']));
       assert.ok(texts.every(text => !text.includes('SOUL_MUST_STAY_PRIVATE')));
       if (failure) { res.writeHead(503, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: { message: 'Local transient failure fixture', type: 'server_error' } })); return; }
-      const text = JSON.stringify({ summaries: [{ inputs: inputs.map(i => i.key), text: '先给结论，再解释依据。', reason: '合并同一 Agent 的两条互补表达偏好。' }], archives: [] });
+      const text = oversized ? 'x'.repeat(65537) : JSON.stringify({ summaries: [{ inputs: inputs.map(i => i.key), text: '先给结论，再解释依据。', reason: '合并同一 Agent 的两条互补表达偏好。' }], archives: [] });
       const base = { id: 'curation-local', model: 'memory-fixture', created: 1, object: 'chat.completion.chunk' };
       res.writeHead(200, { 'content-type': 'text/event-stream' });
       res.write('data: ' + JSON.stringify({ ...base, choices: [{ index: 0, delta: { role: 'assistant', content: text }, finish_reason: null }] }) + '\n\n');
@@ -58,12 +59,12 @@ const { engineConnection } = require('../lib/engine-connections.cjs');
     }
     curator = createMemoryCurator({ db, atomic, allowedScope: s => s.kind === 'agent' && s.agentId === 'iris', engine });
     await curator.tick(); if (providerError) throw providerError;
-    if (failure) {
+    if (failure || oversized) {
       assert.equal(calls, 1, 'Pi must not retry transient provider failures');
       assert.equal(curator.status(scope).summaries.length, 0);
       assert.equal(curator.status(scope).latestRun.status, 'unknown');
       await curator.tick(); assert.equal(calls, 1);
-      console.log('PASS: real Pi transient 503 produced exactly 1 local request, 0 retries, 0 applied summaries, 0 paid calls.'); return;
+      console.log(`PASS: real Pi ${oversized ? 'oversized stream' : 'transient 503'} produced exactly 1 local request, 0 retries, 0 applied summaries, 0 paid calls.`); return;
     }
     const state = curator.status(scope); assert.equal(state.latestRun.status, 'applied', JSON.stringify(state.latestRun));
     assert.equal(state.summaries[0].text, '先给结论，再解释依据。');

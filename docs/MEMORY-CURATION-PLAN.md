@@ -103,3 +103,4 @@ Interface：`recover()`、`tick()`、`configure(scope, {enabled, expectedRevisio
 - `node scripts/verify-memory-curator.cjs --configured`：配置文件 → 宿主网关 → 真实 Pi → SQLite 自动应用完整通过；读取配置零请求，整轮 1 次本地请求、0 次付费调用。
 - `npm run check:chat`：设置展示 TypeScript 检查通过。
 - `electron scripts/verify-memory-curation-section.cjs --disable-gpu`：独立展示夹具验证暂停/重新开始意图、lease 控制、忙碌禁用、历史来源、跨 scope 卸载、未配置状态、窄屏深色布局。0 次生产 API/模型调用；这不是正式设置接入验收。
+- `node scripts/verify-memory-curator.cjs --configured --oversize`：真实 Pi 输出超过 64 KiB 时在流式事件中停止执行，不等到最终 JSON 应用；1 次本地请求、无重试、无摘要应用，0 次付费调用。Adapter 也在派发前检查实际输入字节数。

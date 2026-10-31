@@ -16,7 +16,7 @@ app.whenReady().then(async () => {
     const root=createRoot(document.getElementById('root')); window.actions=[];
     const run={id:'run-1',status:'unknown',note:'结果待核查',leaseHeld:1,startedAt:1800000000000,finishedAt:null};
     const initial={configured:true,enabled:true,revision:3,summaries:[{id:'summary-1',runId:'run-0',text:'先给结论，再解释依据。',reason:'合并两条互补偏好',refs:[{id:'source-1',revision:2}]}],pending:1,stale:0,latestRun:run};
-    const history={before:null,runs:[{...run,position:1,input:{scope:{kind:'agent',agentId:'iris'},executor:{agentId:'memory-curator',model:'fixture'},inputs:[{key:'input-1',text:'旧的临时安排',refs:[{id:'source-2',revision:1}]}]},output:{summaries:[],archives:[{inputs:['input-1'],reason:'已被明确取消'}]}}]};
+    const history={before:null,runs:[{id:'run-0',status:'applied',note:'整理已应用',startedAt:1800000000000,finishedAt:1800000001000,position:1,input:{scope:{kind:'agent',agentId:'iris'},executor:{agentId:'memory-curator',model:'fixture'},inputs:[{key:'input-1',kind:'record',text:'旧的临时安排',refs:[{id:'source-2',revision:1}]}],selected:[{id:'source-2',revision:1}],prompt:'隔离界面夹具'},output:{summaries:[],archives:[{inputs:['input-1'],reason:'已被明确取消'}]}}]};
     let props={scopeLabel:'Iris',status:initial,history:null,busy:false,modelLabel:'fixture'};
     function render(){root.render(<MemoryCurationSection key={props.scopeLabel} {...props}
       onRefresh={()=>window.actions.push(['refresh'])}
@@ -42,6 +42,8 @@ app.whenReady().then(async () => {
   const click = text => run(`Array.from(document.querySelectorAll('button')).find(b=>b.textContent===${JSON.stringify(text)}).click()`);
   await win.loadURL(origin); await until('Boolean(document.querySelector(".memory-curation-section"))');
   assert.deepEqual(await run('window.actions'), []);
+  await run('document.querySelector(".memory-curation-summaries details").open=true');
+  await click('来源 source-1 · v2'); assert.deepEqual(await run('window.actions.at(-1)'), ['source', 'source-1', 2]);
   assert.equal(await run('document.body.textContent.includes("允许重新整理当前记录")'), false);
   await click('核查原整理进程'); assert.deepEqual(await run('window.actions.at(-1)'), ['inspect', 'run-1']);
   await run('setFixture({status:{...initialStatus,latestRun:{...initialStatus.latestRun,leaseHeld:0}}})');
