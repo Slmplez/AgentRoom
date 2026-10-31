@@ -17,6 +17,7 @@ test('real Git changes combine staged, unstaged and untracked files without writ
  const before=f.git('status','--porcelain=v1');const result=f.changes();assert.equal(result.complete,true);assert.equal(result.files.length,2);
  assert.match(result.files.find(x=>x.file==='file.txt').patch,/-original\n\+latest/);assert.match(result.files.find(x=>x.file==='新增 文件.txt').patch,/\+untracked/);
  assert.ok(result.files.every(x=>x.editable));assert.equal(f.git('status','--porcelain=v1'),before);
+ const {parsePatchFiles}=await import('@pierre/diffs');for(const file of result.files)assert.equal(parsePatchFiles(file.patch).flatMap(x=>x.files)[0].name,file.file);
  assert.throws(()=>f.changes({root:f.dir}),{code:'invalid_request'});assert.throws(()=>f.changes({},'other'),{code:'forbidden'});
 });
 test('unborn repositories expose complete added-file patches',async t=>{
@@ -45,4 +46,20 @@ test('Git diff never executes configured clean filters',async t=>{
 test('missing Git and non-repository roots have explicit errors',async t=>{
  const f=await fixture(t),old=process.env.PATH;try{process.env.PATH='';assert.throws(()=>f.changes(),{code:'git_unavailable'});}finally{process.env.PATH=old;}
  fs.renameSync(path.join(f.root,'.git'),path.join(f.dir,'git-backup'));assert.throws(()=>f.changes(),{code:'git_read_failed'});
+});
+test('Git executable is absolute and never selected from the workspace',async t=>{
+ const f=await fixture(t),{resolveReviewGit}=await import('../lib/file-review/workspace-changes.mjs'),old=process.env.PATH;
+ // Inert marker only: if this were chosen it would fail to execute, never run untrusted code.
+ f.write(process.platform==='win32'?'git.exe':'git','inert test marker');
+ try{process.env.PATH=f.root+path.delimiter+'.'+path.delimiter+old;const executable=resolveReviewGit(f.root);assert.ok(path.isAbsolute(executable));assert.ok(!executable.startsWith(f.root+path.sep));assert.ok(f.changes().complete);}finally{process.env.PATH=old;}
+});
+test('diff uses validated content snapshot after source becomes an outside hardlink',async t=>{
+ const f=await fixture(t),{readWorkspaceChanges}=await import('../lib/file-review/workspace-changes.mjs');
+ f.write('file.txt','validated workspace content\n');const outside=path.join(f.dir,'isolated-marker.txt');fs.writeFileSync(outside,'ISOLATED_OUTSIDE_MARKER\n');
+ const result=readWorkspaceChanges(f.root,(root,file)=>{
+  const target=path.join(root,file),stat=fs.statSync(target);assert.equal(stat.nlink,1);const text=fs.readFileSync(target,'utf8');
+  fs.unlinkSync(target);fs.linkSync(outside,target);return {text};
+ });
+ const patch=result.files.find(x=>x.file==='file.txt').patch;assert.match(patch,/validated workspace content/);assert.doesNotMatch(patch,/ISOLATED_OUTSIDE_MARKER/);
+ assert.equal(fs.readFileSync(outside,'utf8'),'ISOLATED_OUTSIDE_MARKER\n');
 });
