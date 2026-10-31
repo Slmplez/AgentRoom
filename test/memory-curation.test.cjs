@@ -203,6 +203,27 @@ test('host scope authorization applies to read/configuration/history and schedul
   for (const fn of [() => s.curator.status(ember), () => s.curator.context(ember), () => s.curator.history(ember), () => s.curator.configure(ember, { enabled: true, expectedRevision: 0 })]) assert.throws(fn, { code: 'not_found' });
 });
 
+test('Room message provenance cannot cross Room or Agent scope and deletion keeps the original tombstone', async t => {
+  const s = await setup(t), workspace = s.db.prepare('SELECT workspace_id FROM database_meta').get().workspace_id;
+  const roomA = { kind: 'room', roomId: randomUUID() }, roomB = { kind: 'room', roomId: randomUUID() }, messageId = randomUUID();
+  s.atomic(() => {
+    for (const scope of [roomA, roomB]) s.db.prepare('INSERT INTO rooms(id,workspace_id,title) VALUES(?,?,?)').run(scope.roomId, workspace, scope.roomId);
+    s.db.prepare('INSERT INTO messages(id,room_id,sequence,author_id,author_kind,author_name_snapshot,text,created_at) VALUES(?,?,?,?,?,?,?,?)').run(messageId, roomA.roomId, 1, s.actor.id, 'human', 'Owner', 'Room A 原始决策', new Date().toISOString());
+  });
+  const a = s.apply({ type: 'saveExplicitMemory', scope: roomA, text: 'ROOM_A', source: { kind: 'message', messageId, revision: 1 } }).entityId;
+  s.seed('ROOM_B', roomB);
+  await s.curator.tick(); s.advance(); await s.curator.tick();
+  assert.equal(s.curator.context(roomA).items[0].text, 'ROOM_A'); assert.equal(s.curator.context(roomB).items[0].text, 'ROOM_B');
+  assert.deepEqual(s.curator.context(iris).items, []);
+  // A valid text hash does not excuse a forged source Room.
+  s.db.prepare('UPDATE memory_sources SET room_id=? WHERE message_id=?').run(roomB.roomId, messageId);
+  assert.throws(() => s.curator.context(roomA), { code: 'memory_unavailable' });
+  s.db.prepare('UPDATE memory_sources SET room_id=? WHERE message_id=?').run(roomA.roomId, messageId);
+  s.forget(a, 1, roomA); assert.deepEqual(s.curator.context(roomA).items, []);
+  assert.throws(() => s.apply({ type: 'saveExplicitMemory', scope: roomA, text: 'ROOM_A', source: { kind: 'message', messageId, revision: 1 } }), { code: 'memory_deleted' });
+  assert.equal(s.curator.context(roomB).items[0].text, 'ROOM_B');
+});
+
 test('SQLite crash recovery keeps reservation, projection and acknowledgements at durable boundaries', async t => {
   const { spawnSync } = require('node:child_process');
   const { openStorage } = await import('../lib/application-runtime/storage.mjs');

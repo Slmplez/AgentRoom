@@ -68,7 +68,7 @@ Interface：`recover()`、`tick()`、`configure(scope, {enabled, expectedRevisio
 
 ## 已验证证据
 
-`node --test test/memory-curation.test.cjs`：16 项通过，其中包含 4 个真实子进程退出点；覆盖合并/归档、独立 Soul、无变化无调用、范围隔离、并发设置和来源变更、删除不复活、伪造/重复/遗漏引用、Unicode/批次预算、滚动每日预算、持久化 lease、未知不重放、超时及迟到回复、事务回滚、历史/来源损坏、未配置状态和重启。
+`node --test test/memory-curation.test.cjs`：17 项通过，其中包含 4 个真实子进程退出点；覆盖合并/归档、独立 Soul、无变化无调用、范围隔离、并发设置和来源变更、删除不复活、伪造/重复/遗漏引用、Unicode/批次预算、滚动每日预算、持久化 lease、未知不重放、超时及迟到回复、事务回滚、历史/来源损坏、未配置状态和重启。
 
 `node scripts/verify-memory-curator.cjs`：真实安装的 Pi CLI、流式本地推理端点、真实 SQLite；核对传出的确切 prompt、零工具、来源引用、自动应用及 Soul 不变。1 次本地请求，0 次付费调用。
 
