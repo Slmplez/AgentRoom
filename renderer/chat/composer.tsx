@@ -1,6 +1,7 @@
 import React, { useEffect, useId, useRef, useState } from 'react';
 import type { Agent, ChatClient, Command, Room } from './types';
 import { useEntrance } from './motion';
+import { ComposerSelect } from './composer-select';
 
 export type Draft = { text: string; mentions: { agentId: string; start: number; end: number }[]; submittedKey?: string };
 export function Composer({ client, room, agents, portrait, openMembers, membersOpen, draft, updateDraft, live, tasks, mock, persistent = false, pendingOperations = [], onError }: {
@@ -42,7 +43,7 @@ export function Composer({ client, room, agents, portrait, openMembers, membersO
   }, []);
   useEffect(() => {
     if (!compact || !optionsOpen) return;
-    const outside = (event: PointerEvent) => { if (!optionsRef.current?.contains(event.target as Node)) setOptionsOpen(false); };
+    const outside = (event: PointerEvent) => { if (!optionsRef.current?.contains(event.target as Node) && !(event.target as Element).closest('[data-composer-picker-content]')) setOptionsOpen(false); };
     document.addEventListener('pointerdown', outside); return () => document.removeEventListener('pointerdown', outside);
   }, [compact, optionsOpen]);
   const selectedAgents = agents.filter(a => draft.mentions.some(m => m.agentId === a.id));
@@ -109,8 +110,8 @@ export function Composer({ client, room, agents, portrait, openMembers, membersO
           requestAnimationFrame(() => { el.focus(); el.setSelectionRange(start + inserted.length, start + inserted.length); });
         }}>@</button>}
         <button className="recipient-button" type="button" aria-label="房间成员" aria-expanded={membersOpen} onClick={openMembers}><span aria-hidden="true" dangerouslySetInnerHTML={{ __html: window.icon('agents') }} /><span className="composer-hint">{room.type === 'dm' ? '当前 Agent' : '房间成员'}</span><span aria-hidden="true" dangerouslySetInnerHTML={{ __html: window.icon('chevron-down') }} /></button>
-        {tasks && <details className="composer-options" ref={optionsRef} open={!compact || optionsOpen} onToggle={e => { if (compact) setOptionsOpen(e.currentTarget.open); }} onKeyDown={e => { if (compact && e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); setOptionsOpen(false); optionsRef.current?.querySelector<HTMLElement>('summary')?.focus(); } }}><summary aria-label="消息选项">{mode === 'task' ? '任务' : '讨论'}{mode === 'task' && room.type === 'group' && <span className="composer-owner-hint">{agents.find(a => a.id === owner)?.displayName || '待选负责人'}</span>}<span aria-hidden="true">⌄</span></summary><div className="composer-option-fields"><label><span>消息类型</span><select aria-label="消息类型" value={mode} onChange={e => setMode(e.target.value as typeof mode)}><option value="discussion">讨论</option><option value="task">任务</option></select></label>
-        {mode === 'task' && room.type === 'group' && <select aria-label="任务负责人" value={owner} onChange={e => setOwner(e.target.value)}><option value="">选择负责人</option>{agents.map(a => <option key={a.id} value={a.id}>{a.displayName} 负责</option>)}</select>}
+        {tasks && <details className="composer-options" ref={optionsRef} open={!compact || optionsOpen} onToggle={e => { if (compact) setOptionsOpen(e.currentTarget.open); }} onKeyDown={e => { if (compact && e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); setOptionsOpen(false); optionsRef.current?.querySelector<HTMLElement>('summary')?.focus(); } }}><summary aria-label="消息选项">{mode === 'task' ? '任务' : '讨论'}{mode === 'task' && room.type === 'group' && <span className="composer-owner-hint">{agents.find(a => a.id === owner)?.displayName || '待选负责人'}</span>}<span aria-hidden="true">⌄</span></summary><div className="composer-option-fields"><ComposerSelect label="消息类型" value={mode} change={value => setMode(value as typeof mode)} disabled={busy || locked} options={[{ value: 'discussion', label: '讨论', description: '交流想法，邀请成员回应' }, { value: 'task', label: '任务', description: '指定一位负责人推进工作' }]} />
+        {mode === 'task' && room.type === 'group' && <ComposerSelect label="任务负责人" value={owner ? `agent:${owner}` : 'none'} change={value => setOwner(value === 'none' ? '' : value.slice(6))} disabled={busy || locked} options={[{ value: 'none', label: '选择负责人' }, ...agents.map(a => ({ value: `agent:${a.id}`, label: `${a.displayName} 负责`, description: a.engine, image: portrait(a) }))]} />}
         </div></details>}
       </div><button id="send-button" className="send-button" aria-label="发送消息" title="Enter 发送 · Shift + Enter 换行" aria-describedby={instructionsId} disabled={busy || !live || !draft.text.trim() || locked || mode === 'task' && !owner && room.type !== 'dm'} onClick={() => void send()}><span aria-hidden="true">↑</span></button></div>
     </div>

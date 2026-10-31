@@ -90,6 +90,9 @@ does not execute model output or submit business commands.
 
 ## Rich message rendering
 
+Composer mode and owner menus use `@radix-ui/react-select` 2.4.1 (MIT).
+Its license is copied to `renderer/vendor/chat/LICENSE-radix-select.txt`.
+
 Chat Markdown tables, task lists and strikethrough use `remark-gfm` 4.0.1 (MIT).
 Mermaid fenced blocks use `mermaid` 12.2.0 (MIT), bundled locally and loaded on demand.
 Their licenses are copied into `renderer/vendor/chat/LICENSE-remark-gfm.txt` and

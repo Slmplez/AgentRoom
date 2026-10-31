@@ -24,6 +24,7 @@ async function buildRenderer({ watch = false } = {}) {
   await fs.copyFile(path.join(root, 'renderer/chat/LICENSE.json-render.txt'), path.join(options.outdir, 'LICENSE-json-render.txt'));
   await fs.copyFile(path.join(root, 'node_modules/mermaid/LICENSE'), path.join(options.outdir, 'LICENSE-mermaid.txt'));
   await fs.copyFile(path.join(root, 'node_modules/remark-gfm/license'), path.join(options.outdir, 'LICENSE-remark-gfm.txt'));
+  await fs.copyFile(path.join(root, 'node_modules/@radix-ui/react-select/LICENSE'), path.join(options.outdir, 'LICENSE-radix-select.txt'));
   if (watch) {
     const watchers = await Promise.all([clientOptions, diffOptions, options].map(config => context(config)));
     try { await Promise.all(watchers.map(async watcher => { await watcher.rebuild(); await watcher.watch(); })); }
