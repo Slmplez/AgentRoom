@@ -105,17 +105,15 @@ function History({ client, workspaceId, scope, memoryId }: { client: ChatClient;
   </details>;
 }
 
-export function MemoryPanel({ client, state, roomId, initialScope, close }: { client: ChatClient; state: Snapshot; roomId: string; initialScope: MemoryScope; close(): void }) {
-  const dialog = useRef<HTMLDialogElement>(null), [scope, setScope] = useState<MemoryScope>(initialScope.kind === 'room' ? { kind: 'room', roomId } : initialScope);
-  useEffect(() => { const previous = document.activeElement as HTMLElement; dialog.current?.showModal(); dialog.current?.querySelector<HTMLElement>('h2')?.focus(); return () => { dialog.current?.close(); if (previous?.isConnected) previous.focus(); }; }, []);
+export function MemorySettings({ client, state, roomId }: { client: ChatClient; state: Snapshot; roomId: string }) {
+  const [scope, setScope] = useState<MemoryScope>({ kind: 'room', roomId });
   const identity = JSON.stringify([state.backendId, state.databaseId, state.currentUserId, state.rooms.find(r => r.id === roomId)?.workspaceId, scope]);
-  return <dialog className="settings-dialog memory-dialog" ref={dialog} aria-labelledby="memory-title" onCancel={e => { e.preventDefault(); close(); }}>
-    <header className="settings-heading"><h2 id="memory-title" tabIndex={-1}>Soul 与明确记忆</h2><button className="icon-button" aria-label="关闭记忆管理" onClick={close}>×</button></header>
-    <div className="settings-body"><label>管理归属<select aria-label="记忆归属" value={scope.kind === 'room' ? 'room' : scope.agentId} onChange={e => setScope(e.target.value === 'room' ? { kind: 'room', roomId } : { kind: 'agent', agentId: e.target.value })}><option value="room">当前 Room · {state.rooms.find(r => r.id === roomId)?.title}</option>{state.knownAgents.map(id => <option key={id} value={id}>Agent · {id}</option>)}</select></label>
-      <p className="settings-note">每个 Agent 保留独立个性。任务启动时加载自己的 Soul，以及明确保存且仍有效的个人记忆和所在 Room 记忆。</p>
-      <MemoryScopePanel key={identity} client={client} state={state} scope={scope} prefix={'ar-memory-draft:' + identity} />
-    </div>
-  </dialog>;
+  return <div className="memory-settings">
+    <h3>Soul 与明确记忆</h3>
+    <label>管理归属<select aria-label="记忆归属" value={scope.kind === 'room' ? 'room' : scope.agentId} onChange={e => setScope(e.target.value === 'room' ? { kind: 'room', roomId } : { kind: 'agent', agentId: e.target.value })}><option value="room">当前 Room · {state.rooms.find(r => r.id === roomId)?.title}</option>{state.knownAgents.map(id => <option key={id} value={id}>Agent · {id}</option>)}</select></label>
+    <p className="settings-note">每个 Agent 保留独立个性。任务启动时加载自己的 Soul，以及明确保存且仍有效的个人记忆和所在 Room 记忆。</p>
+    <MemoryScopePanel key={identity} client={client} state={state} scope={scope} prefix={'ar-memory-draft:' + identity} />
+  </div>;
 }
 function MemoryScopePanel({ client, state, scope, prefix }: { client: ChatClient; state: Snapshot; scope: MemoryScope; prefix: string }) {
   const workspaceId = state.workspaces[0]?.id || '';

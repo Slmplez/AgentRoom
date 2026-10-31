@@ -1,13 +1,11 @@
-.memory-dialog { width: min(780px, calc(100vw - 24px)); }
-.memory-dialog .settings-body { overflow-y: auto; max-height: calc(90vh - 90px); }
-.memory-dialog label { display: grid; gap: 6px; margin: 12px 0; }
-.memory-dialog textarea, .memory-dialog select { width: 100%; min-width: 0; box-sizing: border-box; padding: 10px; color: var(--ink); background: var(--surface-2); border: 1px solid var(--line-strong); border-radius: 8px; font: inherit; }
-.memory-dialog textarea { resize: vertical; }
-.memory-dialog section { margin-block: 24px; }
+.memory-settings label { display: grid; gap: 6px; margin: 12px 0; }
+.memory-settings textarea, .memory-settings select { width: 100%; min-width: 0; box-sizing: border-box; padding: 10px; color: var(--ink); background: var(--surface-2); border: 1px solid var(--line-strong); border-radius: 8px; font: inherit; }
+.memory-settings textarea { resize: vertical; }
+.memory-settings section { margin-block: 24px; }
 .memory-card, .memory-history article, .memory-context article { border: 1px solid var(--line-strong); border-radius: 8px; padding: 12px; margin-block: 10px; }
 .memory-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
-.memory-dialog pre, .memory-context pre { white-space: pre-wrap; overflow-wrap: anywhere; font: inherit; }
-.memory-dialog p, .memory-dialog small, .memory-context { overflow-wrap: anywhere; }
+.memory-settings pre, .memory-context pre { white-space: pre-wrap; overflow-wrap: anywhere; font: inherit; }
+.memory-settings p, .memory-settings small, .memory-context { overflow-wrap: anywhere; }
 .memory-history, .memory-context { margin-top: 12px; }
 .memory-editor > .button { margin-top: 10px; }
-.memory-dialog :focus-visible, .memory-context :focus-visible { outline: 2px solid currentColor; outline-offset: 3px; }
+.memory-settings :focus-visible, .memory-context :focus-visible { outline: 2px solid currentColor; outline-offset: 3px; }

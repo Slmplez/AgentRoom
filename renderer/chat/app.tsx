@@ -4,7 +4,7 @@ import { QuestionInteraction, type QuestionDraft } from './questions';
 import { Composer, type Draft } from './composer';
 import { ChatThread, DiffPreview } from './thread';
 import { MemberActions } from './members';
-import { MemoryPanel, type MemoryScope } from './memory-panel';
+import { MemorySettings } from './memory-panel';
 import { LocalTasks } from './local-tasks';
 import { RunPanel } from './runs';
 import { ApprovalCenter } from './approvals';
@@ -36,7 +36,6 @@ export function App({ client, platform, control, persistent = false }: { client:
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [settings, setSettings] = useState<SettingsSection | null>(null), [requestedApproval, setRequestedApproval] = useState<string | null>(null);
   const [memberRoomId, setMemberRoomId] = useState('');
-  const [memoryScope, setMemoryScope] = useState<MemoryScope | null>(null);
   const diffTrigger = useRef<HTMLElement | null>(null);
   const [diff, setDiff] = useState<string[] | null>(null);
   const [resultsOpen, setResultsOpen] = useState(false), [resultsLoaded, setResultsLoaded] = useState(false);
@@ -87,7 +86,7 @@ export function App({ client, platform, control, persistent = false }: { client:
         </div>
       </aside>
       <main className="conversation">
-        <header className="conversation-header"><div className="header-location"><button className="icon-button" aria-label="切换侧栏" aria-expanded={sidebar} onClick={() => setSidebar(!sidebar)}><Icon name="panel-left" /></button>{room?.type === 'dm' && members[0] && <span className="avatar character small"><img src={portrait(members[0])} alt="" /></span>}<div><h1 className="header-title">{room?.title || 'Agent Room'}</h1><div className="room-subtitle">{room?.type === 'dm' ? `${members[0]?.engine || 'Agent'} · 独立对话` : `${persistent ? room?.memberIds.length || 0 : members.length} 位成员`}</div></div></div><div className="header-actions">{state.capabilities.agentMemory && room && <button className="button" onClick={() => setMemoryScope({ kind: 'room', roomId: room.id })}>Room 记忆</button>}{mock && <button className="button result-open-button" aria-expanded={resultsOpen} onClick={showResults}>结果示例</button>}{!persistent && <button className="icon-button" aria-label="查看成员" aria-expanded={details} onClick={() => { setDiff(null); setArtifact(null); setResultsOpen(false); setDetails(!details); }}><Icon name="panel-left" /></button>}</div></header>
+        <header className="conversation-header"><div className="header-location"><button className="icon-button" aria-label="切换侧栏" aria-expanded={sidebar} onClick={() => setSidebar(!sidebar)}><Icon name="panel-left" /></button>{room?.type === 'dm' && members[0] && <span className="avatar character small"><img src={portrait(members[0])} alt="" /></span>}<div><h1 className="header-title">{room?.title || 'Agent Room'}</h1><div className="room-subtitle">{room?.type === 'dm' ? `${members[0]?.engine || 'Agent'} · 独立对话` : `${persistent ? room?.memberIds.length || 0 : members.length} 位成员`}</div></div></div><div className="header-actions">{mock && <button className="button result-open-button" aria-expanded={resultsOpen} onClick={showResults}>结果示例</button>}{!persistent && <button className="icon-button" aria-label="查看成员" aria-expanded={details} onClick={() => { setDiff(null); setArtifact(null); setResultsOpen(false); setDetails(!details); }}><Icon name="panel-left" /></button>}</div></header>
         {state.connection !== 'live' && <div className="connection-alert" role="status">{state.error || connectionLabel}</div>}
         {persistent && state.syncNotice && <p className="connection-alert" role="status">{state.syncNotice}</p>}
         {persistent && state.beforeSequence != null && <button className="button" data-load-history disabled={state.historyLoading || state.connection !== 'live'} onClick={() => void client.loadOlderMessages?.().catch(e => setError(e.message))}>{state.historyLoading ? '正在加载历史…' : '加载更早的消息'}</button>}
@@ -108,18 +107,25 @@ export function App({ client, platform, control, persistent = false }: { client:
       {mock && resultsLoaded && <Suspense fallback={resultsOpen ? <aside className="result-panel" role="status">正在打开结果预览…</aside> : null}><ResultPanel roomId={room?.id || 'empty'} roomTitle={room?.title || '当前会话'} open={resultsOpen} close={() => setResultsOpen(false)} /></Suspense>}
     </div>
 
-    {persistent ? (settings && <PersistentInfo state={state} close={() => setSettings(null)} manageMemory={() => { setSettings(null); if (room) setMemoryScope(state.knownAgents[0] ? { kind: 'agent', agentId: state.knownAgents[0] } : { kind: 'room', roomId: room.id }); }} />) : <SettingsPanel client={client} platform={platform} state={state} memberRoomId={memberRoomId} editMembers={id => { setMemberRoomId(id); openSettings('members'); }} section={settings} select={setSettings} close={() => setSettings(null)} workspaceId={currentWorkspace?.id || ''} selectWorkspace={id => { setWorkspace(id); setActive(''); setQuery(''); }} mock={mock} created={(kind, id) => { if (id) { const target = kind === 'new-room' ? id : client.read().rooms.find(r => r.type === 'dm' && r.memberIds.includes(id))?.id; if (target) selectRoom(target); } setSettings(null); }} openRequest={id => { setSettings(null); setRequestedApproval(id); }} />}
-    {memoryScope && room && state.capabilities.agentMemory && <MemoryPanel key={JSON.stringify([state.backendId, state.databaseId, state.currentUserId, room.id])} client={client} state={state} roomId={room.id} initialScope={memoryScope} close={() => setMemoryScope(null)} />}
+    {persistent ? (settings && <PersistentSettings client={client} state={state} roomId={room?.id} close={() => setSettings(null)} />) : <SettingsPanel client={client} platform={platform} state={state} memberRoomId={memberRoomId} editMembers={id => { setMemberRoomId(id); openSettings('members'); }} section={settings} select={setSettings} close={() => setSettings(null)} workspaceId={currentWorkspace?.id || ''} selectWorkspace={id => { setWorkspace(id); setActive(''); setQuery(''); }} mock={mock} created={(kind, id) => { if (id) { const target = kind === 'new-room' ? id : client.read().rooms.find(r => r.type === 'dm' && r.memberIds.includes(id))?.id; if (target) selectRoom(target); } setSettings(null); }} openRequest={id => { setSettings(null); setRequestedApproval(id); }} />}
     <ApprovalCenter client={client} state={state} activeRoomId={room?.id} requestedId={requestedApproval} requestHandled={() => setRequestedApproval(null)} />
   </div>;
 }
 
-function PersistentInfo({ state, close, manageMemory }: { state: Snapshot; close(): void; manageMemory(): void }) {
-  const dialog = useRef<HTMLDialogElement>(null);
-  useEffect(() => { const previous = document.activeElement as HTMLElement | null; dialog.current?.showModal(); return () => { dialog.current?.close(); previous?.isConnected && previous.focus(); }; }, []);
+function PersistentSettings({ client, state, roomId, close }: { client: ChatClient; state: Snapshot; roomId?: string; close(): void }) {
+  const dialog = useRef<HTMLDialogElement>(null), [section, setSection] = useState<'general' | 'memory'>('general');
+  const memoryAvailable = Boolean(state.capabilities.agentMemory && roomId);
+  useEffect(() => { const previous = document.activeElement as HTMLElement | null; dialog.current?.showModal(); dialog.current?.querySelector<HTMLElement>('h2')?.focus(); return () => { dialog.current?.close(); previous?.isConnected && previous.focus(); }; }, []);
   return <dialog ref={dialog} className="settings-dialog" aria-labelledby="persistent-title" onCancel={e => { e.preventDefault(); close(); }}>
-    <header className="settings-heading"><h2 id="persistent-title">持久讨论</h2><button className="icon-button" aria-label="关闭设置" onClick={close}>×</button></header>
-    <div className="settings-body"><p>{state.capabilities.localExecution ? '桌面和浏览器共用本机持久消息与只读 Pi 任务。已启用原生问题答复；工具审批、多人登录和 Teams 尚未开放。' : '桌面和浏览器共用本机持久消息。当前模式不提供 Agent 执行、工具审批、多人登录或 Teams。'}</p><p>关闭窗口只断开当前界面；停止服务请在启动服务的终端按 Ctrl+C。后端启动信息中显示独立数据目录。</p>
-    {state.capabilities.agentMemory && <button className="button" onClick={manageMemory}>管理 Agent Soul 与记忆</button>}<dl><dt>数据库标识</dt><dd>{state.databaseId}</dd><dt>当前后端实例</dt><dd>{state.instanceId}</dd></dl><p>首次启动创建一间持久讨论房间。历史可分页读取；已过期的事件通知不会逐条重放。</p></div>
+    <header className="settings-heading"><h2 id="persistent-title" tabIndex={-1}>设置</h2><button className="icon-button" aria-label="关闭设置" onClick={close}>×</button></header>
+    <div className="settings-layout"><nav aria-label="设置分类">
+      <button aria-current={section === 'general' ? 'page' : undefined} onClick={() => setSection('general')}>通用</button>
+      {memoryAvailable && <button aria-current={section === 'memory' ? 'page' : undefined} onClick={() => setSection('memory')}>记忆</button>}
+    </nav><div className="settings-body" key={section}>
+      {section === 'memory' && memoryAvailable ? <MemorySettings key={JSON.stringify([state.backendId, state.databaseId, state.currentUserId, roomId])} client={client} state={state} roomId={roomId!} /> : <>
+        <h3>持久讨论</h3><p>{state.capabilities.localExecution ? '桌面和浏览器共用本机持久消息与只读 Pi 任务。已启用原生问题答复；工具审批、多人登录和 Teams 尚未开放。' : '桌面和浏览器共用本机持久消息。当前模式不提供 Agent 执行、工具审批、多人登录或 Teams。'}</p><p>关闭窗口只断开当前界面；停止服务请在启动服务的终端按 Ctrl+C。后端启动信息中显示独立数据目录。</p>
+        <dl><dt>数据库标识</dt><dd>{state.databaseId}</dd><dt>当前后端实例</dt><dd>{state.instanceId}</dd></dl><p>首次启动创建一间持久讨论房间。历史可分页读取；已过期的事件通知不会逐条重放。</p>
+      </>}
+    </div></div>
   </dialog>;
 }

@@ -52,14 +52,15 @@ app.whenReady().then(async () => {
   const click = async (win, text, root = 'document') => { const code = `[...${root}.querySelectorAll('button')].find(b=>b.textContent===${JSON.stringify(text)})`; await until(win, `Boolean(${code}) && !${code}.disabled`); await js(win, `(()=>{const el=${code};el.focus();el.click();})()`); };
   const input = async (win, label, value) => { await until(win, `Boolean(document.querySelector('textarea[aria-label="${label}"]'))`); await js(win, `document.querySelector('textarea[aria-label="${label}"]').focus();document.querySelector('textarea[aria-label="${label}"]').select()`); await win.webContents.insertText(value); };
   const select = async (win, label, value) => { await js(win, `(()=>{const el=document.querySelector('select[aria-label="${label}"]');el.value=${JSON.stringify(value)};el.dispatchEvent(new Event('change',{bubbles:true}));})()`); };
-  const open = async win => { await click(win, 'Room 记忆'); await until(win, 'Boolean(document.querySelector(".memory-editor"))'); };
-  const close = win => js(win, 'document.querySelector("[aria-label=关闭记忆管理]").click()');
+  const open = async win => { await js(win, 'document.querySelector("[aria-label=设置]").focus();document.querySelector("[aria-label=设置]").click()'); await click(win, '记忆'); await until(win, 'Boolean(document.querySelector(".memory-editor"))'); };
+  const close = win => js(win, 'document.querySelector("[aria-label=关闭设置]").click()');
   const chooseAgent = async (win, id) => { await select(win, '记忆归属', id); await until(win, `Boolean(document.querySelector('textarea[aria-label="个性"]'))`); };
   const card = text => `[...document.querySelectorAll('[data-memory-id]')].find(el=>el.querySelector('p').textContent===${JSON.stringify(text)})`;
   const waitCard = (win, text) => until(win, `Boolean(${card(text)})`);
   const saveNote = async (win, text) => { await input(win, '新记忆', text); await click(win, '保存明确记忆'); await waitCard(win, text); };
   // Existing Agent management entry opens only backend registered identities.
-  await js(a, 'document.querySelector("[aria-label=设置]").click()'); await click(a, '管理 Agent Soul 与记忆');
+  assert.equal(await js(a, `document.querySelector('.conversation-header').textContent.includes('Room 记忆')`), false);
+  await open(a); await chooseAgent(a, 'local-pi');
   await until(a, 'Boolean(document.querySelector("textarea[aria-label=个性]"))');
   assert.deepEqual(await js(a, `[...document.querySelector('[aria-label=记忆归属]').options].map(o=>o.value)`), ['room', 'local-pi', 'ember']);
   await input(a, '个性', '审慎、先核对证据'); await input(a, '表达方式', '直接、简洁'); await input(a, '工作方式', '保留来源');
@@ -76,6 +77,10 @@ app.whenReady().then(async () => {
   await input(a, '新记忆', '房间草稿');
   await js(a, `const input=document.querySelector('textarea[aria-label=新记忆]');input.dispatchEvent(new CompositionEvent('compositionstart',{bubbles:true,data:'稿'}));input.dispatchEvent(new KeyboardEvent('keydown',{bubbles:true,key:'Enter',isComposing:true}));input.dispatchEvent(new CompositionEvent('compositionend',{bubbles:true,data:'稿'}));`);
   assert.equal(await js(a, 'document.querySelectorAll("[data-memory-id]").length'), 0);
+  await click(a, '通用'); assert.equal(await js(a, 'Boolean(document.querySelector(".memory-settings"))'), false);
+  await click(a, '记忆'); await until(a, 'Boolean(document.querySelector(".memory-editor"))');
+  assert.equal(await js(a, 'document.querySelector("textarea[aria-label=新记忆]").value'), '房间草稿');
+  assert.equal(await js(a, 'document.querySelectorAll("dialog[open]").length'), 1);
   await close(a); await open(a); assert.equal(await js(a, 'document.querySelector("textarea[aria-label=新记忆]").value'), '房间草稿');
   await click(a, '保存明确记忆'); await waitCard(a, '房间草稿');
   await close(a); await input(a, '消息内容', '会议仍待确定，原始消息不可被摘要替代。'); await js(a, 'document.querySelector("#send-button").click()');
@@ -118,7 +123,7 @@ app.whenReady().then(async () => {
   await fs.mkdir(path.resolve(__dirname, '../artifacts'), { recursive: true });
   await fs.writeFile(path.resolve(__dirname, '../artifacts/agent-memory-ui-light.png'), (await b.webContents.capturePage()).toPNG());
   await js(b, 'document.documentElement.dataset.theme="dark"'); b.setContentSize(420, 860); await delay(150);
-  assert.ok(await js(b, 'document.documentElement.scrollWidth<=innerWidth && document.querySelector(".memory-dialog").scrollWidth<=document.querySelector(".memory-dialog").clientWidth'));
+  assert.ok(await js(b, 'document.documentElement.scrollWidth<=innerWidth && document.querySelector(".settings-dialog").scrollWidth<=document.querySelector(".settings-dialog").clientWidth'));
   await fs.writeFile(path.resolve(__dirname, '../artifacts/agent-memory-ui-dark-narrow.png'), (await b.webContents.capturePage()).toPNG());
   // A real installed Pi task receives the immutable snapshot, even if memory changes while native input waits.
   await close(a); await input(a, '本机任务目标', '检查这次任务加载的明确配置'); await js(a, 'document.querySelector("[data-create-local-task]").click()');
@@ -139,8 +144,8 @@ app.whenReady().then(async () => {
   await js(a, 'document.querySelector(".memory-context").open=true'); await until(a, 'Boolean(document.querySelector("[data-task-context-prompt]"))'); assert.equal(await js(a, 'document.querySelector("[data-task-context-prompt]").textContent'), expectedPrompt);
   await open(a); await chooseAgent(a, 'local-pi'); assert.equal(await js(a, 'document.querySelector("textarea[aria-label=个性]").value'), '任务启动后的新版个性');
   assert.equal(await js(a, 'document.querySelectorAll("[data-memory-id]").length'), 0);
-  await js(a, 'document.querySelector("[aria-label=关闭记忆管理]").focus()'); a.webContents.sendInputEvent({ type: 'keyDown', keyCode: 'Escape' }); a.webContents.sendInputEvent({ type: 'keyUp', keyCode: 'Escape' }); await until(a, '!document.querySelector(".memory-dialog")');
-  assert.equal(await js(a, 'document.activeElement.textContent'), 'Room 记忆');
+  await js(a, 'document.querySelector("[aria-label=关闭设置]").focus()'); a.webContents.sendInputEvent({ type: 'keyDown', keyCode: 'Escape' }); a.webContents.sendInputEvent({ type: 'keyUp', keyCode: 'Escape' }); await until(a, '!document.querySelector(".settings-dialog")');
+  assert.equal(await js(a, 'document.activeElement.getAttribute("aria-label")'), '设置');
   assert.deepEqual(errors, []);
   console.log('Passed: real SQLite + authenticated cookie host + public Client; independent Souls/drafts, explicit sources, corrections/conflict, lost response and tombstone, reload/restart, Unicode/IME/focus, light/dark narrow; installed Pi CLI exact frozen prompt, 1 loopback inference, 0 paid calls.');
   windows.forEach(w => w.destroy()); windows = []; await host.close(); host = null; await new Promise(r => provider.close(r)); provider = null; app.quit();
