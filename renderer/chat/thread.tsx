@@ -4,8 +4,6 @@ import { MarkdownTextPrimitive } from '@assistant-ui/react-markdown';
 import remarkGfm from 'remark-gfm';
 import { MermaidDiagram } from './mermaid';
 import type { Agent, Message, ChatClient } from './types';
-import { PreviewMode } from './preview-mode';
-import { useEntrance } from './motion';
 
 const toolStatus = (status: string) => ({ completed: '已完成', running: '执行中', failed: '失败', cancelled: '已中断', ended: '已结束', unknown: '结果未知' } as Record<string, string>)[status] || '等待中';
 const brief = (text: string) => { const line = text.trim().split(/\r?\n/)[0] || ''; return line.length > 100 ? `${line.slice(0, 100)}…` : line; };
@@ -108,41 +106,4 @@ function ToolRow({ tool, messageId, context }: { tool: Message['tools'][number];
   </details>;
 }
 
-export function DiffPreview({ patches, close, theme, returnFocus }: { patches: string[]; close(): void; theme: string; returnFocus?: HTMLElement | null }) {
-  const dialog = useRef<HTMLElement>(null), container = useRef<HTMLDivElement>(null);
-  const [full, setFull] = useState(false);
-  const lines = patches.join('\n').split('\n');
-  const files = lines.filter(line => line.startsWith('diff --git ')).map(line => line.replace(/^diff --git /, ''));
-  const added = lines.filter(line => line.startsWith('+') && !line.startsWith('+++')).length;
-  const removed = lines.filter(line => line.startsWith('-') && !line.startsWith('---')).length;
-  const [style, setStyle] = useState<'unified' | 'split'>('unified'), [error, setError] = useState(''), [loading, setLoading] = useState(true);
-  useEffect(() => { const previous = returnFocus || document.activeElement as HTMLElement | null; dialog.current?.querySelector<HTMLElement>('h2')?.focus(); return () => { previous?.isConnected && previous.focus(); }; }, []);
-  useEntrance(dialog, true, 'panel');
-  useEffect(() => {
-    if (!full) return;
-    let active = true; const views: { cleanUp(): void }[] = []; setError(''); setLoading(true);
-    const host = container.current!; host.replaceChildren();
-    // Keep the large highlighter split from the chat entry and use the same local Pierre build.
-    const url = new URL('./vendor/diffs/diffs.js', document.baseURI).href;
-    void import(/* @vite-ignore */ url).then(library => {
-      if (!active) return;
-      const files = patches.flatMap(p => library.parsePatchFiles(p, undefined, true).flatMap((patch: { files: unknown[] }) => patch.files));
-      if (!files.length) throw new Error('没有可解析的差异');
-      for (const fileDiff of files) {
-        const element = document.createElement('diffs-container'); host.append(element);
-        const view = new library.FileDiff({ unsafeCSS: ':host { --diffs-font-family: var(--font-mono); --diffs-font-size: var(--font-size-code); }', diffStyle: style, theme: { light: 'pierre-light', dark: 'pierre-dark' }, themeType: theme, preferredHighlighter: 'shiki-js', overflow: 'scroll', disableErrorHandling: true });
-        views.push(view); view.render({ fileDiff, fileContainer: element });
-      }
-      setLoading(false);
-    }).catch(e => { if (active) { views.forEach(v => v.cleanUp()); host.replaceChildren(); setError(e.message); setLoading(false); } });
-    return () => { active = false; views.forEach(v => v.cleanUp()); host.replaceChildren(); };
-  }, [patches, style, theme, full]);
-  return <aside ref={dialog} className="result-panel diff-preview" aria-labelledby="diff-title" onKeyDown={e => { if (e.key === 'Escape') { e.stopPropagation(); close(); } }}><div className="result-heading"><h2 id="diff-title" tabIndex={-1}>文件变更</h2><button className="button" onClick={close}>关闭</button></div>
-    <PreviewMode full={full} change={setFull} />
-    {!full && <div className="result-content preview-summary"><h3>变更摘要</h3><p>新增 {added} 行 · 删除 {removed} 行</p>{files.length > 0 ? <ul>{files.slice(0, 5).map((file, i) => <li key={i}>{file}</li>)}</ul> : <p>补丁摘要；完整视图将解析文件差异。</p>}{files.length > 5 && <p>共 {files.length} 个文件，完整视图可查看全部。</p>}<p>此面板仅供查看，不执行写入。</p></div>}
-    <div hidden={!full} className="result-content"><div className="diff-controls">{(['unified', 'split'] as const).map(value => <button className="button" key={value} aria-pressed={style === value} onClick={() => setStyle(value)}>{value === 'unified' ? '合并' : '并排'}</button>)}<span>只读预览</span></div>
-    {loading && <p role="status">正在加载差异…</p>}{error && <><p role="alert">无法显示差异：{error}</p><pre>{patches.join('\n')}</pre></>}
-    <div ref={container} />
-    </div>
-  </aside>;
-}
+export { DiffPreview } from './diff-preview';

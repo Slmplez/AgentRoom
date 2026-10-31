@@ -1,5 +1,14 @@
 # 聊天展示层
 
+
+## 成员管理与变更工作区（#42）
+
+成员行只展示身份与更多操作；菜单内分别停止会话、从工作区移除，后者按需展开确认与取消。房间成员调整保留独立入口，工作区移除不会误标为仅移出群聊。
+
+文件变更默认展开只读工作区，集中显示增删统计及摘要/合并/并排切换。右侧按目录列出解析后的真实补丁文件，支持路径筛选、逐文件统计与点击定位；可收起为侧栏，窄屏文件列表为抽屉。不添加修改代码、运行或提交操作。
+
+验证：`npx electron scripts/verify-member-panel.cjs --disable-gpu`、`npx electron scripts/verify-diff-workspace.cjs --disable-gpu`，并复跑原预览、群聊与聊天 UI 验证。截图位于 `artifacts/member-panel-light.png`、`artifacts/diff-workspace-light.png` 及对应深色/窄屏版本。
+
 ## 消息内生成式报告（#40）
 
 真实 Agent 的 `publish_report` 产物引用进入阅读区域后，消息内自动查询并展示 report v1 组件预览。消息与侧栏复用 `report-content.tsx` 的只读 json-render 注册表；消息预览最多展示 3 个内容块、4 项指标/条形、5 行 × 4 列表格，保留对应分组标题与说明、完整报告与历史版本入口。固定预览高度避免异步读取影响历史阅读位置。

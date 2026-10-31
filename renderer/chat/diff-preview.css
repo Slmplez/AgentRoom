@@ -1,0 +1,47 @@
+.chat-app .diff-preview { container-type: inline-size; container-name: diff; }
+.chat-app .app-layout .diff-preview.diff-expanded { position: absolute; inset: var(--titlebar-height) 0 0; width: 100%; z-index: 40; border-left: 0; box-shadow: none; }
+.diff-heading { display: flex; align-items: center; gap: 12px; padding: 10px 16px; min-height: 50px; border-bottom: 1px solid var(--line); }
+.diff-heading h2 { margin: 0; font-size: 14px; font-weight: 550; }
+.diff-heading > span { font-size: 12px; color: var(--text-secondary); }
+.diff-heading > div { display: flex; gap: 4px; margin-left: auto; }
+.diff-icon-button { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 7px; color: var(--text-secondary); font-size: 18px; }
+.diff-icon-button:hover, .diff-icon-button[aria-expanded="true"] { background: var(--hover); color: var(--clay-text); }
+.diff-view-toolbar { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; padding: 8px 14px; border-bottom: 1px solid var(--line); }
+.diff-overview, .diff-view-actions { display: flex; align-items: center; gap: 12px; }
+.diff-overview { font-size: 12px; color: var(--text-secondary); }
+.diff-counts { display: inline-flex; gap: 6px; font: 11px/1.5 var(--font-mono); white-space: nowrap; flex-shrink: 0; }
+.diff-counts > :first-child { color: #22733f; }
+.diff-counts > :last-child { color: #b12e3b; }
+:root[data-theme="dark"] .diff-counts > :first-child { color: #87c89c; }
+:root[data-theme="dark"] .diff-counts > :last-child { color: #f1a1a6; }
+.diff-view-switch { display: flex; gap: 2px; padding: 3px; border-radius: 8px; background: var(--surface-0); }
+.diff-view-switch button { padding: 5px 9px; border-radius: 5px; font: 12px/1.4 var(--font-sans); color: var(--text-secondary); white-space: nowrap; }
+.diff-view-switch button:hover { color: var(--ink); background: var(--hover); }
+.diff-view-switch button[aria-pressed="true"] { background: var(--surface-2); color: var(--clay-text); box-shadow: 0 1px 3px #00000016; }
+.diff-workspace { display: flex; position: relative; flex: 1; min-height: 0; }
+.diff-code-scroll { flex: 1; min-width: 0; overflow: auto; scroll-padding-top: 8px; }
+.diff-code-scroll [data-diff-file] { padding-bottom: 12px; }
+.diff-code-scroll diffs-container { display: block; }
+.diff-file-list { width: 248px; flex-shrink: 0; min-height: 0; display: flex; flex-direction: column; border-left: 1px solid var(--line); background: var(--surface-2); }
+.diff-file-search { padding: 10px; }
+.diff-file-search input { width: 100%; min-width: 0; border: 1px solid var(--line-strong); border-radius: 8px; padding: 7px 10px; font: 12px var(--font-sans); color: var(--ink); background: var(--surface-1); }
+.diff-file-tree { padding: 0 8px 12px; overflow: auto; font-size: 12px; }
+.diff-file-tree > p { display: flex; justify-content: space-between; padding: 0 6px; color: var(--text-secondary); margin: 4px 0 10px; }
+.diff-file-tree summary { padding: 8px 6px; color: var(--text-secondary); cursor: pointer; overflow-wrap: anywhere; }
+.diff-file-tree button { display: flex; align-items: start; gap: 8px; width: 100%; padding: 8px 8px 8px 18px; border-radius: 6px; text-align: left; font: inherit; }
+.diff-file-name { flex: 1; min-width: 0; overflow-wrap: anywhere; line-height: 1.5; }
+.diff-file-tree button:hover { background: var(--hover); }
+.diff-file-tree button[aria-current="true"] { color: var(--clay-text); background: var(--clay-soft); }
+.diff-notice, .diff-summary { padding: 20px; font-size: 13px; }
+.diff-notice pre { white-space: pre-wrap; overflow-wrap: anywhere; }
+.diff-summary h3 { font-size: 15px; margin-top: 0; }
+.diff-summary > button { display: flex; justify-content: space-between; align-items: start; gap: 16px; width: 100%; border-bottom: 1px solid var(--line); padding: 14px 0; text-align: left; font: inherit; }
+.diff-summary > button > span:first-child { min-width: 0; overflow-wrap: anywhere; }
+.diff-summary small { display: block; margin-top: 5px; color: var(--text-secondary); }
+.chat-app .diff-preview :focus-visible { outline: 2px solid var(--clay-text); outline-offset: -2px; }
+@container diff (max-width: 700px) {
+  .diff-file-list { position: absolute; top: 0; bottom: 0; right: 0; z-index: 3; width: min(248px, 85%); box-shadow: var(--shadow); }
+  .diff-view-actions { margin-left: auto; gap: 6px; }
+}
+
+.diff-icon-button[aria-label="关闭文件变更"] { width: auto; padding: 0 8px; font-size: 12px; }
