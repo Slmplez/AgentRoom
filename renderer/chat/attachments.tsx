@@ -1,11 +1,12 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import type { Attachment, ChatClient } from './types';
 import { attachmentExtensions, attachmentLimits } from '../../contracts/attachments.mjs';
 import './attachments.css';
 
 const sizeLabel = (size: number) => size < 1024 ? `${size} B` : size < 1024 * 1024 ? `${(size / 1024).toFixed(1)} KiB` : `${(size / 1024 / 1024).toFixed(1)} MiB`;
 
-export function AttachmentPicker({ client, roomId, workspaceId, selected, change, disabled, busyChanged }: { client: ChatClient; roomId: string; workspaceId: string; selected: string[]; change(ids: string[]): void; disabled: boolean; busyChanged(busy: boolean): void }) {
+export function AttachmentPicker({ client, roomId, workspaceId, selected, change, disabled, busyChanged, compact = false, toolbarTarget }: { compact?: boolean; toolbarTarget?: HTMLElement | null; client: ChatClient; roomId: string; workspaceId: string; selected: string[]; change(ids: string[]): void; disabled: boolean; busyChanged(busy: boolean): void }) {
   const [files, setFiles] = useState<Attachment[]>([]), [afterId, setAfterId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false), [error, setError] = useState(''), [notice, setNotice] = useState('');
   const filesRef=useRef(files); filesRef.current=files;
@@ -68,10 +69,11 @@ export function AttachmentPicker({ client, roomId, workspaceId, selected, change
     } catch (e) { if (active.current) setError((e as Error).message); }
     finally { working.current = false; if (active.current) { setBusy(false); busyChanged(false); } }
   }
-  return <div className="attachment-picker" aria-label="消息附件">
-    <input ref={input} type="file" className="chat-visually-hidden" tabIndex={-1} aria-label="选择附件文件" accept={attachmentExtensions.map(ext => `.${ext}`).join(',')} multiple onChange={e => void upload(e.target.files)} />
-    <button type="button" className="button" disabled={disabled || busy || pending.some(p => p.type === 'uploadAttachment')} onClick={() => { retryKey.current = undefined; input.current?.click(); }}>添加附件</button>
-    <span className="attachment-hint">每个最多 8 MiB · 最多 5 个 · 合计 20 MiB</span>
+  const trigger = <button type="button" className={compact ? 'attachment-trigger' : 'button'} aria-label="添加附件" title="添加附件 · 每个最多 8 MiB · 最多 5 个 · 合计 20 MiB" disabled={disabled || busy || pending.some(p => p.type === 'uploadAttachment')} onClick={() => { retryKey.current = undefined; input.current?.click(); }}>{compact && <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m8 13 6.5-6.5a3 3 0 0 1 4.2 4.2l-8 8a5 5 0 0 1-7-7l8.5-8.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/><path d="m7 14 7-7" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/></svg>}<span>{busy ? '上传中…' : '附件'}</span></button>;
+  return <div className={`attachment-picker${compact ? ' attachment-picker-compact' : ''}`} aria-label="消息附件">
+    <input ref={input} type="file" hidden tabIndex={-1} aria-label="选择附件文件" accept={attachmentExtensions.map(ext => `.${ext}`).join(',')} multiple onChange={e => void upload(e.target.files)} />
+    {compact ? toolbarTarget && createPortal(trigger, toolbarTarget) : trigger}
+    {!compact && <span className="attachment-hint">每个最多 8 MiB · 最多 5 个 · 合计 20 MiB</span>}
     {busy && <button type="button" className="button" onClick={() => abort.current?.abort()}>停止上传并核查</button>}
     {(files.length > 0 || selected.length > 0) && <ul className="attachment-list" aria-label="暂存附件">
       {files.map(file => <li key={file.id}><label><input type="checkbox" checked={selected.includes(file.id)} disabled={disabled || busy} onChange={e => select(file, e.target.checked)} /><span>{file.name}{file.expiresAt && <small className="attachment-expiry">暂存至 {new Date(file.expiresAt).toLocaleString()}</small>}</span><small>{sizeLabel(file.size)}</small></label><button type="button" className="button" aria-label={`移除暂存附件 ${file.name}`} disabled={disabled || busy || pending.some(p => p.type === 'removeAttachment')} onClick={() => void remove(file)}>移除</button></li>)}

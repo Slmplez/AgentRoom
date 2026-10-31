@@ -17,6 +17,7 @@ export function Composer({ client, room, agents, portrait, openMembers, membersO
   const [highlighted, setHighlighted] = useState(0), [busy, setBusy] = useState(false), [mode, setMode] = useState<'discussion' | 'task'>('discussion');
   const [owner, setOwner] = useState(room.ownerAgentId || ''), [uncertain, setUncertain] = useState(false);
   const [attachmentBusy,setAttachmentBusy] = useState(false);
+  const [attachmentToolbar, setAttachmentToolbar] = useState<HTMLDivElement | null>(null);
   const attachmentsEnabled=persistent && client.read().capabilities.attachments;
   const locked = uncertain || persistent && pendingOperations.length > 0;
   const [recoveredMessageId, setRecoveredMessageId] = useState<string | null>(null);
@@ -81,7 +82,7 @@ export function Composer({ client, room, agents, portrait, openMembers, membersO
     finally { submitting.current = false; setBusy(false); input.current?.focus(); }
   }
   return <div className="composer-area">
-    {attachmentsEnabled && <AttachmentPicker client={client} roomId={room.id} workspaceId={room.workspaceId} selected={draft.attachmentIds || []} change={ids=>updateDraft({...draftRef.current,attachmentIds:ids})} disabled={!live || busy || locked} busyChanged={setAttachmentBusy} />}
+
     {room.type === 'group' && selectedAgents.length > 0 && <div className="composer-recipients" aria-label="已选参与者"><span>参与者</span>{selectedAgents.map(agent => <button key={agent.id} aria-label={`移除 ${agent.displayName} 的提及`} onClick={() => {
       let text = draft.text;
       const removed = draft.mentions.filter(m => m.agentId === agent.id).sort((a, b) => b.start - a.start);
@@ -90,6 +91,7 @@ export function Composer({ client, room, agents, portrait, openMembers, membersO
       updateDraft({ text, mentions, attachmentIds:draft.attachmentIds }); setMenuClosed(true); requestAnimationFrame(() => input.current?.focus());
     }}><span className="avatar character small"><img src={portrait(agent)} alt="" /></span>{agent.displayName}<span aria-hidden="true">×</span></button>)}</div>}
     <div className="composer" id="composer">
+    {attachmentsEnabled && <AttachmentPicker compact toolbarTarget={attachmentToolbar} client={client} roomId={room.id} workspaceId={room.workspaceId} selected={draft.attachmentIds || []} change={ids=>updateDraft({...draftRef.current,attachmentIds:ids})} disabled={!live || busy || locked} busyChanged={setAttachmentBusy} />}
       {menu && <div ref={menuRef} className="mention-menu" id="mention-menu" role="listbox" aria-label="提及成员">
         {candidates.length ? candidates.map((a, i) => <button key={a.id} type="button" id={`mention-${i}`} className={`mention-option ${i === highlighted ? 'highlighted' : ''}`} role="option" aria-selected={i === highlighted}
           onMouseDown={e => e.preventDefault()} onClick={() => insertAgent(a)}><span className="avatar character small"><img src={portrait(a)} alt="" /></span><span className="mention-person"><strong>{a.displayName}</strong><small>{a.engine}</small></span><small className="mention-handle">@{a.name}</small></button>) : <p>没有匹配的成员</p>}
@@ -106,7 +108,7 @@ export function Composer({ client, room, agents, portrait, openMembers, membersO
           if (menu && !candidates.length && e.key === 'Enter') { e.preventDefault(); setMenuClosed(true); return; }
           if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); void send(); }
         }} />
-      <div className="composer-toolbar"><div className="composer-tools">
+      <div className="composer-toolbar"><div className="composer-tools"><div className="composer-attachment-slot" ref={setAttachmentToolbar} />
         {!persistent && <button className="composer-tool" aria-label="提及成员" title="选择回应者；可连续 @ 多位成员" onClick={() => {
           const el = input.current!; const start = el.selectionStart, end = el.selectionEnd;
           const inserted = `${start && !/\s/.test(draft.text[start - 1]) ? ' ' : ''}@`;

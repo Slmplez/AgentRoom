@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useId, useRef, useState } from 'react';
 import type { ChatClient, Snapshot, Command } from './types';
 import { consultationCommandTypes } from '../../contracts/consultations.mjs';
 import './consultations.css';
@@ -17,34 +17,60 @@ function load(key: string): Drafts {
 export function Consultations({ client, state, roomId, request }: { client: ChatClient; state: Snapshot; roomId: string; request: ConsultationRequest | null }) {
   const key = `ar-consultations:${JSON.stringify([state.backendId,state.databaseId,state.currentUserId,roomId])}`;
   const [drafts, setDrafts] = useState(() => load(key)), [busy,setBusy] = useState(false), [error,setError] = useState(''), [contexts,setContexts] = useState<Record<string,string>>({});
-  const lock = useRef(false), panel = useRef<HTMLDetailsElement>(null), creator = useRef<HTMLDetailsElement>(null), title = useRef<HTMLTextAreaElement>(null);
+  const lock = useRef(false), creator = useRef<HTMLDialogElement>(null), title = useRef<HTMLTextAreaElement>(null);
+  const [creating, setCreating] = useState(false), [historyOpen, setHistoryOpen] = useState(false);
+  const dialogTitle = useId(), historyId = useId();
+  useEffect(() => {
+    if (!creating) return;
+    const previous = document.activeElement as HTMLElement | null, dialog = creator.current;
+    dialog?.showModal(); title.current?.focus();
+    return () => { dialog?.close(); if (previous?.isConnected) previous.focus(); };
+  }, [creating]);
   const questions = state.consultations.filter(q => q.roomId === roomId);
   const tasks = state.localTasks.filter(t => t.roomId === roomId && t.phase === 'awaiting_input' && t.question?.status === 'pending');
   const source = tasks.find(t => t.id === drafts.sourceTask);
   const choices = state.consultationAgents.filter(a => a.id !== source?.ownerAgentId);
   const pending = state.pendingOperations?.filter(p => consultationCommandTypes.includes(p.type || '')) || [];
+  useEffect(() => { if (pending.length) setHistoryOpen(true); }, [pending.length]);
   const live = state.connection === 'live', enabled = Boolean(state.capabilities.consultations && live && !busy && !pending.length);
   useEffect(() => { if (state.backendId && state.databaseId && state.currentUserId) { try { localStorage.setItem(key, JSON.stringify(drafts)); } catch {} } }, [key,drafts]);
   useEffect(() => { if (!request) return; const t = tasks.find(t => t.id === request.taskId && t.question?.id === request.questionId && t.question.revision === request.questionRevision); if (!t) return;
     setDrafts(d => ({ ...d, sourceTask: t.id, title: t.question!.title, agents: d.agents.filter(id => id !== t.ownerAgentId) }));
-    if (panel.current) panel.current.open = true; if (creator.current) creator.current.open = true; title.current?.focus();
+    setCreating(true);
   }, [request?.nonce]);
   if (!state.capabilities.consultations && !questions.length) return null;
   async function act(action: () => Promise<unknown>) { if (lock.current) return; lock.current = true; setBusy(true); setError(''); try { await action(); } catch(e) { setError((e as Error).message); } finally { lock.current = false; setBusy(false); } }
   const command = (type: 'decideConsultation'|'cancelConsultation'|'resumeConsultation'|'checkConsultation'|'abandonConsultation', q: Question, extra: object = {}) => client.dispatch({ type, key: crypto.randomUUID(), workspaceId: state.rooms.find(r => r.id === roomId)!.workspaceId, roomId, consultationId: q.id, expectedRevision: q.revision, ...extra } as Command);
-  function prepare(q: Question) { setDrafts(d => ({ ...d, title: q.title, instruction: q.instruction, sourceTask: tasks.some(t => t.id === q.source?.taskId) ? q.source!.taskId : '', agents: q.assignments.map(a => a.agentId).filter(id => choices.some(a => a.id === id)) })); if (creator.current) creator.current.open = true; title.current?.focus(); }
-  return <details ref={panel} className="consultations"><summary>Agent 咨询 · {questions.length}{questions.some(q => q.status === 'pending' && q.assignments.some(a => a.status === 'answered')) ? ' · 有建议待决定' : ''}</summary><div className="consultations-body">
-    {state.capabilities.consultations && <details ref={creator} className="consultation-creator" open={!questions.length}><summary>发起新咨询</summary>
+  function prepare(q: Question) { setDrafts(d => ({ ...d, title: q.title, instruction: q.instruction, sourceTask: tasks.some(t => t.id === q.source?.taskId) ? q.source!.taskId : '', agents: q.assignments.map(a => a.agentId).filter(id => choices.some(a => a.id === id)) })); setCreating(true); }
+  return <section className="consultations" aria-label="Agent 咨询">
+    <header className="consultation-bar">
+      <button type="button" className="consultation-history-toggle" aria-expanded={historyOpen} aria-controls={historyId} disabled={!questions.length && !pending.length && !error} onClick={() => setHistoryOpen(value => !value)}><svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M20 11.5a8 8 0 0 1-8 8H5l-4 3V11.5a9.5 9.5 0 0 1 19 0Z" stroke="currentColor" strokeWidth="1.5"/><path d="M6 10h9M6 14h6" stroke="currentColor" strokeWidth="1.5"/></svg><span>Agent 咨询</span><span className="consultation-count">{questions.length}</span>{questions.some(q => q.status === 'pending' && q.assignments.some(a => a.status === 'answered')) && <span className="consultation-ready">有建议待决定</span>}</button>
+      {state.capabilities.consultations && <button type="button" className="consultation-new" onClick={() => setCreating(true)}><span aria-hidden="true">＋</span> 发起咨询</button>}
+    </header>
+    {state.capabilities.consultations && <dialog ref={creator} className="consultation-creator" aria-labelledby={dialogTitle} onCancel={e => { e.preventDefault(); if (!busy) setCreating(false); }} onKeyDown={e => {
+      if (e.key !== 'Tab' || e.defaultPrevented) return;
+      const items = [...e.currentTarget.querySelectorAll<HTMLElement>('button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), summary, [tabindex]:not([tabindex="-1"])')].filter(el => el.getClientRects().length > 0);
+      const first = items[0], last = items[items.length - 1];
+      if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last?.focus(); }
+      else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first?.focus(); }
+    }}>
+      <header className="consultation-dialog-heading"><div><h2 id={dialogTitle}>发起咨询</h2><p>邀请 Agent 分析问题，由你决定采用哪条建议。</p></div><button type="button" className="consultation-close" aria-label="关闭咨询窗口" disabled={busy} onClick={() => setCreating(false)}>×</button></header>
       <form onSubmit={e => { e.preventDefault(); if (!enabled || !drafts.title.trim() || !drafts.agents.length || drafts.agents.some(id => !choices.some(a => a.id === id)) || drafts.sourceTask && !source) return;
-        const original = { ...drafts }; void act(async () => { await client.dispatch({ type: 'createConsultation', key: crypto.randomUUID(), roomId, workspaceId: state.rooms.find(r => r.id === roomId)!.workspaceId, title: original.title, instruction: original.instruction, agentIds: original.agents, source: source ? { taskId: source.id, questionId: source.question!.id, questionRevision: source.question!.revision } : null }); setDrafts(d => d.title === original.title && d.instruction === original.instruction ? { ...d, title: '', instruction: '', sourceTask: '' } : d); }); }}>
+        const original = { ...drafts }; void act(async () => { await client.dispatch({ type: 'createConsultation', key: crypto.randomUUID(), roomId, workspaceId: state.rooms.find(r => r.id === roomId)!.workspaceId, title: original.title, instruction: original.instruction, agentIds: original.agents, source: source ? { taskId: source.id, questionId: source.question!.id, questionRevision: source.question!.revision } : null }); setDrafts(d => d.title === original.title && d.instruction === original.instruction ? { ...d, title: '', instruction: '', sourceTask: '' } : d); setCreating(false); setHistoryOpen(true); }); }}>
+        <div className="consultation-fields">
+        <label className="consultation-question">想咨询什么？<textarea ref={title} aria-label="咨询问题" placeholder="描述遇到的问题，或希望比较的方案…" maxLength={500} rows={3} value={drafts.title} onChange={e => setDrafts(d => ({ ...d,title:e.target.value }))} /></label>
+        <details className="consultation-options" open={Boolean(drafts.sourceTask) || undefined}><summary>补充背景与分析要求 <span>可选</span></summary>
         <label>关联来源<select aria-label="咨询来源" value={drafts.sourceTask} onChange={e => { const t = tasks.find(t => t.id === e.target.value); setDrafts(d => ({ ...d, sourceTask: e.target.value, title: t?.question?.title || d.title, agents: d.agents.filter(id => id !== t?.ownerAgentId) })); }}><option value="">独立咨询问题</option>{tasks.map(t => <option key={t.id} value={t.id}>{t.question?.title}</option>)}{drafts.sourceTask && !source && <option value={drafts.sourceTask}>原问题已失效，请重新选择来源</option>}</select></label>
-        <label>咨询问题<textarea ref={title} aria-label="咨询问题" maxLength={500} rows={2} value={drafts.title} onChange={e => setDrafts(d => ({ ...d,title:e.target.value }))} /></label>
-        <label>分析要求（可选）<textarea aria-label="咨询分析要求" maxLength={4000} rows={2} value={drafts.instruction} onChange={e => setDrafts(d => ({ ...d,instruction:e.target.value }))} /></label>
-        <fieldset disabled={!enabled}><legend>指定回答的 Agent（最多 3 位）</legend>{choices.map(a => <label key={a.id}><input type="checkbox" aria-label={`咨询 ${a.displayName}`} checked={drafts.agents.includes(a.id)} disabled={drafts.agents.length >= 3 && !drafts.agents.includes(a.id)} onChange={e => setDrafts(d => ({ ...d, agents: e.target.checked ? [...d.agents,a.id] : d.agents.filter(id => id !== a.id) }))} /><span>{a.displayName}<small>Pi · {a.model}</small></span></label>)}</fieldset>
-        <p className="consultation-note">每问题最多启动 3 次，10 分钟有效；仅提供建议，不转移负责人或授予工具权限。费用由所配置模型服务计算。</p>
-        <button className="button" data-create-consultation disabled={!enabled || !drafts.title.trim() || !drafts.agents.length || drafts.agents.some(id => !choices.some(a => a.id === id)) || Boolean(drafts.sourceTask && !source)}>发起咨询</button>
+        <label>分析要求<textarea aria-label="咨询分析要求" placeholder="例如：重点比较实现成本、风险和维护难度" maxLength={4000} rows={2} value={drafts.instruction} onChange={e => setDrafts(d => ({ ...d,instruction:e.target.value }))} /></label>
+        </details>
+        <fieldset disabled={!enabled}><legend>选择顾问 <span>已选 {drafts.agents.length}/3</span></legend><div className="consultation-agent-grid">{choices.map(a => <label key={a.id} className={drafts.agents.includes(a.id) ? "is-selected" : ""}><input type="checkbox" aria-label={`咨询 ${a.displayName}`} checked={drafts.agents.includes(a.id)} disabled={drafts.agents.length >= 3 && !drafts.agents.includes(a.id)} onChange={e => setDrafts(d => ({ ...d, agents: e.target.checked ? [...d.agents,a.id] : d.agents.filter(id => id !== a.id) }))} /><span className="consultation-agent-mark" aria-hidden="true">{a.displayName.slice(0,1)}</span><span>{a.displayName}<small>{a.model}</small></span></label>)}</div>{!choices.length && <p className="consultation-note">暂无可用顾问。请先配置咨询 Agent。</p>}</fieldset>
+        <div className="consultation-terms"><p>仅提供建议，不更改负责人或工具权限。</p><p>每题最多启动 3 次 · 10 分钟有效 · 费用按所配置模型服务计算</p></div>
+        {error && <p className="consultation-form-error" role="alert">{error}</p>}
+        </div>
+        <footer className="consultation-submit"><span>{busy ? '正在发起咨询…' : '关闭窗口后保留草稿'}</span><button className="button" data-create-consultation disabled={!enabled || !drafts.title.trim() || !drafts.agents.length || drafts.agents.some(id => !choices.some(a => a.id === id)) || Boolean(drafts.sourceTask && !source)}>{busy ? '正在发起…' : '发起咨询'}</button></footer>
       </form>
-    </details>}
+    </dialog>}
+    <div id={historyId} className="consultations-body" hidden={!historyOpen}>
     {pending.map(p => <div className="consultation-notice" key={p.key} role="status">原咨询请求待核查。<button className="button" data-check-consultation-operation disabled={!live || busy} onClick={() => void act(async () => { if (!await client.checkOperation?.(p.key,p.type)) setError('尚未找到原请求，可以显式重试保存的原请求。'); })}>核查原咨询请求</button>{p.outcome === 'not_found' && <button className="button" disabled={!live || busy} onClick={() => void act(async () => { await client.retryOperation?.(p.key); })}>重试保存的原请求</button>}</div>)}
     {questions.map(q => <article key={q.id} data-consultation-id={q.id} data-consultation-state={q.status}>
       <header><strong>{q.title}</strong><span role="status">{({ pending:'等待你的决定', resolved:'决定已记录', cancelled:'已撤销', expired:'已过期' })[q.status]}</span></header>
@@ -63,6 +89,6 @@ export function Consultations({ client, state, roomId, request }: { client: Chat
       </form>}
       <div className="consultation-actions">{q.status === 'pending' ? <button className="button" data-cancel-consultation disabled={!enabled} onClick={() => void act(async () => { await command('cancelConsultation',q); })}>撤销本轮咨询</button> : <button className="button" disabled={!enabled} onClick={() => prepare(q)}>填写新一轮咨询</button>}</div>
     </article>)}
-    {error && <p role="alert">{error}</p>}
-  </div></details>;
+    {error && !creating && <p role="alert">{error}</p>}
+  </div></section>;
 }

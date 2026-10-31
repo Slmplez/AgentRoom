@@ -159,7 +159,7 @@ app.whenReady().then(async () => {
   assert.ok(await js(b, 'document.documentElement.scrollWidth<=innerWidth && document.querySelector(".settings-dialog").scrollWidth<=document.querySelector(".settings-dialog").clientWidth'));
   await fs.writeFile(path.resolve(__dirname, '../artifacts/agent-memory-ui-dark-narrow.png'), (await b.webContents.capturePage()).toPNG());
   // A real installed Pi task receives the immutable snapshot, even if memory changes while native input waits.
-  await close(a); await input(a, '本机任务目标', '检查这次任务加载的明确配置'); await js(a, 'document.querySelector("[data-create-local-task]").click()');
+  await close(a); await js(a, 'document.querySelector(".local-tasks > summary").click()'); await input(a, '本机任务目标', '检查这次任务加载的明确配置'); await js(a, 'document.querySelector("[data-create-local-task]").click()');
   await until(a, 'Boolean(document.querySelector("[data-local-phase=awaiting_input]"))');
   await js(a, 'document.querySelector(".memory-context").open=true'); await until(a, 'Boolean(document.querySelector("[data-task-context-prompt]"))');
   const expectedPrompt = await js(a, 'document.querySelector("[data-task-context-prompt]").textContent');

@@ -33,9 +33,9 @@ function CommentDraft({client,file,version,anchor,quote,onSaved,cancel}:{client:
   const result=await client.request(pending.current);if(result.type!=='comment')throw Error('评论响应不正确。');
   localStorage.removeItem(key);onSaved(result.comment);
  }catch(e){setError((e as Error).message);}finally{setBusy(false);}}}>
-  <header><strong>你</strong><span>{anchor.side==='additions'?'R':'L'}{anchor.line} · 本地评论</span></header>
+  <header><strong className="review-comment-author"><span aria-hidden="true">你</span>行内评论</strong><span className="review-comment-location">{anchor.side==='additions'?'R':'L'}{anchor.line} · 仅本地可见</span></header>
   <textarea autoFocus aria-label="添加行内评论" placeholder="添加一条评论…" maxLength={4000} value={text} disabled={busy||Boolean(pending.current&&error)} onChange={e=>{setText(e.target.value);try{localStorage.setItem(key,JSON.stringify({text:e.target.value,pending:null}));}catch{setError('草稿无法写入本地存储，请保留页面。');}}} onKeyDown={e=>{if(e.key==='Escape'){e.stopPropagation();cancel();}}}/>
-  {error&&<p role="alert">{error}</p>}<footer><button type="button" disabled={busy} onClick={cancel}>取消</button><button type="submit" disabled={busy||!text.trim()}>{busy?'保存中…':error?'重试评论':'评论'}</button></footer>
+  {error&&<p role="alert">{error}</p>}<footer><span className="review-comment-draft-note">草稿自动保留</span><button type="button" disabled={busy} onClick={cancel}>取消</button><button type="submit" disabled={busy||!text.trim()}>{busy?'保存中…':error?'重试评论':'评论'}</button></footer>
  </form>;
 }
 export function ReviewFileNotice({name,reason,editable,client}:{name:string;reason:string;editable:boolean;client?:ReviewClient}) {

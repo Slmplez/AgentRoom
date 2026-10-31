@@ -32,7 +32,7 @@ export function LocalTasks({ client, state, roomId, onConsult }: { client: ChatC
     try { await action(); } catch (e) { setError((e as Error).message); }
     finally { lock.current = false; setBusy(false); }
   }
-  return <details ref={panel} className="local-tasks" open><summary>本机只读任务 · {tasks.length}{tasks.some(t => t.phase === 'awaiting_input') ? ' · 有问题需要回答' : ''}</summary>
+  return <details ref={panel} className="local-tasks" open={tasks.length > 0 || undefined}><summary>本机只读任务 · {tasks.length}{tasks.some(t => t.phase === 'awaiting_input') ? ' · 有问题需要回答' : ''}</summary>
     <div className="local-tasks-body">
       {state.capabilities.localExecution && <details className="local-new-task" open={!tasks.length}><summary>发起只读任务</summary><form onSubmit={e => { e.preventDefault(); if (!enabled || busy || active || operations.length || !drafts.goal.trim()) return; const goal = drafts.goal; void act(async () => { await client.dispatch({ type: 'createLocalTask', key: crypto.randomUUID(), workspaceId: state.rooms.find(r => r.id === roomId)!.workspaceId, roomId, ownerAgentId: state.localAgentId!, goal }); setDrafts(old => old.goal === goal ? { ...old, goal: '' } : old); }); }}>
         <label>交给本机 Pi 的目标<textarea aria-label="本机任务目标" maxLength={16000} rows={2} value={drafts.goal} onChange={e => setDrafts(old => ({ ...old, goal: e.target.value }))} /></label>
