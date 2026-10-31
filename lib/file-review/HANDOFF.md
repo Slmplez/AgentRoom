@@ -15,11 +15,14 @@
 2. Runtime 配置通过 `createRuntimeFileReview(runtime,{directory,editorWorkspace})` 实例化独立文件审阅存储；共享 HTTP 在已有身份/Origin/CSRF 校验后挂载 `createFileReviewHandler`。代理需要允许 `/api/v1/file-review`，POST 仅限 JSON，2 MiB 上限。关闭宿主时关闭文件审阅服务。
 3. AgentRoomClient 的 `review(input)` 调用传输并验证 `reviewRequestSchema/reviewResultSchema`，校验 generation、当前房间与工作区。持久 Cookie 通道使用 `createFileReviewTransport`；桌面和旧版 API 必须继续经公共 Client，不能由组件直接调 fetch/IPC。
 4. App 在真实 Client 暴露 `review` 前保留只读状态；Mock 的评论与编辑存入浏览器，明确标为模拟。测试 harness 安装真实认证 HTTP Client 并验证磁盘文件，而非只测 Mock。
-5. 差异入口：旧版真实工具的 toolDetails.patches → ChatThread.showDiff → DiffPreview 是现有真实入口；需要验证其工作区相对路径能解析到宿主绑定根目录。当前持久模式只读 Agent/报告没有文件差异产物来源，不能宣称持久任务已产生可编辑 Diff。正式装配还需提供真实变化/文件选择入口，或者先明确限定为已有真实工具差异模式。
+5. 真实差异入口：持久 Web/桌面提供用户手动点击的“工作区变更”按钮，经公共 Client 发 `{type:'changes',workspaceId,roomId}`。独立服务已实现该请求，仅读取宿主显式 `editorWorkspace` 根的 Git 差异；不启动 Agent，也不写文件。返回 `{type:'changes',workspaceId,roomId,rootId,base,complete:true,files:[{file,status,patch,editable,reason?}]}`。`files=[]` 显示“暂无变更”；Git 缺失/非仓库/超限错误明确显示。
+6. `patch !== null` 的项可交给现有 DiffPreview；`patch === null` 的项必须同时显示文件名和只读原因，不能静默遗漏。`complete:true` 表示完整状态列表和未截断的已返回补丁，不表示每个文件都有补丁。文件级 `editable:false` 必须禁用编辑入口；删除文件仍可审阅原始差异。刷新后替换补丁并重新绑定评论 digest。不要只限定旧工具模式或 Mock。
+7. 读取范围是 HEAD 对当前工作树的净变化（含暂存、新增、未跟踪；未首次提交也支持）。Git 忽略文件及子模块内部变更不包含；重命名按删除+新增显示。根目录必须是 Git 仓库顶层。响应最多 60 文件，补丁合计 1 MiB，单次 Git 3 秒/整次读取 10 秒上限；超限整体拒绝，不返回部分结果。读取不是跨文件原子快照，结束时复核 HEAD/状态，文件编辑仍以完整文件 hash 独立检查冲突。
 
 ## 验证命令
 
 - `node --test test/file-review.test.cjs`
+- `node --test test/file-review-changes.test.cjs`：真实临时 Git 仓库的暂存/未暂存/未跟踪/无提交/删除/只读/数量和大小限制/禁止执行 clean filter/Git 缺失。
 - `npm run check:chat`、`npm run check:boundaries`、`npm run build:renderer`
 - `npx electron scripts/verify-file-review-ui.cjs --disable-gpu`：认证 HTTP、真实临时文件落地、评论重启、冲突、刷新草稿、窄屏。
 - `npx electron scripts/verify-diff-workspace.cjs --disable-gpu`：原有差异工作区回归。

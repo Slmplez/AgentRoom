@@ -9,6 +9,7 @@ export function createFileReviewClient(client, scope, {mock=false,storage=global
  const load=key=>{try{return JSON.parse(storage.getItem(prefix+key)||'null');}catch{throw fail('draft_storage_error','本地审阅记录不可读。');}};
  const store=(key,value)=>{try{storage.setItem(prefix+key,JSON.stringify(value));}catch{throw fail('draft_storage_error','本地存储空间不足，无法保存。');}};
  async function mockRequest(input) {
+  if(input.type==='changes')throw fail('editing_unavailable','模拟场景没有真实 Git 工作区，请使用示例差异。');
   const result={workspaceId:scope.workspaceId,roomId:scope.roomId,file:input.file,simulated:true};
   const key=`:file:${input.file}`,record=load(key);
   if(input.type==='readFile'){if(!record)throw fail('file_missing','此模拟文件尚未载入。');return {type:'file',...result,...record};}
