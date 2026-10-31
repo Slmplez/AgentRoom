@@ -22,6 +22,11 @@ test('real Git changes combine staged, unstaged and untracked files without writ
 test('unborn repositories expose complete added-file patches',async t=>{
  const f=await fixture(t,{unborn:true});f.write('second.txt','second\n');const result=f.changes();assert.equal(result.base,'unborn');assert.equal(result.files.length,2);assert.ok(result.files.every(x=>x.patch.includes('new file mode')));
 });
+test('Git treats bracket filenames literally instead of matching other paths',async t=>{
+ const f=await fixture(t);f.write('[a].txt','bracket before\n');f.write('a.txt','plain before\n');f.git('add','.');f.git('commit','-m','paths');
+ f.write('[a].txt','bracket after\n');f.write('a.txt','plain after\n');const result=f.changes();
+ const patch=result.files.find(x=>x.file==='[a].txt').patch;assert.match(patch,/\+bracket after/);assert.doesNotMatch(patch,/plain after/);assert.equal((patch.match(/^diff --git/gm)||[]).length,1);
+});
 test('deleted, binary, oversize and link paths stay read-only',async t=>{
  const f=await fixture(t);fs.unlinkSync(path.join(f.root,'file.txt'));f.write('binary.bin',Buffer.from([0,255,2]));f.write('large.txt',Buffer.alloc(262145,65));
  const result=f.changes(),removed=result.files.find(x=>x.file==='file.txt');assert.equal(removed.editable,false);assert.match(removed.patch,/-original/);
