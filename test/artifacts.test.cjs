@@ -165,6 +165,6 @@ test('authentic v2 schema migration preserves reply chains, receipts, cursors an
   assert.deepEqual(runtime.query({type:'receipt',workspaceId:'workspace',commandType:'sendDiscussion',key:'old-key'},runtime.owner),receipt);
   assert.equal(runtime.query({type:'events',roomId:'room',after:receipt.cursor},runtime.owner).events.length,0);
   db=new DatabaseSync(path.join(directory,'application.sqlite'));
-  assert.equal(db.prepare('PRAGMA user_version').get().user_version,6);assert.equal(db.prepare('PRAGMA foreign_key_check').get(),undefined);
+  assert.equal(db.prepare('PRAGMA user_version').get().user_version,7);assert.equal(db.prepare('PRAGMA foreign_key_check').get(),undefined);
   assert.deepEqual(JSON.parse(db.prepare('SELECT state_json FROM local_tasks').get().state_json),task);db.close();
 });

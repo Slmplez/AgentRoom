@@ -1,3 +1,4 @@
+import { attachmentQuerySchema, attachmentSchema, pendingAttachmentsSchema } from './attachments.mjs';
 import { z } from 'zod';
 import { consultationQuerySchema, consultationSchema } from './consultations.mjs';
 import { runContextSnapshotSchema } from './run-context.mjs';
@@ -26,6 +27,7 @@ export const connectionCommands = [
   z.object({ type: z.literal('removeConnection'), key: id, id }),
 ];
 export const querySchema = z.discriminatedUnion('type', [
+  ...attachmentQuerySchema.options,
   ...consultationQuerySchema.options,
   ...memoryQuerySchema.options, taskContextQuerySchema,
   ...artifactQuerySchema.options,
@@ -38,6 +40,7 @@ export const querySchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('modelCatalog'), connectionId: id, model: z.string().max(200).optional() }),
 ]);
 export const queryResults = {
+  attachment: attachmentSchema, pendingAttachments: pendingAttachmentsSchema,
   consultation: consultationSchema, consultations: z.array(consultationSchema), consultationContext: runContextSnapshotSchema,
   ...memoryQueryResults, taskContextSnapshot: taskContextResultSchema,
   artifact: artifactVersionSchema, artifactVersions: artifactVersionsSchema,

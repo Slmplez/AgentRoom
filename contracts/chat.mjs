@@ -1,3 +1,4 @@
+import { attachmentSchema, attachmentIdsSchema, removeAttachmentSchema } from './attachments.mjs';
 import { z } from 'zod';
 import { artifactRefSchema } from './artifacts.mjs';
 import { connectionCommands } from './settings.mjs';
@@ -17,6 +18,7 @@ export const messageSchema = z.object({
   id, roomId: id, sequence: z.number(), authorId: id, authorName: z.string(), role: z.enum(['user', 'assistant']),
   text: z.string(), status: z.enum(['running', 'complete', 'failed', 'cancelled', 'unknown']),
   createdAt: z.string(), tools: z.array(toolSchema).default([]),
+  attachmentRefs: z.array(attachmentSchema).default([]),
   artifactRefs: z.array(artifactRefSchema).default([]),
   replyToId: z.string().nullable().default(null), recipientIds: z.array(id).default([]), runId: id.nullable().default(null),
 });
@@ -39,9 +41,10 @@ export const snapshotSchema = z.object({
   messages: z.array(messageSchema), approvals: z.array(approvalSchema), runs: z.array(runSchema).default([]), approvalHistory: z.array(approvalSchema).default([]),
   currentUserId: id.nullable().default(null), questions: z.array(collaborationQuestionSchema).default([]),
   localTasks: z.array(localTaskSchema).default([]), localAgentId: id.nullable().default(null),
-  capabilities: z.object({ tasks: z.boolean(), consultations: z.boolean().default(false), idempotentSend: z.boolean().default(false), collaborationQuestions: z.boolean().default(false), questionAdvice: z.boolean().default(false), localExecution: z.boolean().default(false), readOnlyArtifacts: z.boolean().default(false), artifactPublishing: z.boolean().default(false), agentMemory: z.boolean().default(false) }),
+  capabilities: z.object({ attachments: z.boolean().default(false), tasks: z.boolean(), consultations: z.boolean().default(false), idempotentSend: z.boolean().default(false), collaborationQuestions: z.boolean().default(false), questionAdvice: z.boolean().default(false), localExecution: z.boolean().default(false), readOnlyArtifacts: z.boolean().default(false), artifactPublishing: z.boolean().default(false), agentMemory: z.boolean().default(false) }),
 });
 export const commandSchema = z.discriminatedUnion('type', [
+  removeAttachmentSchema,
   ...memoryCommandSchema.options,
   z.object({ type: z.literal('cancelRun'), key: id, runId: id }),
   ...localExecutionCommandSchema.options,
@@ -50,7 +53,7 @@ export const commandSchema = z.discriminatedUnion('type', [
   ...managementCommands,
   ...capabilityCommands,
   ...questionCommands,
-  z.object({ type: z.literal('send'), key: id, roomId: id, text: z.string().min(1).max(16000), mode: z.enum(['discussion', 'task']), ownerAgentId: z.string().nullable(),
+  z.object({ type: z.literal('send'), key: id, roomId: id, text: z.string().max(16000), attachmentIds: attachmentIdsSchema.optional(), mode: z.enum(['discussion', 'task']), ownerAgentId: z.string().nullable(),
     mentions: z.array(z.object({ agentId: id, start: z.number().int().nonnegative(), end: z.number().int().positive() })) }),
   z.object({ type: z.literal('decide'), approvalId: id, expectedRevision: z.number().int().nonnegative(), allow: z.boolean(), answers: z.array(z.array(z.string().max(4000))).default([]), value: z.string().max(16000).default('') }),
 ]);

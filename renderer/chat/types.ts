@@ -1,15 +1,19 @@
+import type { attachmentSchema } from '../../contracts/attachments.mjs';
 import type { z } from 'zod';
 import type { snapshotSchema, messageSchema, approvalSchema, commandSchema } from '../../contracts/chat.mjs';
 import type { querySchema, queryResults } from '../../contracts/settings.mjs';
 export type Query = z.input<typeof querySchema>;
 export type QueryResult<T extends Query['type']> = z.infer<(typeof queryResults)[T]>;
-export type Snapshot = z.infer<typeof snapshotSchema> & { connection: string; error: string; backendId?: string; databaseId?: string; beforeSequence?: number | null; historyLoading?: boolean; syncNotice?: string; pendingOperations?: { key: string; outcome: string; type?: string; taskId?: string; consultationId?: string; entityId?: string; memoryScope?: { kind: 'agent'; agentId: string } | { kind: 'room'; roomId: string } }[] };
+export type Snapshot = z.infer<typeof snapshotSchema> & { connection: string; error: string; backendId?: string; databaseId?: string; beforeSequence?: number | null; historyLoading?: boolean; syncNotice?: string; pendingOperations?: { key: string; outcome: string; type?: string; name?: string; attachmentId?: string; taskId?: string; consultationId?: string; entityId?: string; memoryScope?: { kind: 'agent'; agentId: string } | { kind: 'room'; roomId: string } }[] };
+export type Attachment = z.infer<typeof attachmentSchema>;
 export type Message = z.infer<typeof messageSchema>;
 export type Approval = z.infer<typeof approvalSchema>;
 export type Command = z.infer<typeof commandSchema>;
 export type Agent = Snapshot['agents'][number];
 export type Room = Snapshot['rooms'][number];
 export interface ChatClient {
+  uploadAttachment?(input: {key: string; roomId: string; name: string; file: Blob; signal?: AbortSignal}): Promise<{attachment?: Attachment}>;
+  downloadAttachment?(input: {roomId: string; attachmentId: string}): Promise<{metadata: Attachment; blob: Blob}>;
   query<Q extends Query>(input: Q): Promise<QueryResult<Q['type']>>;
   read(): Snapshot;
   subscribe(listener: () => void): () => void;

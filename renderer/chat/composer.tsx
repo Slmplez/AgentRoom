@@ -1,9 +1,10 @@
+import { AttachmentPicker } from './attachments';
 import React, { useEffect, useId, useRef, useState } from 'react';
 import type { Agent, ChatClient, Command, Room } from './types';
 import { useEntrance } from './motion';
 import { ComposerSelect } from './composer-select';
 
-export type Draft = { text: string; mentions: { agentId: string; start: number; end: number }[]; submittedKey?: string };
+export type Draft = { text: string; mentions: { agentId: string; start: number; end: number }[]; submittedKey?: string; attachmentIds?: string[] };
 export function Composer({ client, room, agents, portrait, openMembers, membersOpen, draft, updateDraft, live, tasks, mock, persistent = false, pendingOperations = [], onError }: {
   client: ChatClient; room: Room; agents: Agent[]; draft: Draft; updateDraft(draft: Draft): void;
   portrait(agent: Agent): string; openMembers(): void; membersOpen: boolean;
@@ -15,13 +16,15 @@ export function Composer({ client, room, agents, portrait, openMembers, membersO
   const [cursor, setCursor] = useState(0), [selectionEnd, setSelectionEnd] = useState(0), [menuClosed, setMenuClosed] = useState(false);
   const [highlighted, setHighlighted] = useState(0), [busy, setBusy] = useState(false), [mode, setMode] = useState<'discussion' | 'task'>('discussion');
   const [owner, setOwner] = useState(room.ownerAgentId || ''), [uncertain, setUncertain] = useState(false);
+  const [attachmentBusy,setAttachmentBusy] = useState(false);
+  const attachmentsEnabled=persistent && client.read().capabilities.attachments;
   const locked = uncertain || persistent && pendingOperations.length > 0;
   const [recoveredMessageId, setRecoveredMessageId] = useState<string | null>(null);
   const draftRef = useRef(draft); draftRef.current = draft;
   const recoveredMessage = client.read().messages.find(m => m.id === recoveredMessageId);
   useEffect(() => {
     if (!recoveredMessage) return;
-    if (draftRef.current.submittedKey && recoveredMessage.text === draftRef.current.text) updateDraft({ text: '', mentions: [] });
+    if (draftRef.current.submittedKey && recoveredMessage.text === draftRef.current.text && JSON.stringify(recoveredMessage.attachmentRefs.map(a=>a.id))===JSON.stringify(draftRef.current.attachmentIds || [])) updateDraft({ text: '', mentions: [] });
     setRecoveredMessageId(null);
   }, [recoveredMessage]);
   useEffect(() => {
@@ -56,7 +59,7 @@ export function Composer({ client, room, agents, portrait, openMembers, membersO
     let suffix = 0; while (suffix < old.text.length - start && suffix < next.length - start && old.text.at(-1 - suffix) === next.at(-1 - suffix)) suffix++;
     const oldEnd = old.text.length - suffix, delta = next.length - old.text.length;
     const mentions = old.mentions.flatMap(m => m.end <= start ? [m] : m.start >= oldEnd ? [{ ...m, start: m.start + delta, end: m.end + delta }] : []).filter(m => !/[a-zA-Z0-9_/-]/.test(next[m.end] || ''));
-    updateDraft({ text: next, mentions }); setCursor(nextCursor); setSelectionEnd(nextCursor); setHighlighted(0); setMenuClosed(false);
+    updateDraft({ text: next, mentions, attachmentIds:old.attachmentIds }); setCursor(nextCursor); setSelectionEnd(nextCursor); setHighlighted(0); setMenuClosed(false);
   }
   function insertAgent(agent: Agent) {
     if (!position) return;
@@ -64,26 +67,27 @@ export function Composer({ client, room, agents, portrait, openMembers, membersO
     const delta = next.text.length - draft.text.length;
     const mentions = draft.mentions.flatMap(m => m.end <= position.start ? [m] : m.start >= position.end ? [{ ...m, start: m.start + delta, end: m.end + delta }] : []);
     mentions.push({ agentId: agent.id, start: position.start, end: position.start + agent.name.length + 1 });
-    updateDraft({ text: next.text, mentions }); setCursor(next.cursor); setSelectionEnd(next.cursor); setMenuClosed(true);
+    updateDraft({ text: next.text, mentions, attachmentIds:draft.attachmentIds }); setCursor(next.cursor); setSelectionEnd(next.cursor); setMenuClosed(true);
     requestAnimationFrame(() => { input.current?.focus(); input.current?.setSelectionRange(next.cursor, next.cursor); });
   }
   async function send() {
-    if (submitting.current || !live || !draft.text.trim() || locked) return;
+    if (submitting.current || attachmentBusy || !live || (!draft.text.trim() && !draft.attachmentIds?.length) || locked) return;
     const key = crypto.randomUUID();
-    const submitted = draft, command: Command = { type: 'send', key, roomId: room.id, text: draft.text, mode, ownerAgentId: room.type === 'dm' ? room.memberIds[0] : owner || null, mentions: draft.mentions };
+    const submitted = draft, command: Command = { type: 'send', key, roomId: room.id, text: draft.text, ...(attachmentsEnabled?{attachmentIds:draft.attachmentIds || []}:{}), mode, ownerAgentId: room.type === 'dm' ? room.memberIds[0] : owner || null, mentions: draft.mentions };
     submitting.current = true; setBusy(true); setMenuClosed(true); setOptionsOpen(false);
     if (persistent) updateDraft({ ...draft, submittedKey: key });
-    try { await client.dispatch(command); if (draftRef.current.text === submitted.text) updateDraft({ text: '', mentions: [] }); }
+    try { await client.dispatch(command); if (draftRef.current.text === submitted.text && JSON.stringify(draftRef.current.attachmentIds || [])===JSON.stringify(submitted.attachmentIds || [])) updateDraft({ text: '', mentions: [] }); }
     catch (error) { const e = error as Error & { outcome?: string }; if (e.outcome === 'unknown') setUncertain(true); onError(e.message); }
     finally { submitting.current = false; setBusy(false); input.current?.focus(); }
   }
   return <div className="composer-area">
+    {attachmentsEnabled && <AttachmentPicker client={client} roomId={room.id} workspaceId={room.workspaceId} selected={draft.attachmentIds || []} change={ids=>updateDraft({...draftRef.current,attachmentIds:ids})} disabled={!live || busy || locked} busyChanged={setAttachmentBusy} />}
     {room.type === 'group' && selectedAgents.length > 0 && <div className="composer-recipients" aria-label="已选参与者"><span>参与者</span>{selectedAgents.map(agent => <button key={agent.id} aria-label={`移除 ${agent.displayName} 的提及`} onClick={() => {
       let text = draft.text;
       const removed = draft.mentions.filter(m => m.agentId === agent.id).sort((a, b) => b.start - a.start);
       for (const mention of removed) text = text.slice(0, mention.start) + text.slice(mention.end);
       const mentions = draft.mentions.filter(m => m.agentId !== agent.id).map(m => { const shift = removed.filter(r => r.end <= m.start).reduce((total, r) => total + r.end - r.start, 0); return { ...m, start: m.start - shift, end: m.end - shift }; });
-      updateDraft({ text, mentions }); setMenuClosed(true); requestAnimationFrame(() => input.current?.focus());
+      updateDraft({ text, mentions, attachmentIds:draft.attachmentIds }); setMenuClosed(true); requestAnimationFrame(() => input.current?.focus());
     }}><span className="avatar character small"><img src={portrait(agent)} alt="" /></span>{agent.displayName}<span aria-hidden="true">×</span></button>)}</div>}
     <div className="composer" id="composer">
       {menu && <div ref={menuRef} className="mention-menu" id="mention-menu" role="listbox" aria-label="提及成员">
@@ -113,7 +117,7 @@ export function Composer({ client, room, agents, portrait, openMembers, membersO
         {tasks && <details className="composer-options" ref={optionsRef} open={!compact || optionsOpen} onToggle={e => { if (compact) setOptionsOpen(e.currentTarget.open); }} onKeyDown={e => { if (compact && e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); setOptionsOpen(false); optionsRef.current?.querySelector<HTMLElement>('summary')?.focus(); } }}><summary aria-label="消息选项">{mode === 'task' ? '任务' : '讨论'}{mode === 'task' && room.type === 'group' && <span className="composer-owner-hint">{agents.find(a => a.id === owner)?.displayName || '待选负责人'}</span>}<span aria-hidden="true">⌄</span></summary><div className="composer-option-fields"><ComposerSelect label="消息类型" value={mode} change={value => setMode(value as typeof mode)} disabled={busy || locked} options={[{ value: 'discussion', label: '讨论', description: '交流想法，邀请成员回应' }, { value: 'task', label: '任务', description: '指定一位负责人推进工作' }]} />
         {mode === 'task' && room.type === 'group' && <ComposerSelect label="任务负责人" value={owner ? `agent:${owner}` : 'none'} change={value => setOwner(value === 'none' ? '' : value.slice(6))} disabled={busy || locked} options={[{ value: 'none', label: '选择负责人' }, ...agents.map(a => ({ value: `agent:${a.id}`, label: `${a.displayName} 负责`, description: a.engine, image: portrait(a) }))]} />}
         </div></details>}
-      </div><button id="send-button" className="send-button" aria-label="发送消息" title="Enter 发送 · Shift + Enter 换行" aria-describedby={instructionsId} disabled={busy || !live || !draft.text.trim() || locked || mode === 'task' && !owner && room.type !== 'dm'} onClick={() => void send()}><span aria-hidden="true">↑</span></button></div>
+      </div><button id="send-button" className="send-button" aria-label="发送消息" title="Enter 发送 · Shift + Enter 换行" aria-describedby={instructionsId} disabled={busy || attachmentBusy || !live || (!draft.text.trim() && !draft.attachmentIds?.length) || locked || mode === 'task' && !owner && room.type !== 'dm'} onClick={() => void send()}><span aria-hidden="true">↑</span></button></div>
     </div>
     <div id={instructionsId} className="chat-visually-hidden"><span>{persistent ? '持久讨论 · 不启动 Agent' : room.type === 'dm' ? `仅与 ${room.title} 对话` : mode === 'task' ? '一位负责人 · @ 添加参与者' : mock ? '@ 邀请回应 · 未提及仅记录讨论' : '请 @ 选择回应者'}</span>{' '}<span>Enter 发送 · Shift + Enter 换行</span></div>
     {persistent && locked && <p className="chat-inline-error" role="alert">发送结果尚待核查。{pendingOperations.map(operation => <span key={operation.key}>

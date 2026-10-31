@@ -1,3 +1,4 @@
+import { MessageAttachments } from './attachments';
 import React, { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { AssistantRuntimeProvider, MessagePrimitive, ThreadPrimitive, useAuiState, useExternalStoreRuntime, type ThreadMessageLike } from '@assistant-ui/react';
 import { MarkdownTextPrimitive } from '@assistant-ui/react-markdown';
@@ -37,10 +38,11 @@ function MessageRow() {
   return <MessagePrimitive.Root className={`message ${context.group ? 'group-message' : ''} ${message.role === 'user' ? 'human' : ''}`} data-message-id={id}>
     {message.role !== 'user' && <span className="avatar character">{agent && <img src={context.portrait(agent)} alt="" />}</span>}
     <div className="message-main"><div className={`message-heading ${message.role === 'user' && message.authorName === '你' ? 'chat-visually-hidden' : ''}`}><span className="message-name">{message.authorName}</span>{agent && !context.group && <span className="message-engine">{agent.engine}</span>}</div>
-      <div className="message-bubble chat-markdown"><MessagePrimitive.Parts components={{ Text: MarkdownText }} />{message.status === 'running' && !message.text && <span className="chat-thinking" role="status">正在回应…</span>}</div>
+      {(message.text || message.status === 'running') && <div className="message-bubble chat-markdown"><MessagePrimitive.Parts components={{ Text: MarkdownText }} />{message.status === 'running' && !message.text && <span className="chat-thinking" role="status">正在回应…</span>}</div>}
       {!statusCovered && message.status !== 'running' && message.status !== 'complete' && <p className="chat-inline-error" role="status">{message.status === 'unknown' ? '执行结果尚未确认' : message.status === 'cancelled' ? '已中断' : '执行失败'}</p>}
       {context.group && message.tools.some(t => t.hasDiff || t.patches.length > 0) && <MessageChanges key={message.id} tools={message.tools} context={context} />}
       {message.tools.some(t => ['failed', 'unknown', 'cancelled'].includes(t.status)) && <p className="process-attention" role="status">{message.tools.some(t => t.status === 'failed') ? '有操作失败，请查看过程核查' : message.tools.some(t => t.status === 'unknown') ? '有操作结果未知，请查看过程核查' : '有操作已中断'}</p>}
+      <MessageAttachments client={context.client} files={message.attachmentRefs || []} />
       {context.renderArtifacts?.(message)}
       {context.renderQuestions?.(message.id)}
       {message.tools.length > 0 && <MessageProcess message={message} context={context} />}

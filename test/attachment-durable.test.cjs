@@ -1,0 +1,28 @@
+const {test}=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs/promises'),os=require('node:os'),path=require('node:path'),{fork}=require('node:child_process'),{once}=require('node:events'),{createHash}=require('node:crypto');
+function message(child,type){return new Promise((resolve,reject)=>{const timer=setTimeout(()=>done(Error(`Missing ${type}`)),15000);const onMessage=value=>{if(value.type===type)done(null,value);},onExit=()=>done(Error('Child exited'));function done(error,value){clearTimeout(timer);child.off('message',onMessage);child.off('exit',onExit);error?reject(error):resolve(value);}child.on('message',onMessage);child.once('exit',onExit);});}
+async function start(directory){const child=fork(path.join(__dirname,'fixtures/persistence-process.cjs'),[directory],{stdio:['ignore','ignore','ignore','ipc'],windowsHide:true});const ready=await message(child,'ready');return {child,...ready,async stop(){if(child.exitCode!==null||child.signalCode!==null)return;const exit=once(child,'exit');child.kill('SIGKILL');await exit;},async arm(point){const armed=message(child,'armed');child.send({type:'arm',point});await armed;}};}
+for(const operation of ['upload','link'])for(const point of ['after_receipt','after_commit'])test(`real process kill ${operation} ${point}: restart retains all or nothing, never replays bytes`,async t=>{
+  const directory=await fs.mkdtemp(path.join(os.tmpdir(),'ar-attachment-kill-'));let server=await start(directory);t.after(()=>server.stop());
+  const call=async(route,body,key)=>{const res=await fetch(server.origin+'/api/v1'+route,{method:body?'POST':'GET',headers:{Authorization:'Bearer '+server.token,...(body?{'Content-Type':'application/json','Idempotency-Key':key}:{})},body:body?JSON.stringify(body):undefined});return {status:res.status,data:await res.json()};};
+  const workspaceId=(await call('/bootstrap')).data.workspace.id,roomId=(await call('/rooms',{workspaceId,title:'atomic'},'room')).data.roomId,bytes=Buffer.from('durable content');
+  const upload=()=>fetch(`${server.origin}/api/v1/rooms/${roomId}/attachments`,{method:'POST',headers:{Authorization:'Bearer '+server.token,'Content-Type':'application/octet-stream','Idempotency-Key':'upload','X-Workspace-Id':workspaceId,'X-Attachment-Name':'atomic.txt','X-Content-Sha256':createHash('sha256').update(bytes).digest('hex')},body:bytes});
+  let attachment;if(operation==='link')attachment=(await (await upload()).json()).attachment;
+  await server.arm(point);const fault=message(server.child,'fault');const request=(operation==='upload'?upload():call(`/rooms/${roomId}/messages`,{workspaceId,text:'',attachmentIds:[attachment.id]},'link')).catch(()=>null);
+  await fault;await server.stop();await request;server=await start(directory);
+  const receipt=await call('/operations?'+new URLSearchParams({workspaceId,commandType:operation==='upload'?'uploadAttachment':'sendDiscussion',key:operation}));assert.equal(receipt.status,point==='after_commit'?200:404);
+  const snapshot=(await call(`/rooms/${roomId}/snapshot`)).data,staged=(await call(`/rooms/${roomId}/attachments`)).data.attachments;
+  if(operation==='upload'){assert.equal(staged.length,point==='after_commit'?1:0);assert.equal(snapshot.messages.length,0);}
+  else {assert.equal(snapshot.messages.length,point==='after_commit'?1:0);assert.equal(staged.length,point==='after_commit'?0:1);}
+  if(point==='after_commit' && operation==='upload')attachment=receipt.data.attachment;
+  if(attachment){const res=await fetch(`${server.origin}/api/v1/rooms/${roomId}/attachments/${attachment.id}/content`,{headers:{Authorization:'Bearer '+server.token}});assert.deepEqual(Buffer.from(await res.arrayBuffer()),bytes);}
+});
+test('binary receiving allows two concurrent bodies; third is busy and chunked overflow never writes a receipt',async t=>{
+  const {createApplicationRuntime}=await import('../lib/application-runtime/index.mjs'),{startPersistenceHttp}=await import('../lib/application-http/index.mjs'),http=require('node:http');
+  const runtime=await createApplicationRuntime({directory:await fs.mkdtemp(path.join(os.tmpdir(),'ar-attachment-concurrency-'))}),server=await startPersistenceHttp({runtime});const requests=[];t.after(async()=>{requests.forEach(r=>r.destroy());await server.close();runtime.close();});
+  const workspaceId=runtime.query({type:'bootstrap'},runtime.owner).workspace.id,roomId=runtime.execute({type:'createRoom',workspaceId,key:'room',title:'binary'},runtime.owner).roomId;
+  const headers={Authorization:'Bearer '+server.token,'Content-Type':'application/octet-stream','X-Workspace-Id':workspaceId,'X-Attachment-Name':'file.txt','X-Content-Sha256':createHash('sha256').update('a').digest('hex')};
+  function open(key){let resolve;const result=new Promise(r=>resolve=r),req=http.request(`${server.origin}/api/v1/rooms/${roomId}/attachments`,{method:'POST',headers:{...headers,'Idempotency-Key':key}},res=>{res.resume();res.once('end',()=>resolve(res.statusCode));});req.on('error',()=>resolve(0));requests.push(req);req.write('a');return {req,result};}
+  const first=open('one'),second=open('two');await new Promise(r=>setTimeout(r,50));const third=open('three');third.req.end();assert.equal(await third.result,429);first.req.end();second.req.end();assert.equal(await first.result,200);assert.equal(await second.result,200);
+  const overflow=open('overflow');for(let i=0;i<9;i++)overflow.req.write(Buffer.alloc(1024*1024,65));overflow.req.end();assert.equal(await overflow.result,413);
+  assert.throws(()=>runtime.query({type:'receipt',workspaceId,commandType:'uploadAttachment',key:'overflow'},runtime.owner),{code:'not_found'});assert.equal(runtime.query({type:'pendingAttachments',roomId},runtime.owner).attachments.length,2);
+});

@@ -73,6 +73,7 @@ test('authentic v3 database migrates with discussion, task, report, receipts and
   const snapshot = runtime.query({ type: 'snapshot', roomId }, actor);
   delete snapshot.instanceId; delete expected.snapshot.instanceId;
   expected.snapshot.consultations = [];
+  expected.snapshot.messages = expected.snapshot.messages.map(message=>({...message,attachmentRefs:[]}));
   expected.snapshot.localTasks = expected.snapshot.localTasks.map(task => ({ ...task, leaseHeld: false }));
   assert.deepEqual(snapshot, expected.snapshot);
   for (const receipt of [expected.messageReceipt, expected.taskReceipt, expected.artifactReceipt]) assert.deepEqual(runtime.query({ type: 'operation', operationId: receipt.operationId }, actor), receipt);
@@ -83,7 +84,7 @@ test('authentic v3 database migrates with discussion, task, report, receipts and
   assert.deepEqual(events.events, []); assert.notEqual(events.cursor, expected.events.cursor, 'Hidden memory event still advances the durable cursor');
   db = new DatabaseSync(path.join(directory, 'application.sqlite'));
   assert.equal(db.prepare('PRAGMA foreign_key_check').get(), undefined);
-  assert.equal(db.prepare('PRAGMA user_version').get().user_version, 6); db.close();
+  assert.equal(db.prepare('PRAGMA user_version').get().user_version, 7); db.close();
 });
 
 test('migration integrity failure rolls back the new schema without discarding legacy data', async () => {

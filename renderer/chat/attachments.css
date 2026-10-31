@@ -1,0 +1,14 @@
+.attachment-picker { margin: 8px 0; font-size: 12px; }
+.attachment-hint { color: var(--muted); margin: 6px; font-size: 12px; }
+.attachment-list { list-style: none; padding: 0; margin: 6px 0; display: grid; gap: 5px; max-height: 180px; overflow: auto; }
+.attachment-list li { display: flex; align-items: center; gap: 10px; justify-content: space-between; padding: 6px 8px; border: 1px solid var(--border); border-radius: 8px; }
+.attachment-list li > span, .attachment-list label { min-width: 0; overflow-wrap: anywhere; }
+.attachment-list label { display: flex; align-items: center; gap: 7px; flex: 1; }
+.attachment-list label span { min-width: 0; overflow-wrap: anywhere; }
+.attachment-list small { color: var(--muted); white-space: nowrap; }
+.attachment-list button { flex: 0 0 auto; }
+.attachment-pending { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin: 6px 0; }
+.message-attachments { margin-top: 8px; max-width: 560px; font-size: 13px; }
+@media (max-width: 560px) { .attachment-hint { display: block; margin-left: 0; } .attachment-list li { gap: 6px; } }
+
+.attachment-list .attachment-expiry { display: block; font-size: 10px; white-space: normal; }
