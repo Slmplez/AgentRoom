@@ -1,7 +1,7 @@
 /* Connection editor and launch picker. Secrets are never returned by the backend. */
 window.createConnectionUI = ({ client, platform, showModal, beginModalLoad, modalCurrent, toast, icon, esc, modalAction }) => {
   const $ = selector => document.querySelector(selector);
-  const protocols = { multi: 'Magpie / 多协议网关', responses: 'OpenAI Responses', chat: 'OpenAI Chat Completions', anthropic: 'Anthropic Messages' };
+  const protocols = { multi: '兼容网关 / 多协议', responses: 'OpenAI Responses', chat: 'OpenAI Chat Completions', anthropic: 'Anthropic Messages' };
   let editingId = '', connectionState = { profiles: [], secureStorageAvailable: false }, generation = 0;
   async function load() { connectionState = await client.query({ type: 'connections' }); }
   function profiles() { return connectionState.profiles; }
@@ -34,17 +34,17 @@ window.createConnectionUI = ({ client, platform, showModal, beginModalLoad, moda
     editingId = selectedId;
     const profile = profiles().find(item => item.id === selectedId) || { name: '', baseUrl: 'http://127.0.0.1:3425/v1', protocol: 'multi', model: '', authMode: 'bearer', contextWindow: 128000, maxTokens: 8192 };
     const file = (id, label, value, key = false) => `<label class="form-label" for="${id}">${label}</label><div class="directory-row"><input class="text-input" id="${id}" value="${esc(value || '')}" placeholder="可选 · PEM 文件路径"><button data-certificate="${id}" data-kind="${key ? 'key' : 'cert'}">选择文件</button></div>`;
-    showModal('连接、网关与模型', '为不同 Agent 选择同一套模型服务，也可以接入已有的 Magpie、本地模型或企业网关。', `
+    showModal('连接、网关与模型', '为不同 Agent 选择同一套模型服务，也可以接入本地模型或兼容网关。', `
       <div class="connections-layout"><aside class="connection-sidebar">
         <button class="button primary" data-action="connection-new">${icon('plus')} 新建连接方案</button>
         <div class="connection-profile-list">${profiles().map(item => `<button class="connection-profile ${item.id === selectedId ? 'selected' : ''}" data-connection="${esc(item.id)}"><strong>${esc(item.name)}</strong><small>${esc(protocols[item.protocol])}</small><span>${esc(item.model)}</span></button>`).join('') || '<p class="form-hint">添加一个连接方案，启动 Agent 时即可选择。</p>'}</div>
         <div class="connection-storage-note">${icon('settings')}<span>${connectionState.secureStorageAvailable ? 'Key 由系统加密保存' : '当前环境无法保存 Key，请使用桌面版'}<br>编辑时不回显已保存的 Key。</span></div>
       </aside><div class="connection-editor">
-        <div class="connection-presets"><span>快速填写</span><button data-preset="magpie">Magpie</button><button data-preset="ollama">Ollama</button><button data-preset="lmstudio">LM Studio</button><button data-preset="custom">自定义</button></div>
-        <label class="form-label" for="connection-name">方案名称</label><input class="text-input" id="connection-name" maxlength="60" value="${esc(profile.name)}" placeholder="例如：公司网关、Magpie、本地 Qwen">
+        <div class="connection-presets"><span>快速填写</span><button data-preset="magpie">兼容网关</button><button data-preset="ollama">Ollama</button><button data-preset="lmstudio">LM Studio</button><button data-preset="custom">自定义</button></div>
+        <label class="form-label" for="connection-name">方案名称</label><input class="text-input" id="connection-name" maxlength="60" value="${esc(profile.name)}" placeholder="例如：公司网关、本地 Qwen">
         <div class="connection-form-row"><div><label class="form-label" for="connection-protocol">API 协议</label><select class="text-input" id="connection-protocol">${Object.entries(protocols).map(([id, label]) => `<option value="${id}" ${profile.protocol === id ? 'selected' : ''}>${esc(label)}</option>`).join('')}</select></div><div><label class="form-label" for="connection-auth">认证方式</label><select class="text-input" id="connection-auth"><option value="bearer" ${profile.authMode === 'bearer' ? 'selected' : ''}>Bearer API Key</option><option value="api-key" ${profile.authMode === 'api-key' ? 'selected' : ''}>x-api-key</option><option value="none" ${profile.authMode === 'none' ? 'selected' : ''}>无认证（本地服务）</option></select></div></div>
         <label class="form-label" for="connection-url">API Base URL</label><input class="text-input" id="connection-url" value="${esc(profile.baseUrl)}" placeholder="http://127.0.0.1:3425/v1"><p class="form-hint">填写 API 根路径，通常以 /v1 结尾；不要包含 /responses 或 /chat/completions。</p>
-        <label class="form-label" for="connection-key">API Key ${profile.hasApiKey ? '<span class="saved-badge">已保存</span>' : ''}</label><input class="text-input" type="password" autocomplete="new-password" id="connection-key" placeholder="${profile.hasApiKey ? '留空保留已保存的 Key' : '输入服务商 Key 或 Magpie 网关 Token'}"><label class="checkbox-label"><input type="checkbox" id="connection-clear-key">清除已保存的 Key</label>
+        <label class="form-label" for="connection-key">API Key ${profile.hasApiKey ? '<span class="saved-badge">已保存</span>' : ''}</label><input class="text-input" type="password" autocomplete="new-password" id="connection-key" placeholder="${profile.hasApiKey ? '留空保留已保存的 Key' : '输入服务商 Key 或 网关 Token'}"><label class="checkbox-label"><input type="checkbox" id="connection-clear-key">清除已保存的 Key</label>
         <label class="form-label" for="connection-model">默认模型 ID</label><div class="directory-row"><input class="text-input" id="connection-model" list="connection-model-list" value="${esc(profile.model)}" maxlength="200" placeholder="手动填写，或从网关读取模型"><datalist id="connection-model-list"></datalist><button data-action="connection-test">读取模型 / 测试</button></div>
         <div class="connection-test-result" id="connection-test-result" role="status">只发送 GET /models，检查网络、认证和模型列表，不执行推理。</div>
         <details class="connection-advanced" ${profile.caPath || profile.clientCertPath ? 'open' : ''}><summary>CA 认证与客户端证书 <span>HTTPS / mTLS</span></summary>
@@ -71,7 +71,7 @@ window.createConnectionUI = ({ client, platform, showModal, beginModalLoad, moda
     return { id, profile, credentials: { apiKey: change(apiKey, clearApiKey), passphrase: change(clientKeyPassphrase, clearPassphrase) } };
   }
   function compatibility() {
-    const labels = { multi: 'Codex、Claude Code、Pi、OpenCode。需要上游 Magpie 或网关本身支持多协议转换。', responses: 'Codex、Pi、OpenCode。上游需要支持 Responses API。', chat: 'Pi、OpenCode。Codex 需要 Responses，Claude Code 需要 Anthropic 协议。', anthropic: 'Claude Code、Pi、OpenCode。上游需要支持 Anthropic Messages API。' };
+    const labels = { multi: 'Codex、Claude Code、Pi、OpenCode。需要上游网关支持多协议转换。', responses: 'Codex、Pi、OpenCode。上游需要支持 Responses API。', chat: 'Pi、OpenCode。Codex 需要 Responses，Claude Code 需要 Anthropic 协议。', anthropic: 'Claude Code、Pi、OpenCode。上游需要支持 Anthropic Messages API。' };
     if ($('#connection-compatibility')) $('#connection-compatibility').textContent = `适用引擎：${labels[$('#connection-protocol').value]}`;
   }
   document.addEventListener('change', event => {
@@ -86,7 +86,7 @@ window.createConnectionUI = ({ client, platform, showModal, beginModalLoad, moda
       return;
     }
     if (button.dataset.preset) {
-      const presets = { magpie: ['Magpie', 'http://127.0.0.1:3425/v1', 'multi', 'bearer'], ollama: ['Ollama', 'http://127.0.0.1:11434/v1', 'chat', 'none'], lmstudio: ['LM Studio', 'http://127.0.0.1:1234/v1', 'chat', 'none'], custom: ['', '', 'responses', 'bearer'] };
+      const presets = { magpie: ['兼容网关', 'http://127.0.0.1:3425/v1', 'multi', 'bearer'], ollama: ['Ollama', 'http://127.0.0.1:11434/v1', 'chat', 'none'], lmstudio: ['LM Studio', 'http://127.0.0.1:1234/v1', 'chat', 'none'], custom: ['', '', 'responses', 'bearer'] };
       const values = presets[button.dataset.preset];
       // A preset starts a fresh profile so an old saved credential is never reused at a new host.
       await show();

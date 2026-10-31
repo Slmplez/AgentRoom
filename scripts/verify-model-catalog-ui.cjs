@@ -17,8 +17,8 @@ app.whenReady().then(async () => {
   const input = async (selector, value) => { await run(`document.querySelector(${JSON.stringify(selector)}).focus(); document.querySelector(${JSON.stringify(selector)}).select()`); await win.webContents.insertText(value); };
   const select = (selector, value) => run(`(() => { const el=document.querySelector(${JSON.stringify(selector)}); el.value=${JSON.stringify(value)}; el.dispatchEvent(new Event('change',{bubbles:true})); })()`);
   await win.loadURL(origin); await until('document.querySelector("#connection-text")?.textContent === "演示模式"');
-  await run('document.querySelector("[aria-label=设置]").click()'); await until('Array.from(document.querySelectorAll("button")).some(b=>b.textContent === "连接 Magpie")'); await click('连接 Magpie');
-  await until('document.querySelector("input[name=name]")?.value === "Magpie"');
+  await run('document.querySelector("[aria-label=设置]").click()'); await until('Array.from(document.querySelectorAll("button")).some(b=>b.textContent === "连接兼容网关")'); await click('连接兼容网关');
+  await until('document.querySelector("input[name=name]")?.value === "兼容网关"');
   await select('select[name=authMode]', 'none');
   assert.equal(await run('document.querySelector("input[name=model]").value'), '');
   await click('测试连接'); await until('document.querySelector("#settings-models")?.children.length === 3');
@@ -32,7 +32,7 @@ app.whenReady().then(async () => {
   const section = 'section[aria-label="添加 Agent"]';
   await until(`Array.from(document.querySelectorAll('${section} select'))[1]?.options.length > 1`);
   const pickConnection = await run(`Array.from(document.querySelectorAll('${section} select'))[1].outerHTML`);
-  assert.match(pickConnection, /Magpie/);
+  assert.match(pickConnection, /兼容网关/);
   const connectionId = await run(`Array.from(document.querySelectorAll('${section} select'))[1].options[1].value`);
   await select(`${section} select:nth-of-type(1)`, 'codex');
   // Select by the visible field label, independent of other settings tabs kept mounted.
@@ -51,6 +51,6 @@ app.whenReady().then(async () => {
   await fs.writeFile(path.resolve(__dirname, '../artifacts/model-catalog-ui.png'), (await win.webContents.capturePage()).toPNG());
   await run(`document.querySelector('${section} button.primary').click()`); await until('!document.querySelector(".settings-dialog").open');
   assert.deepEqual(errors, []);
-  console.log('Passed: Magpie preset; discovery before model selection; declared, unsupported and unknown capabilities; launch validation and successful Mock launch.');
+  console.log('Passed: generic gateway preset; discovery before model selection; declared, unsupported and unknown capabilities; launch validation and successful Mock launch.');
   win.destroy(); server.close(); app.quit();
 }).catch(error => { console.error(error); win?.destroy(); server?.close(); app.exit(1); });

@@ -19,7 +19,7 @@ export function ConnectionSettings({ client, platform, active, actions }: { clie
     <QueryState {...query} />
     {query.data && <><div className="settings-list">{query.data.profiles.map(p => <button className="settings-row" aria-pressed={editing === p.id} disabled={actions.busy} key={p.id} onClick={() => setEditing(p.id)}><span><strong>{p.name}</strong><small>{p.model} · {protocols[p.protocol]}</small></span><span>编辑</span></button>)}</div>
       <button className="button" disabled={actions.busy} onClick={() => { setEditing(''); setMagpie(false); setRevision(v => v + 1); }}>新建连接</button>
-      <button className="button" disabled={actions.busy} onClick={() => { setEditing(''); setMagpie(true); setRevision(v => v + 1); }}>连接 Magpie</button>
+      <button className="button" disabled={actions.busy} onClick={() => { setEditing(''); setMagpie(true); setRevision(v => v + 1); }}>连接兼容网关</button>
       <ConnectionEditor key={`${editing}:${revision}`} profile={selected} magpie={!selected && magpie} client={client} platform={platform} active={active} actions={actions} secure={query.data.secureStorageAvailable} saved={() => { query.refresh(); if (!editing) setRevision(v => v + 1); }} removed={() => { setEditing(''); query.refresh(); }} />
     </>}
   </>;
@@ -48,9 +48,9 @@ function ConnectionEditor({ profile, magpie, client, platform, active, secure, a
   }
   return <form ref={form} className="settings-form" onChange={e => { const target = e.target; if ((target instanceof HTMLInputElement || target instanceof HTMLSelectElement) && target.name !== 'model') { setCatalog([]); setModels([]); setResult(''); } }} onSubmit={async e => { e.preventDefault(); if (await actions.run(operation, write())) { form.current?.querySelectorAll<HTMLInputElement>('input[type=password]').forEach(input => { input.value = ''; }); form.current?.querySelectorAll<HTMLInputElement>('input[name^="clear-"]').forEach(input => { input.checked = false; }); saved(); } }}>
     <h3>{profile ? '编辑连接' : '新建连接'}</h3>
-    {magpie && <p className="settings-note">先启动本机 Magpie，再填写其网关 Key 并测试连接。无需先填写模型 ID；此操作只读取目录，不执行推理。多协议转换由 Magpie 提供。</p>}
+    {magpie && <p className="settings-note">填写网关地址及认证信息后测试连接，无需先填写模型 ID。此操作只读取模型目录；多协议支持取决于上游网关。</p>}
     <fieldset disabled={blocked}>
-      <Field label="方案名称"><input name="name" required maxLength={60} defaultValue={profile?.name || (magpie ? 'Magpie' : '')} placeholder="例如：公司网关" /></Field>
+      <Field label="方案名称"><input name="name" required maxLength={60} defaultValue={profile?.name || (magpie ? '兼容网关' : '')} placeholder="例如：公司网关" /></Field>
       <Field label="API 协议"><select name="protocol" defaultValue={profile?.protocol || 'multi'}>{Object.entries(protocols).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></Field>
       <Field label="API Base URL"><input name="baseUrl" type="url" required defaultValue={profile?.baseUrl || 'http://127.0.0.1:3425/v1'} /></Field>
       <Field label="认证方式"><select name="authMode" defaultValue={profile?.authMode || 'bearer'}><option value="bearer">Bearer API Key</option><option value="api-key">x-api-key</option><option value="none">无认证（本地服务）</option></select></Field>
