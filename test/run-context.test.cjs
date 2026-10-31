@@ -171,7 +171,7 @@ test('legacy tasks expose missing historical context honestly; v4 memory survive
   assert.equal(s.context(legacy.roomId, legacy.taskReceipt.taskId).status, 'not_recorded');
   s.execute(soul('iris', 'migration soul')); s.execute(save(agentScope('iris'), 'migration fact')); await s.close();
   // No new task has run; removing later v5/v6 tables yields the unchanged v4 schema.
-  db = new DatabaseSync(path.join(directory, 'application.sqlite')); db.exec('DROP TABLE form_responses; DROP TABLE form_waits; ALTER TABLE artifact_versions DROP COLUMN kind; DROP TABLE attachments; ALTER TABLE messages DROP COLUMN attachment_refs_json; DROP INDEX local_tasks_terminal_lease; DROP INDEX local_tasks_agent_phase; DROP TABLE consultation_jobs; DROP TABLE consultations; DROP TABLE run_context_snapshots; PRAGMA user_version=4;'); db.close();
+  db = new DatabaseSync(path.join(directory, 'application.sqlite')); db.exec('DROP TABLE memory_curation_inspections; DROP TABLE memory_curation_queue; DROP TABLE memory_curation_seen; DROP TABLE memory_curation_runs; DROP TABLE memory_curation_scopes; DROP TABLE form_responses; DROP TABLE form_waits; ALTER TABLE artifact_versions DROP COLUMN kind; DROP TABLE attachments; ALTER TABLE messages DROP COLUMN attachment_refs_json; DROP INDEX local_tasks_terminal_lease; DROP INDEX local_tasks_agent_phase; DROP TABLE consultation_jobs; DROP TABLE consultations; DROP TABLE run_context_snapshots; PRAGMA user_version=4;'); db.close();
   s = await setup(t, { directory });
   const taskId = s.create(legacy.roomId); await until(() => s.runs[0]?.prompt);
   const snapshot = s.context(legacy.roomId, taskId).snapshot;

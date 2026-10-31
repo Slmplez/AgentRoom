@@ -7,16 +7,17 @@ async function main() {
   if(agentForms)args.splice(args.indexOf('--agent-forms'),1);
   const agentReports = args.includes('--agent-reports');
   if (agentReports) args.splice(args.indexOf('--agent-reports'), 1);
-  let directory, agentWorkspace, consultationConfig, port = 4319;
+  let directory, agentWorkspace, consultationConfig, memoryCuratorConfig, port = 4319;
   for (let i = 0; i < args.length; i += 2) {
     if (args[i] === '--data-dir' && args[i + 1]) directory = path.resolve(args[i + 1]);
+    else if (args[i] === '--memory-curator-config' && args[i + 1]) memoryCuratorConfig = path.resolve(args[i + 1]);
     else if (args[i] === '--consultation-config' && args[i + 1]) consultationConfig = path.resolve(args[i + 1]);
     else if (args[i] === '--agent-workspace' && args[i + 1]) agentWorkspace = path.resolve(args[i + 1]);
     else if (args[i] === '--port' && /^\d+$/.test(args[i + 1] || '')) port = Number(args[i + 1]);
-    else throw new Error('Use --persistent --data-dir <isolated-directory> [--port 4319] [--agent-workspace <read-only-directory>] [--agent-reports] [--agent-forms] [--consultation-config <trusted-json>].');
+    else throw new Error('Use --persistent --data-dir <isolated-directory> [--port 4319] [--agent-workspace <read-only-directory>] [--agent-reports] [--agent-forms] [--consultation-config <trusted-json>] [--memory-curator-config <trusted-json>].');
   }
   if (!directory) throw new Error('Specify --data-dir for persistent discussion; existing hcom data is not imported.');
-  const host = await startPersistentHost({ directory, port, agentWorkspace, agentReports, agentForms, consultationConfig });
+  const host = await startPersistentHost({ directory, port, agentWorkspace, agentReports, agentForms, consultationConfig, memoryCuratorConfig });
   console.log(`Agent Room persistent discussion: ${host.origin}\nData directory: ${directory}\nThis launcher owns the backend. Closing a browser or desktop window does not stop it.`);
   if (process.send) process.send({ type: 'ready', origin: host.origin });
   let stopping = false;

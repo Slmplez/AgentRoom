@@ -4,12 +4,10 @@ const { resolve } = require('node:path');
   const [directory, point] = process.argv.slice(2);
   const moduleAt = file => import(pathToFileURL(resolve(__dirname, '../../lib/application-runtime', file)));
   const { openStorage } = await moduleAt('storage.mjs');
-  const { installMemoryCurationSchema } = await moduleAt('memory-curation-storage.mjs');
   const { agentMemory } = await moduleAt('agent-memory.mjs');
   const { createMemoryCurator } = await moduleAt('memory-curation.mjs');
   const db = await openStorage(directory, 5000); let exitAfterCommit = false;
   const atomic = fn => { db.exec('BEGIN IMMEDIATE'); try { const r = fn(); db.exec('COMMIT'); if (exitAfterCommit) process.exit(86); return r; } catch (e) { db.exec('ROLLBACK'); throw e; } };
-  atomic(() => installMemoryCurationSchema(db));
   const scope = { kind: 'agent', agentId: 'iris' }, actor = { id: db.prepare('SELECT owner_id FROM database_meta').get().owner_id };
   atomic(() => agentMemory(db).apply({ type: 'saveExplicitMemory', scope, text: '保留原始记录', source: { kind: 'owner-note' } }, actor, new Date().toISOString()));
   const curator = createMemoryCurator({ db, atomic, allowedScope: () => true, checkpoint(name) {

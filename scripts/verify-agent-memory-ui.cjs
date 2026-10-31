@@ -43,7 +43,11 @@ app.whenReady().then(async () => {
   for (const desktop of [true, false]) {
     const win = new BrowserWindow({ width: 1280, height: 960, show: false, webPreferences: { offscreen: true, backgroundThrottling: false, sandbox: true, contextIsolation: true, nodeIntegration: false, partition: desktop ? 'memory-desktop' : 'memory-web', ...(desktop ? { preload: path.resolve(__dirname, '../preload.cjs'), additionalArguments: ['--persistent-ui'] } : {}) } });
     windows.push(win); win.webContents.on('console-message', e => { if (e.level === 'error' && !e.message.includes('net::ERR_BLOCKED_BY_CLIENT')) errors.push(e.message); });
+    await win.loadURL('about:blank');
+    win.webContents.debugger.attach('1.3'); await win.webContents.debugger.sendCommand('Page.enable');
+    await win.webContents.debugger.sendCommand('Page.addScriptToEvaluateOnNewDocument', {source: `(()=>{const original=window.fetch;window.fetch=async(...args)=>{let q={};try{q=JSON.parse(args[1]?.body||'{}');}catch{}const response=await original(...args);if(window.holdMemoryRefresh && q.type==='explicitMemories'){if(q.afterId)window.pageRequests++;else await new Promise(resolve=>window.releaseMemoryRefresh=resolve);}return response;};})()`});
     await win.loadURL(host.origin); await until(win, 'document.querySelector("#connection-text")?.textContent==="已连接"');
+    win.webContents.debugger.detach();
   }
   const [a, b] = windows;
   const initialRoom = await a.webContents.executeJavaScript("fetch('/api/persistence/session').then(r=>r.json()).then(s=>s.roomId)");
@@ -64,16 +68,34 @@ app.whenReady().then(async () => {
   await until(a, 'Boolean(document.querySelector("textarea[aria-label=个性]"))');
   assert.deepEqual(await js(a, `[...document.querySelector('[aria-label=记忆归属]').options].map(o=>o.value)`), ['room', 'local-pi', 'ember']);
   await input(a, '个性', '审慎、先核对证据'); await input(a, '表达方式', '直接、简洁'); await input(a, '工作方式', '保留来源');
-  await click(a, '保存 Soul'); await until(a, 'document.querySelector(".memory-scope h3").textContent.includes("v1")');
+  await click(a, '保存 Soul'); await until(a, '[...document.querySelectorAll(".memory-scope h3")].find(h=>h.textContent.startsWith("Soul ·")).textContent.includes("v1")');
   // Seed the other Agent through the real authenticated API, then paginate via
   // the public Client/UI. The currently executing Agent/Room remain independent.
-  await js(a, `(async()=>{const boot=await (await fetch('/api/v1/bootstrap')).json();for(let i=0;i<21;i++){const response=await fetch('/api/v1/agent-memory/commands',{method:'POST',headers:{'content-type':'application/json','idempotency-key':'pagination-'+i},body:JSON.stringify({type:'saveExplicitMemory',workspaceId:boot.workspace.id,scope:{kind:'agent',agentId:'ember'},text:i===0?'😀'.repeat(2048):'分页记录 '+i,source:{kind:'owner-note'}})});if(!response.ok)throw Error('pagination fixture failed');}})()`);
+  await js(a, `(async()=>{const boot=await (await fetch('/api/v1/bootstrap')).json();for(let i=0;i<55;i++){const response=await fetch('/api/v1/agent-memory/commands',{method:'POST',headers:{'content-type':'application/json','idempotency-key':'pagination-'+i},body:JSON.stringify({type:'saveExplicitMemory',workspaceId:boot.workspace.id,scope:{kind:'agent',agentId:'ember'},text:i===0?'😀'.repeat(2048):'分页记录 '+i,source:{kind:'owner-note'}})});if(!response.ok)throw Error('pagination fixture failed');}})()`);
   await chooseAgent(a, 'ember'); await click(a, '刷新当前状态');
   await until(a, 'document.querySelectorAll("[data-memory-id]").length===20');
   await input(a, '新记忆', '分页期间保留的草稿');
+  await until(a, '[...document.querySelectorAll("button")].some(b=>b.textContent.startsWith("加载更多记录") && !b.disabled)');
   await js(a, '[...document.querySelectorAll("button")].find(b=>b.textContent.startsWith("加载更多记录")).click()');
-  await until(a, 'document.querySelectorAll("[data-memory-id]").length===21');
-  assert.equal(await js(a, 'new Set([...document.querySelectorAll("[data-memory-id]")].map(e=>e.dataset.memoryId)).size'), 21);
+  await until(a, 'document.querySelectorAll("[data-memory-id]").length===40');
+  // Hold a real first-page refresh after its HTTP response, then try the old
+  // 40-record cursor. It must not be dispatched in the refresh generation.
+  await js(a, 'window.pageRequests=0;window.holdMemoryRefresh=true;void 0');
+  console.log('Checking refresh/page interleaving');
+  await click(a, '刷新当前状态');await until(a, 'typeof window.releaseMemoryRefresh==="function"');
+  assert.equal(await js(a, '[...document.querySelectorAll("button")].find(b=>b.textContent.startsWith("加载更多记录")).disabled'),true);
+  await js(a, '[...document.querySelectorAll("button")].find(b=>b.textContent.startsWith("加载更多记录")).click()');
+  assert.equal(await js(a, 'window.pageRequests'),0);
+  await js(a, 'window.holdMemoryRefresh=false;window.releaseMemoryRefresh()');
+  await until(a, 'document.querySelectorAll("[data-memory-id]").length===20');
+  await until(a, '[...document.querySelectorAll("button")].some(b=>b.textContent.startsWith("加载更多记录") && !b.disabled)');
+  await js(a, '[...document.querySelectorAll("button")].find(b=>b.textContent.startsWith("加载更多记录")).click()');
+  await until(a, 'document.querySelectorAll("[data-memory-id]").length===40');
+  await until(a, '[...document.querySelectorAll("button")].some(b=>b.textContent.startsWith("加载更多记录") && !b.disabled)');
+  await js(a, '[...document.querySelectorAll("button")].find(b=>b.textContent.startsWith("加载更多记录")).click()');
+  await until(a, 'document.querySelectorAll("[data-memory-id]").length===55');
+  assert.equal(await js(a, 'new Set([...document.querySelectorAll("[data-memory-id]")].map(e=>e.dataset.memoryId)).size'),55);
+  console.log('Refresh/page regression passed');
   assert.equal(await js(a, 'document.querySelector("textarea[aria-label=新记忆]").value'), '分页期间保留的草稿');
   await chooseAgent(a, 'local-pi');
   await saveNote(a, '优先验证边界条件');
@@ -81,7 +103,7 @@ app.whenReady().then(async () => {
   await input(a, '个性', '活泼的独立草稿'); await chooseAgent(a, 'local-pi');
   assert.equal(await js(a, 'document.querySelector("textarea[aria-label=个性]").value'), '审慎、先核对证据');
   await chooseAgent(a, 'ember'); assert.equal(await js(a, 'document.querySelector("textarea[aria-label=个性]").value'), '活泼的独立草稿');
-  await click(a, '保存 Soul'); await until(a, 'document.querySelector(".memory-scope h3").textContent.includes("v1")');
+  await click(a, '保存 Soul'); await until(a, '[...document.querySelectorAll(".memory-scope h3")].find(h=>h.textContent.startsWith("Soul ·")).textContent.includes("v1")');
   await select(a, '记忆归属', 'room'); await until(a, '!document.querySelector("textarea[aria-label=个性]") && Boolean(document.querySelector("textarea[aria-label=新记忆]"))');
   await input(a, '新记忆', '😀'.repeat(2049)); assert.ok(await js(a, `[...document.querySelectorAll('button')].find(b=>b.textContent==='保存明确记忆').disabled`));
   await input(a, '新记忆', '😀'.repeat(2048)); assert.ok(await js(a, `![...document.querySelectorAll('button')].find(b=>b.textContent==='保存明确记忆').disabled`));
@@ -143,7 +165,7 @@ app.whenReady().then(async () => {
   const expectedPrompt = await js(a, 'document.querySelector("[data-task-context-prompt]").textContent');
   assert.ok(expectedPrompt.includes('审慎、先核对证据') && expectedPrompt.includes('优先验证边界条件') && expectedPrompt.includes('A 的更正草稿'));
   assert.ok(!expectedPrompt.includes('活泼的独立草稿') && !expectedPrompt.includes('响应丢失的记忆'));
-  await open(a); await chooseAgent(a, 'local-pi'); await input(a, '个性', '任务启动后的新版个性'); await click(a, '保存 Soul'); await until(a, 'document.querySelector(".memory-scope h3").textContent.includes("v2")');
+  await open(a); await chooseAgent(a, 'local-pi'); await input(a, '个性', '任务启动后的新版个性'); await click(a, '保存 Soul'); await until(a, '[...document.querySelectorAll(".memory-scope h3")].find(h=>h.textContent.startsWith("Soul ·")).textContent.includes("v2")');
   await click(a, '停用记忆', card('优先验证边界条件')); await click(a, '确认停用'); await until(a, `!${card('优先验证边界条件')}`); await close(a);
   await input(a, '真实问题答复', '保留两周'); await js(a, 'document.querySelector("[data-answer-local-question]").click()'); await until(a, 'Boolean(document.querySelector("[data-local-phase=reviewing]"))');
   assert.ok(receivedTexts.includes(expectedPrompt), 'Exact snapshot prompt reached installed Pi loopback model'); assert.equal(requests, 1);

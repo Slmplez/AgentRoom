@@ -40,7 +40,7 @@ test('more than sixteen long records persist and paginate without a storage ceil
   assert.deepEqual(s.query({ type: 'explicitMemories', scope: { kind: 'agent', agentId: 'ember' }, afterId: first.afterId }).memories, []);
 });
 
-test('unwired curator still gives actual task dispatch a bounded v2 snapshot with deferred counts', async t => {
+test('unconfigured curator gives actual task dispatch a bounded v2 snapshot with deferred counts', async t => {
   let prompt;
   const s = await setup(t, { execution: { agentId: 'iris', createEngine() { return { onQuestion() {}, async start() {}, async prompt(text) { prompt = text; return { outcome: 'complete', text: 'done' }; }, isStopped: () => true, async close() {} }; } } });
   for (let i = 0; i < 25; i++) s.save(String(i).padStart(2, '0') + '😀'.repeat(2046));
@@ -75,9 +75,7 @@ test('optional curation context freezes summaries and exact provenance; later de
   const s = await setup(t);
   const { agentMemory } = await import('../lib/application-runtime/agent-memory.mjs');
   const { createMemoryCurator } = await import('../lib/application-runtime/memory-curation.mjs');
-  const { installMemoryCurationSchema } = await import('../lib/application-runtime/memory-curation-storage.mjs');
   const atomic = fn => { s.db.exec('BEGIN IMMEDIATE'); try { const value = fn(); s.db.exec('COMMIT'); return value; } catch (e) { s.db.exec('ROLLBACK'); throw e; } };
-  atomic(() => installMemoryCurationSchema(s.db));
   const a = s.save('偏好结论优先'), b = s.save('依据随后解释');
   const roomId = s.execute({ type: 'createRoom', title: 'Summary scope' }).roomId;
   const curator = createMemoryCurator({ db: s.db, atomic, allowedScope: () => true, engine: { agentId: 'memory-curator', model: 'local-fixture', createEngine() { return {

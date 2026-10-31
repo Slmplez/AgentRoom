@@ -1,3 +1,4 @@
+import { curationCommandTypes, curationCommandSchema } from './memory-curation-api.mjs';
 import { formStateSchema, formCommandTypes } from './forms.mjs';
 import { attachmentSchema, attachmentIdsSchema, attachmentCommandTypes } from './attachments.mjs';
 import { z } from 'zod';
@@ -35,7 +36,7 @@ export const persistenceFrameSchema = z.discriminatedUnion('type', [
 export const persistenceBootstrapSchema = z.object({
   schemaVersion: z.literal(1), databaseId: id, instanceId: id,
   user: z.object({ id, name: z.string() }), workspace: z.object({ id, title: z.string() }),
-  capabilities: z.object({ forms: z.boolean().default(false), attachments: z.boolean().default(false), persistentMessages: z.literal(true), eventStream: z.literal(true), idempotentSend: z.literal(true), tasks: z.literal(false), consultations: z.boolean().default(false), agentMemory: z.boolean().default(false), readOnlyArtifacts: z.boolean().default(false), artifactPublishing: z.boolean().default(false), localExecution: z.boolean().default(false) }), localAgentId: id.optional(), knownAgents: z.array(id).default([]), consultationAgents: z.array(consultationAgentSchema).default([]),
+  capabilities: z.object({ forms: z.boolean().default(false), attachments: z.boolean().default(false), persistentMessages: z.literal(true), eventStream: z.literal(true), idempotentSend: z.literal(true), tasks: z.literal(false), consultations: z.boolean().default(false), memoryCuration: z.boolean().default(false), agentMemory: z.boolean().default(false), readOnlyArtifacts: z.boolean().default(false), artifactPublishing: z.boolean().default(false), localExecution: z.boolean().default(false) }), localAgentId: id.optional(), knownAgents: z.array(id).default([]), consultationAgents: z.array(consultationAgentSchema).default([]),
 });
 export const persistenceSnapshotSchema = z.object({
   schemaVersion: z.literal(1), databaseId: id, instanceId: id, cursor,
@@ -65,7 +66,7 @@ export const persistenceQuerySchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('messages'), roomId: id, limit: counter.min(1).max(200).default(100), beforeSequence: counter.positive().optional(), upperBound: counter.optional() }).strict(),
   z.object({ type: z.literal('events'), roomId: id, after: z.string().max(1000).optional(), limit: counter.min(1).max(200).default(100) }).strict(),
   z.object({ type: z.literal('operation'), operationId: id }).strict(),
-  z.object({ type: z.literal('receipt'), workspaceId: id, commandType: z.enum(['createRoom', 'sendDiscussion', 'createLocalTask', 'answerLocalQuestion', 'publishArtifact', 'publishForm', ...formCommandTypes, ...attachmentCommandTypes, ...memoryCommandTypes, ...consultationCommandTypes]), key: z.string().min(1).max(650) }).strict(),
+  z.object({ type: z.literal('receipt'), workspaceId: id, commandType: z.enum(['createRoom', 'sendDiscussion', 'createLocalTask', 'answerLocalQuestion', 'publishArtifact', 'publishForm', ...formCommandTypes, ...attachmentCommandTypes, ...memoryCommandTypes, ...curationCommandTypes, ...consultationCommandTypes]), key: z.string().min(1).max(650) }).strict(),
 ]);
 export function persistenceError(code, message, status = 400, outcome = 'rejected') {
   return Object.assign(new Error(message), { code, status, outcome });

@@ -37,12 +37,10 @@ const { engineConnection } = require('../lib/engine-connections.cjs');
     const config = await engineConnection('pi', profile, { baseUrl: profile.baseUrl, token: 'LOOPBACK-ONLY' }, directory);
     const { openStorage } = await import('../lib/application-runtime/storage.mjs');
     const { agentMemory } = await import('../lib/application-runtime/agent-memory.mjs');
-    const { installMemoryCurationSchema } = await import('../lib/application-runtime/memory-curation-storage.mjs');
     const { createMemoryCurator } = await import('../lib/application-runtime/memory-curation.mjs');
     const { createPiMemoryCuratorEngine } = await import('../lib/pi-memory-curator.mjs');
     db = await openStorage(join(directory, 'db'), 5000);
     const atomic = fn => { db.exec('BEGIN IMMEDIATE'); try { const result = fn(); db.exec('COMMIT'); return result; } catch (e) { db.exec('ROLLBACK'); throw e; } };
-    atomic(() => installMemoryCurationSchema(db));
     const scope = { kind: 'agent', agentId: 'iris' }, memories = agentMemory(db), actor = { id: db.prepare('SELECT owner_id FROM database_meta').get().owner_id };
     atomic(() => {
       memories.apply({ type: 'editAgentSoul', agentId: 'iris', expectedRevision: 0, personality: 'SOUL_MUST_STAY_PRIVATE', expression: '清晰', workStyle: '严谨' }, actor, new Date().toISOString());

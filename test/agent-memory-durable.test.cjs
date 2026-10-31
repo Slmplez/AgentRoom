@@ -84,7 +84,7 @@ test('authentic v3 database migrates with discussion, task, report, receipts and
   assert.deepEqual(events.events, []); assert.notEqual(events.cursor, expected.events.cursor, 'Hidden memory event still advances the durable cursor');
   db = new DatabaseSync(path.join(directory, 'application.sqlite'));
   assert.equal(db.prepare('PRAGMA foreign_key_check').get(), undefined);
-  assert.equal(db.prepare('PRAGMA user_version').get().user_version, 8); db.close();
+  assert.equal(db.prepare('PRAGMA user_version').get().user_version, 9); db.close();
 });
 
 test('migration integrity failure rolls back the new schema without discarding legacy data', async () => {

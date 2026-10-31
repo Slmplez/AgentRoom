@@ -1,3 +1,4 @@
+import { curationQuerySchema, curationQueryResults } from './memory-curation-api.mjs';
 import { formQuerySchema, formStateSchema, formResponsesSchema } from './forms.mjs';
 import { attachmentQuerySchema, attachmentSchema, pendingAttachmentsSchema } from './attachments.mjs';
 import { z } from 'zod';
@@ -31,7 +32,7 @@ export const querySchema = z.discriminatedUnion('type', [
   ...formQuerySchema.options,
   ...attachmentQuerySchema.options,
   ...consultationQuerySchema.options,
-  ...memoryQuerySchema.options, taskContextQuerySchema,
+  ...memoryQuerySchema.options, ...curationQuerySchema.options, taskContextQuerySchema,
   ...artifactQuerySchema.options,
   z.object({ type: z.literal('toolDetails'), ref: id }),
   ...questionQueries,
@@ -45,7 +46,7 @@ export const queryResults = {
   formState: formStateSchema, formResponses:formResponsesSchema,
   attachment: attachmentSchema, pendingAttachments: pendingAttachmentsSchema,
   consultation: consultationSchema, consultations: z.array(consultationSchema), consultationContext: runContextSnapshotSchema,
-  ...memoryQueryResults, taskContextSnapshot: taskContextResultSchema,
+  ...memoryQueryResults, ...curationQueryResults, taskContextSnapshot: taskContextResultSchema,
   artifact: artifactVersionSchema, artifactVersions: artifactVersionsSchema,
   ...questionQueryResults,
   toolDetails: z.object({ id, runId: id.nullable(), output: z.string().max(16000), patches: z.array(z.string()), truncated: z.boolean() }),

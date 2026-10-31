@@ -9,13 +9,11 @@ const parseInput = prompt => JSON.parse(prompt.split('\n').at(-1));
 const merge = inputs => ({ summaries: [{ inputs: inputs.map(i => i.key), text: inputs.map(i => i.text).join('；').slice(0, 1024), reason: '综合本轮明确记录，保留限定条件。' }], archives: [] });
 async function setup(t, options = {}) {
   const { openStorage } = await import('../lib/application-runtime/storage.mjs');
-  const { installMemoryCurationSchema } = await import('../lib/application-runtime/memory-curation-storage.mjs');
   const { createMemoryCurator } = await import('../lib/application-runtime/memory-curation.mjs');
   const { agentMemory } = await import('../lib/application-runtime/agent-memory.mjs');
   const directory = await mkdtemp(join(tmpdir(), 'ar-curation-'));
   const db = await openStorage(directory, 5000);
   const atomic = fn => { db.exec('BEGIN IMMEDIATE'); try { const result = fn(); db.exec('COMMIT'); return result; } catch (e) { db.exec('ROLLBACK'); throw e; } };
-  atomic(() => installMemoryCurationSchema(db));
   let now = 1800000000000, starts = 0;
   const actor = { id: db.prepare('SELECT owner_id FROM database_meta').get().owner_id };
   const memories = agentMemory(db);
@@ -45,6 +43,37 @@ async function setup(t, options = {}) {
     forget: (id, revision = 1, scope = iris) => apply({ type: 'forgetExplicitMemory', scope, memoryId: id, expectedRevision: revision }),
   };
 }
+
+test('a full-provenance summary is deferred whole when a fresh record consumes the remaining context budget', async t => {
+  const s = await setup(t), refs = [], scopeKey = JSON.stringify(['agent', 'iris']);
+  s.curator.configure(iris, { enabled: false, expectedRevision: 0 });
+  s.atomic(() => {
+    const source = s.db.prepare('INSERT INTO memory_sources VALUES(?,?,?,?,?,?,?,?,?,?,?)');
+    const memory = s.db.prepare('INSERT INTO explicit_memories VALUES(?,?,?,?,?)');
+    const revision = s.db.prepare('INSERT INTO memory_revisions VALUES(?,?,?,?,?,?,?)');
+    const link = s.db.prepare('INSERT INTO memory_source_links VALUES(?,?,?,?)');
+    const seen = s.db.prepare('INSERT INTO memory_curation_seen VALUES(?,?,?)');
+    for (let i=0;i<10000;i++) {
+      const id = `memory-${i}`, sid = `source-${i}`, date = new Date(1800000000000).toISOString();
+      source.run(sid,'owner-note','Evidence',createHash('sha256').update('Evidence').digest('hex'),s.actor.id,date,date,null,null,null,s.actor.id);
+      memory.run(id,'agent','iris',1,'active'); revision.run(id,1,'active','Evidence',JSON.stringify([sid]),s.actor.id,date);
+      link.run('agent','iris',sid,id);seen.run(scopeKey,id,1);refs.push({id,revision:1});
+    }
+    const head = JSON.stringify([{ id:'summary-full',runId:'run-full',text:'Evidence summary',reason:'All original references retained',refs }]);
+    s.db.prepare('UPDATE memory_curation_scopes SET head_json=?,head_hash=?,head_revision=1 WHERE scope_key=?').run(head,createHash('sha256').update(head).digest('hex'),scopeKey);
+  });
+  assert.equal(s.curator.context(iris).items[0].refs.length,10000);
+  const fresh = s.seed('Fresh evidence');
+  const context = s.curator.context(iris);
+  const { memoryContextSchema } = await import('../contracts/run-context.mjs');
+  assert.ok(memoryContextSchema.safeParse(context).success);
+  assert.equal(context.deferred,1);assert.equal(context.items.length,1);assert.equal(context.items[0].refs[0].id,fresh);
+  assert.equal(s.curator.status(iris).summaries[0].refs.length,10000,'The summary and its original provenance were not truncated or deleted');
+  s.atomic(()=>{s.db.prepare('INSERT INTO rooms(id,workspace_id,title) VALUES(?,?,?)').run('context-room',s.db.prepare('SELECT workspace_id FROM database_meta').get().workspace_id,'Room');});
+  const {agentMemory}=await import('../lib/application-runtime/agent-memory.mjs');
+  const snapshot=s.atomic(()=>agentMemory(s.db,{curationContext:scope=>s.curator.context(scope)}).createRunContextSnapshot({id:'budget-task',runId:'budget-run',roomId:'context-room',ownerAgentId:'iris',goal:'Still starts'},new Date().toISOString(),{persist:false}));
+  assert.equal(snapshot.memoryContexts[0].deferred,1);
+});
 
 test('automatic merge preserves raw source versions and Souls; queries and unchanged ticks do not call model', async t => {
   const s = await setup(t); const a = s.seed('偏好先给结论'), b = s.seed('再解释依据');

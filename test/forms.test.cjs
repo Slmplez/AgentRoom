@@ -70,9 +70,9 @@ test('schema 7 migration preserves linked attachment bytes, messages, cursors an
   const actor=runtime.owner,workspaceId=runtime.query({type:'bootstrap'},actor).workspace.id,roomId=runtime.execute({type:'createRoom',workspaceId,key:'room',title:'Before forms'},actor).roomId;
   const bytes=Buffer.from('preserve attachment'),upload=runtime.uploadAttachment({type:'uploadAttachment',key:'upload',workspaceId,roomId,name:'preserved.txt',size:bytes.length,sha256:createHash('sha256').update(bytes).digest('hex')},bytes,actor);
   const sent=runtime.execute({type:'sendDiscussion',key:'send',workspaceId,roomId,text:'Keep this',attachmentIds:[upload.attachment.id]},actor),before=runtime.query({type:'snapshot',roomId},actor);runtime.close();
-  let db=new DatabaseSync(path.join(directory,'application.sqlite'));db.exec('DROP TABLE form_responses; DROP TABLE form_waits; ALTER TABLE artifact_versions DROP COLUMN kind; PRAGMA user_version=7;');db.close();
+  let db=new DatabaseSync(path.join(directory,'application.sqlite'));db.exec('DROP TABLE memory_curation_inspections; DROP TABLE memory_curation_queue; DROP TABLE memory_curation_seen; DROP TABLE memory_curation_runs; DROP TABLE memory_curation_scopes; DROP TABLE form_responses; DROP TABLE form_waits; ALTER TABLE artifact_versions DROP COLUMN kind; PRAGMA user_version=7;');db.close();
   runtime=await createApplicationRuntime({directory});const after=runtime.query({type:'snapshot',roomId},actor);assert.deepEqual(after.messages,before.messages);assert.equal(after.cursor,before.cursor);
   assert.deepEqual(runtime.query({type:'operation',operationId:upload.operationId},actor),upload);assert.deepEqual(runtime.query({type:'operation',operationId:sent.operationId},actor),sent);
   assert.deepEqual(runtime.downloadAttachment({roomId,attachmentId:upload.attachment.id},actor).bytes,bytes);
-  db=new DatabaseSync(path.join(directory,'application.sqlite'));assert.equal(db.prepare('PRAGMA user_version').get().user_version,8);assert.equal(db.prepare('PRAGMA foreign_key_check').get(),undefined);db.close();
+  db=new DatabaseSync(path.join(directory,'application.sqlite'));assert.equal(db.prepare('PRAGMA user_version').get().user_version,9);assert.equal(db.prepare('PRAGMA foreign_key_check').get(),undefined);db.close();
 });

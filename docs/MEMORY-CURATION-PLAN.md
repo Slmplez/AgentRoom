@@ -4,15 +4,11 @@
 
 ## 交付状态与分工
 
-当前分支已实现原始记录无 16 条上限、每条 2048 字符、分页列表、v2 预算化任务快照和旧 v1/receipt/hash 兼容；独立整理 Module、专用模型配置、设置展示及可选控制器也已完成。**自动整理的生产迁移、认证接口、Client、宿主调度及实际设置接线仍未完成，不能称为后台整理已经启用。**
+已完成原始记录容量/分页、schema 9 生产迁移、认证命令与查询、Client 原请求日志、可信宿主配置、后台调度、v2 任务上下文和设置入口。无需逐条确认整理结果。未提供专用模型配置时，设置明确显示“尚未配置后台整理 Agent”；配置后各合法记忆范围默认自动整理，可分别暂停。
 
-工作副本 `E:/Repo/ASCET/agent-chat-desktop-memory-curator`，分支 `codex/memory-curator`，基线 `335a618`，owner 为当前记忆设置聊天。没有修改共享主目录或附件、表单任务的文件。`node_modules` junction 指向主副本，仅用于读取相同依赖，不执行依赖安装或共享产物构建。
+工作副本 `E:/Repo/ASCET/agent-chat-desktop-memory-curator`，分支 `codex/memory-curator`。已合入附件/表单整合基线 `568d19c`，保留 #38/#39 行为；main 与 ADR7/8 由协调任务管理。交付提交由协调任务继续合入，本文不表示用户当前运行的旧服务已热更新。
 
-装配顺序：#38 附件 → #39 表单 → 本功能 → 文件编辑/评论。共享 `runtime/index/storage/http/host/Client` 和 main 由协调任务交接；前置切片不抢占它们。schema 安装函数不分配 `user_version`，由交接后的迁移统一确定版本。
-
-当前私人切片额外完成：`agent-memory` 原始记录/分页/可选整理上下文、`run-context` v1/v2 双格式、记忆设置分页和可选 `MemoryCurationBridge` 控制器。79 项相关测试通过；真实持久 Web/桌面夹具验证 21 条 UI 分页、2048 字符、草稿、未知回执、冻结 prompt，1 次本地推理、0 付费调用。独立控制器验证 unknown 请求重挂载不重发、原 key 核查、损坏日志可刷新恢复。`memory-v1` SQL/JSON 夹具由实际旧运行时生成并验证快照原字节和原回执/hash。
-
-共享入口已在 #39 `61cb03a` 冻结后正式交接；下一步合入本地整合基线 `568d19c`，再实施生产接线。main 与 ADR7/8 仍归监督会话管理。
+当前验收：完整 `npm test` 319 项通过；TypeScript、Client 边界与 renderer 构建通过。生产 Web/桌面、真实 Pi 和本地推理端点通过，1 次回环调用、0 付费调用。原持久记忆 UI 验证另外覆盖 55 条分页交错、原回执、草稿、停用和冻结 prompt。v1 夹具验证原 payload/hash/receipt 保真。
 
 ## 记录与有效记忆分开
 
@@ -40,7 +36,7 @@
 | Pi | 独立临时工作目录和配置；无工具/MCP；关闭自动重试、自动压缩、缓存保温 |
 | 生产模型装配 | 显式配置模型；输出 token 上限不超过 8192；不继承任意聊天的可写工具或模型权限 |
 
-没有新证据时不再次调用模型。打开设置、查看历史或启动普通任务均不触发模型调用。当前 Module 只提供 `tick()`，**没有自行注册生产定时器**；宿主接入时负责定时调度、取消和异常展示。
+没有新证据时不再次调用模型。打开设置、查看历史或启动普通任务均不触发模型调用。内部 Module 提供 `tick()`；ApplicationRuntime 的维护定时器和提交后的唤醒负责调度，启动恢复后接收请求，关闭时封住迟到结果。
 
 ## Interface 与提交顺序
 
@@ -59,20 +55,18 @@ Interface：`recover()`、`tick()`、`configure(scope, {enabled, expectedRevisio
 
 中断、超时、断连或提交不确定记录为 `unknown`，不自动重放。未确认停止时全局执行槽保留；核查只能解除进程占用，不能把未知结果变成成功。原范围仍需要明确的新设置版本才能重新整理。用户暂停只阻止后续应用和调度；已经发出的模型请求可能运行至关闭/超时，但其结果不会在暂停后生效。
 
-## 后续装配验收（前置切片未实现）
+## 生产装配
 
-1. 正式迁移在 #39 的最终 schema 上调用安装函数，增加配置命令、查询结果、版本化启动快照；检查旧库、旧回执和外键。当前 Module 并不改变旧 schema 版本。
-2. 取消原始记录 16 条上限；原始条目上限调整为 2048 code points，历史与列表分页。不要只改变 UI 文案而继续以旧限制拒绝保存，也不要破坏旧快照和命令 hash。
-3. 明确配置专用整理模型并启用宿主调度。优先复用已有可信模型连接的凭据机制，不通过记忆请求或页面传递令牌。没有配置时展示“尚未配置后台整理 Agent”。
-4. 包装配置/恢复操作为认证、按 scope 授权、有幂等回执的命令。响应丢失查询原 key，不重发整理；原始来源写入与投影失效应在同一应用状态视图内可见。
-5. 设置展示自动整理开关、Agent/模型、状态、预算、待整理数量、有效摘要、来源记录分页和整理历史。普通失败不会每秒弹窗或循环调用。暂停与核查行为必须可观察。
-6. 新任务的冻结快照使用 `context(scope)`：先加载尚未整理的最新记录，再加载仍有效摘要，按条数/字符预算确定性限制，记录 `deferred`/`stale` 和实际 ID/修订/run。预算内加载不等于全部长期记忆已丢弃；界面展示未加载数量。
-7. 个人和 Room 各有 8192 字符预算，Soul 单独保留原预算。继续运行的任务使用已提交快照，不重新读取后台整理结果。
-8. 通过公开 Client、认证 HTTP、真实设置 UI 验证；不能把当前内部 Module 测试当成这些验收已完成。
+- schema 9 在 schema 8 上原子增加整理表与核查请求，原命令哈希、回执、快照和附件/表单保持兼容。
+- `/api/v1/memory-curation/query` 提供状态和分页历史；`/api/v1/memory-curation/commands` 提供版本化配置和进程核查。仅当前 owner 可以访问登记 Agent 或可访问 Room。
+- 配置和核查通过统一 command receipt 边界；Client 提交前持久记录原命令，重连只查回执。核查命令先保存请求，事务外执行限时停止检查，崩溃后可继续这一只读核查，不重放模型请求。
+- 新任务通过 `context(scope)` 优先加载尚未整理的最新记录，再加载有效摘要。每个范围最多 16 项、8192 字符、10000 个来源引用；放不下整项计入 `deferred`，不能截断摘要来源。Soul 使用独立预算。
+- 设置显示原始记忆分页、整理员/模型、启用/暂停、状态、待处理量、摘要来源和完整整理历史。页面只使用公开 Client；进入/重连/本窗口操作后读取，其他窗口或后台完成后可用“刷新整理状态”。
+- 首版整理明确保存的记录，不自动提炼所有对话/文件。没有 RAG、向量检索或模型直接写库。
 
 ## 已验证证据
 
-`node --test test/memory-curation.test.cjs`：17 项通过，其中包含 4 个真实子进程退出点；覆盖合并/归档、独立 Soul、无变化无调用、范围隔离、并发设置和来源变更、删除不复活、伪造/重复/遗漏引用、Unicode/批次预算、滚动每日预算、持久化 lease、未知不重放、超时及迟到回复、事务回滚、历史/来源损坏、未配置状态和重启。
+`node --test test/memory-curation.test.cjs`：18 项通过，其中包含 4 个真实子进程退出点；覆盖合并/归档、独立 Soul、无变化无调用、范围隔离、并发设置和来源变更、删除不复活、伪造/重复/遗漏引用、Unicode/批次预算、滚动每日预算、持久化 lease、未知不重放、超时及迟到回复、事务回滚、历史/来源损坏、未配置状态和重启。
 
 `node scripts/verify-memory-curator.cjs`：真实安装的 Pi CLI、流式本地推理端点、真实 SQLite；核对传出的确切 prompt、零工具、来源引用、自动应用及 Soul 不变。1 次本地请求，0 次付费调用。
 
@@ -80,7 +74,7 @@ Interface：`recover()`、`tick()`、`configure(scope, {enabled, expectedRevisio
 
 ## 已准备的宿主配置与展示模块
 
-`loadMemoryCuratorConfig(file)` 仅由可信宿主启动时调用，返回专用引擎配置。文件最多 64 KiB，不能携带任意 argv、工作目录、扩展路径或明文密钥。密钥通过 `credentialEnv` 引用已有环境变量，在宿主网关使用，不进入可序列化配置或页面。读取配置不会启动进程、模型请求或凭据发现。生产启动参数和现有连接管理的映射仍待共享入口交接。
+`loadMemoryCuratorConfig(file)` 仅由可信宿主启动时调用，返回专用引擎配置。文件最多 64 KiB，不能携带任意 argv、工作目录、扩展路径或明文密钥。密钥通过 `credentialEnv` 引用已有环境变量，在宿主网关使用，不进入可序列化配置或页面。读取配置不会启动进程、模型请求或凭据发现。正式启动器 `scripts/serve-persistence.cjs` 与 `scripts/start-persistence-server.cjs` 支持 `--memory-curator-config <trusted-json>`；`startPersistentHost` 接受 `memoryCuratorConfig`。专用连接不改写现有聊天模型配置。
 
 ```json
 {
@@ -99,12 +93,23 @@ Interface：`recover()`、`tick()`、`configure(scope, {enabled, expectedRevisio
 }
 ```
 
-`MemoryCurationSection` 是独立展示模块：显示启用/暂停、待处理数量、原进程核查、明确允许重新整理、摘要来源与历史归档理由。它不直接 fetch、轮询、保存凭据或生成命令 key。将来由 Settings/Client controller 按 backend/database/owner/scope 挂载，持有正确的查询状态和幂等日志，不能跨归属复用历史。`memory-curation-view.mjs` 提供当前 Module 返回值对应的严格只读 schema。
+`MemoryCurationSection` 是独立展示模块：显示启用/暂停、待处理数量、原进程核查、明确允许重新整理、摘要来源与历史归档理由。它不直接 fetch、轮询、保存凭据或生成命令 key。由 Settings/Client controller 按 backend/database/owner/scope 挂载，持有正确的查询状态和幂等日志，不能跨归属复用历史。`memory-curation-view.mjs` 提供当前 Module 返回值对应的严格只读 schema。
 
 补充验证：
 
-- `node --test test/memory-curation.test.cjs test/memory-curator-config.test.cjs`：20 项通过（17 项整理 + 3 项配置），实际 Module 状态与历史通过展示契约解析。
+- `node --test test/memory-curation.test.cjs test/memory-curator-config.test.cjs`：21 项通过（18 项整理 + 3 项配置），实际 Module 状态与历史通过展示契约解析。
 - `node scripts/verify-memory-curator.cjs --configured`：配置文件 → 宿主网关 → 真实 Pi → SQLite 自动应用完整通过；读取配置零请求，整轮 1 次本地请求、0 次付费调用。
 - `npm run check:chat`：设置展示 TypeScript 检查通过。
 - `electron scripts/verify-memory-curation-section.cjs --disable-gpu`：独立展示夹具验证暂停/重新开始意图、lease 控制、忙碌禁用、历史来源、跨 scope 卸载、未配置状态、窄屏深色布局。0 次生产 API/模型调用；这不是正式设置接入验收。
 - `node scripts/verify-memory-curator.cjs --configured --oversize`：真实 Pi 输出超过 64 KiB 时在流式事件中停止执行，不等到最终 JSON 应用；1 次本地请求、无重试、无摘要应用，0 次付费调用。Adapter 也在派发前检查实际输入字节数。
+
+
+生产启动示例（需先设置配置引用的凭据环境变量）：
+
+```powershell
+node scripts/serve-persistence.cjs --data-dir E:/AgentRoomData --port 4331 --memory-curator-config E:/AgentRoomConfig/memory-curator.json
+```
+
+该配置允许整理当前 Room。登记 Agent 的独立记忆仍使用既有宿主配置：例如 `--agent-workspace` 登记 `local-pi`，或可信咨询配置登记对应 Agent ID。整理员的执行身份不会冒充这些 Agent，也不会修改其 Soul。
+
+生产验证：`node --test test/memory-curation-runtime.test.cjs` 覆盖调度、权限、原请求恢复、未知结果核查及冻结快照；`electron scripts/verify-memory-curation-ui.cjs --disable-gpu` 使用正式启动器、真实 Pi、SQLite 与 Web/桌面公开 Client。配置加载零模型请求；有新记录且已启用时由后台执行。

@@ -6,8 +6,7 @@ import { MemoryCurationSection, type CurationStatus, type CurationHistory } from
 type Scope = { kind: 'agent'; agentId: string } | { kind: 'room'; roomId: string };
 type Query = { workspaceId: string; scope: Scope };
 type Pending = { key: string; outcome: 'unknown' | 'not_found' };
-// Implement this Adapter through the existing authenticated Client once its
-// shared entry points are handed over. Writes MUST journal before dispatch;
+// Implemented through the authenticated Client. Writes journal before dispatch;
 // check/retry MUST use the original saved command, not a reconstructed payload.
 export type MemoryCurationBridge = {
   status(input: Query): Promise<unknown>;

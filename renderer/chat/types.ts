@@ -13,6 +13,7 @@ export type Command = z.infer<typeof commandSchema>;
 export type Agent = Snapshot['agents'][number];
 export type Room = Snapshot['rooms'][number];
 export interface ChatClient {
+  pendingMemoryOperations?(input: {workspaceId: string; scope: {kind: 'agent'; agentId: string} | {kind: 'room'; roomId: string}}): {key: string; outcome: 'unknown' | 'not_found'}[];
   uploadAttachment?(input: {key: string; roomId: string; name: string; file: Blob; signal?: AbortSignal}): Promise<{attachment?: Attachment}>;
   downloadAttachment?(input: {roomId: string; attachmentId: string}): Promise<{metadata: Attachment; blob: Blob}>;
   query<Q extends Query>(input: Q): Promise<QueryResult<Q['type']>>;

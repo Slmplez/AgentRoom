@@ -4,7 +4,7 @@
 
 不使用 RAG、向量或相关度检索。Soul 按稳定 Agent ID 保存；个人记忆与房间记忆分别保存。改变显示名或模型不改变身份。
 
-当前分支已将原始记录与任务加载预算分开：原始记录无 16 条数量上限，每条最多 2048 字符，并支持分页。后台 Agent 自动整理的独立模块、专用模型配置和设置控制器见 [#43](https://github.com/Slmplez/AgentRoom/issues/43) 与 [整理方案](MEMORY-CURATION-PLAN.md)；共享 runtime/HTTP/Client/宿主接线尚未完成，当前不能宣称生产自动整理已启用。
+当前分支已将原始记录与任务加载预算分开：原始记录无 16 条数量上限，每条最多 2048 字符，并支持分页。后台 Agent 自动整理的生产实现、专用模型配置和设置入口见 [#43](https://github.com/Slmplez/AgentRoom/issues/43) 与 [整理方案](MEMORY-CURATION-PLAN.md)。宿主传入 `--memory-curator-config <trusted-json>` 后自动调度；未配置模型时设置明确显示未配置，不调用模型。
 
 ## 宿主与授权
 
@@ -65,7 +65,7 @@
 
 `queued → dispatching` 的同一事务读取当前有效 Soul 与记忆上下文，保存 `run_context_snapshots` 并给任务设置 `contextSnapshotId`。旧 v1 快照维持原来的每范围 16 条、每条 256 字符、按 ID 排序的格式和完整原文，读取时不升级、不改 hash。
 
-新快照写为 v2。个人和当前 Room 各有最多 16 项、8192 Unicode 字符预算；在可选整理提供者未接线时，按修订时间、ID 降序确定性加载原始记录。接线后通过 `agentMemory(db, {curationContext})` 读取整理 Module 的上下文，优先加载尚未整理的最新记录，再加载仍有效的摘要。快照分别记录 `memoryContexts` 中实际加载的内容、原始 ID/修订、摘要的整理 run ID、字符数、`deferred` 未加载项数和 `stale` 失效摘要数；没有相关度选择或查询文本。
+新快照写为 v2。个人和当前 Room 各有最多 16 项、8192 Unicode 字符和 10000 个来源引用预算。生产装配通过 `agentMemory(db, {curationContext})` 读取整理 Module 的上下文，优先加载尚未整理的最新记录，再加载仍有效的摘要。快照分别记录 `memoryContexts` 中实际加载的内容、原始 ID/修订、摘要的整理 run ID、字符数、`deferred` 未加载项数和 `stale` 失效摘要数；没有相关度选择或查询文本。
 
 快照包含 Task/Run/Agent/Room、Soul 内容和 revision、原始记录的 ID/revision/来源 IDs、v2 的有效记忆上下文、`contextText` 以及最终发送的完整 `prompt`。来源原文和历史修订不进入提示；它们仍可由管理 API 核查。存储用 hash 检查损坏，身份必须与 Task/Run 一致，不宣称防止本机文件管理员重写整个数据库。
 
@@ -83,15 +83,15 @@ Soul 和记忆不能改变可信宿主的 CLI 参数、只读工具集合或报�
 
 状态、Source、修订、来源关联/墓碑、元数据事件和幂等回执都由 ApplicationRuntime 同一事务提交。提交前失败全部回滚；提交后响应丢失可用原 key 查询，不需要猜测或生成新 key。
 
-M1 将 schema 从 3 迁移到 4，M2 在 schema 5 添加启动快照表；保留原消息、任务、产物、记忆、日志位置和回执。Soul/agent 命令的 Room 为空，不借用虚构 Room；迁移允许相应事件/回执的 `room_id=NULL`。旧版后端不能读取新的 schema。迁移检查外键，失败回滚；启动拒绝未知的新 schema。
+M1 将 schema 从 3 迁移到 4，M2 在 schema 5 添加启动快照表；保留原消息、任务、产物、记忆、日志位置和回执。Soul/agent 命令的 Room 为空，不借用虚构 Room；迁移允许相应事件/回执的 `room_id=NULL`。schema 9 在 #39 的 schema 8 上新增整理配置、运行历史、投影、来源确认和持久核查请求，并扩展原回执/事件约束。迁移保留原数据、receipt 字节和 hash。旧版后端不能读取新的 schema。迁移检查外键，失败回滚；启动拒绝未知的新 schema。
 
-记忆事件只有实体标识、scope、revision 和状态，没有正文。现有 Room SSE/事件查询不发送新记忆事件，仍正常推进 checkpoint；管理能力依靠成功回执和显式重读，不承诺多窗口实时同步。没有第二个数据库或独立事务拥有者。自动整理的运行 ledger、投影与来源确认由既有事务 seam 原子提交；其后台模型调用在宿主接线前不会启动。
+记忆事件只有实体标识、scope、revision 和状态，没有正文。现有 Room SSE/事件查询不发送新记忆事件，仍正常推进 checkpoint；管理能力依靠成功回执和显式重读，不承诺多窗口实时同步。没有第二个数据库或独立事务拥有者。自动整理的运行 ledger、投影与来源确认由既有事务 seam 原子提交；宿主每 60 秒检查，以及成功命令后唤醒，仍受全局启动间隔与持久预算限制。
 
 ## 桌面与 Web 管理（M3）
 
 持久模式中打开左下角设置，选择“记忆”分类，在同一设置对话框内管理 Soul、个人记忆和当前 Room 记忆。归属选择器只使用后端 `knownAgents` 和当前真实 Room，不把演示成员映射为持久身份。无记忆能力的模式不显示入口，Client 拒绝通过 Mock 保存真实记忆。
 
-Soul 三个字段分别编辑；记忆支持手动记录，以及选择当前已加载的讨论消息作为来源，明确填写原始记录后保存；列表展示总数并可继续分页。更正保留旧版本，停用前显示对未来任务的影响。来源与历史按需分页读取，最近选中的记忆历史在刷新后仍可打开，包括已经停用的记忆。原始记录列表不展示旧版本。可选的 `MemoryCurationBridge` 接入设置控制器后展示有效摘要和整理历史；配置、进程核查与结果恢复必须继续通过 Client 的原请求日志，不由页面直接通信或轮询。
+Soul 三个字段分别编辑；记忆支持手动记录，以及选择当前已加载的讨论消息作为来源，明确填写原始记录后保存；列表展示总数并可继续分页。更正保留旧版本，停用前显示对未来任务的影响。来源与历史按需分页读取，最近选中的记忆历史在刷新后仍可打开，包括已经停用的记忆。原始记录列表不展示旧版本。设置通过 `MemoryCurationBridge` 展示整理员/模型、有效摘要、来源和整理历史，支持暂停/恢复、核查原进程。配置、进程核查与结果恢复使用 Client 的原请求日志，不由页面直接通信或轮询。
 
 所有业务读写通过 AgentRoomClient。草稿按 backend/database/owner/workspace/scope/entity/revision 保存在界面本地；已提交命令仍由 Persistent Adapter 的独立持久日志管理。网络提交前写日志，刷新只查询原回执。草稿保留原请求标识，核查成功后重新读取当前状态；历史回执不会重新启用记忆。未找到原请求时，用户可明确重试原内容和原 key。版本冲突保留草稿；读取当前版本后必须明确选择继续编辑旧草稿或使用当前内容。
 
@@ -111,8 +111,16 @@ Soul 三个字段分别编辑；记忆支持手动记录，以及选择当前已
 
 `test/fixtures/persistence-v3.sql` 由基线 `caaea30435ae5429e01002bbe98bff79eb8226f8` 的实际运行时通过合成消息、Task、报告发布生成；包含真实格式的历史事件和回执，不含用户聊天或凭据。迁移后逐项对比数据、报告和游标，并验证损坏旧库的迁移回滚。样例个性存储不构成长期模型个性遵从的保证。
 
-M2 的 `test/run-context*.test.cjs` 覆盖开始前/后的更正停用、双 Agent/Room 隔离、预算内 32 项加载、空配置、坏数据拒绝、迁移和重启。`test/memory-evolution.test.cjs` 另验证 55 条原始记录分页、2048 Unicode、8192 字符加载预算、未加载计数、整理摘要可选接入及 v1 字节/回执/hash 保真。真实子进程分别在快照前、事务内和提交后强制终止，验证快照与 dispatching 全有或全无，重启不派发；已等待原生输入的中断也保留旧快照。
+M2 的 `test/run-context*.test.cjs` 覆盖开始前/后的更正停用、双 Agent/Room 隔离、预算内 32 项加载、空配置、坏数据拒绝、迁移和重启。`test/memory-evolution.test.cjs` 另验证 55 条原始记录分页、2048 Unicode、8192 字符加载预算、未加载计数、整理摘要接入及 v1 字节/回执/hash 保真。真实子进程分别在快照前、事务内和提交后强制终止，验证快照与 dispatching 全有或全无，重启不派发；已等待原生输入的中断也保留旧快照。
 
 `node scripts/verify-local-agent.cjs --memory-context` 使用已安装 Pi CLI、原生 input、authenticated HTTP 答复和受控回环推理，逐字核对提供给模型的 prompt 与快照一致；任务运行中编辑 Soul/停用记忆后仍发送原版本，并确认记忆文本不能增加 bash/write 工具。该验证为真实 CLI 集成证据，只有 1 次本地模型夹具请求、0 付费请求，不是外部模型个性遵从评测。
 
 `test/fixtures/memory-v1.sql` 与对应 expected JSON 由提交 `df37e96a730b6df15ec62843cfd52d75758b11a9` 的实际运行时、合成 Soul/记忆/任务生成，未使用付费模型或用户数据。新版读取原 v1 payload 与 content hash 完全不变；用原 key/原命令重放返回原 receipt 和 request hash，不生成重复记录。
+
+## 后台整理生产验收
+
+`test/memory-curation-runtime.test.cjs` 使用公开 Client、认证 HTTP 和真实 SQLite，验证自动调度、暂停/恢复、来源更正即时失效、既有冻结快照不变、未知结果重启不重放、持久进程核查及丢失回执恢复。核查命令先提交原请求/回执，再在事务外检查进程；核查只释放确认停止的占用，不将未知结果改成成功。
+
+`electron scripts/verify-memory-curation-ui.cjs --disable-gpu` 通过正式启动器的 `--memory-curator-config` 加载专用连接，验证 Web/桌面设置、真实 Pi 无工具调用、SQLite 摘要、来源、历史、暂停、更正失效、重启和深色窄屏。整次 1 个回环推理请求，0 付费调用。此验证证明装配及协议行为，不代表外部模型语义质量。
+
+原始列表分页回归在 `verify-agent-memory-ui.cjs` 中覆盖：55 条记录，已加载 40 条时阻塞首页刷新，点击旧分页按钮不会派发旧游标；刷新后能重新加载完整 55 条。`memory-curation.test.cjs` 验证 10000 来源摘要与新记录相遇时整项延后、引用不截断，新任务仍可生成合法快照。

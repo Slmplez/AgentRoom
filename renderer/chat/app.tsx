@@ -1,3 +1,4 @@
+import { memoryCurationBridge } from './memory-curation-bridge';
 import React, { lazy, Suspense, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import type { Agent, ChatClient, PlatformClient, Snapshot } from './types';
 import { QuestionInteraction, type QuestionDraft } from './questions';
@@ -128,6 +129,7 @@ export function App({ client, platform, control, persistent = false }: { client:
 
 function PersistentSettings({ client, state, roomId, close }: { client: ChatClient; state: Snapshot; roomId?: string; close(): void }) {
   const dialog = useRef<HTMLDialogElement>(null), [section, setSection] = useState<'general' | 'memory'>('general');
+  const curation = useMemo(() => state.capabilities.memoryCuration ? memoryCurationBridge(client) : undefined, [client, state.capabilities.memoryCuration]);
   const memoryAvailable = Boolean(state.capabilities.agentMemory && roomId);
   useEffect(() => { const previous = document.activeElement as HTMLElement | null; dialog.current?.showModal(); dialog.current?.querySelector<HTMLElement>('h2')?.focus(); return () => { dialog.current?.close(); previous?.isConnected && previous.focus(); }; }, []);
   return <dialog ref={dialog} className="settings-dialog" aria-labelledby="persistent-title" onCancel={e => { e.preventDefault(); close(); }}>
@@ -136,7 +138,7 @@ function PersistentSettings({ client, state, roomId, close }: { client: ChatClie
       <button aria-current={section === 'general' ? 'page' : undefined} onClick={() => setSection('general')}>通用</button>
       {memoryAvailable && <button aria-current={section === 'memory' ? 'page' : undefined} onClick={() => setSection('memory')}>记忆</button>}
     </nav><div className="settings-body" key={section}>
-      {section === 'memory' && memoryAvailable ? <MemorySettings key={JSON.stringify([state.backendId, state.databaseId, state.currentUserId, roomId])} client={client} state={state} roomId={roomId!} /> : <>
+      {section === 'memory' && memoryAvailable ? <MemorySettings key={JSON.stringify([state.backendId, state.databaseId, state.currentUserId, roomId])} client={client} state={state} roomId={roomId!} curation={curation} /> : <>
         <h3>本机服务</h3><p>桌面和浏览器共用本机持久消息。{state.capabilities.localExecution && '已启用只读 Pi 任务与原生问题答复。'}{state.capabilities.consultations && '已启用指定 Agent 咨询，普通聊天不会启动执行，采纳建议不授予工具权限。'}{!state.capabilities.localExecution && !state.capabilities.consultations && '当前未启用 Agent 执行。'}工具审批、多人登录和 Teams 未开放。</p><p>关闭窗口只断开当前界面；停止服务请在启动服务的终端按 Ctrl+C。后端启动信息中显示独立数据目录。</p>
         <dl><dt>数据库标识</dt><dd>{state.databaseId}</dd><dt>当前后端实例</dt><dd>{state.instanceId}</dd></dl><p>首次启动创建一间持久讨论房间。历史可分页读取；已过期的事件通知不会逐条重放。</p>
       </>}

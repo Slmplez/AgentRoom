@@ -122,21 +122,23 @@ function MemoryScopePanel({ client, state, scope, prefix, curation }: { client: 
   const [version, setVersion] = useState(0), [editing, setEditing] = useState<string | null>(null), [confirm, setConfirm] = useState<string | null>(null), [busy, setBusy] = useState(false);
   const [selected, setSelected] = useState(() => readSelection(prefix + ':history')), [messageId, setMessageId] = useState('');
   const [total, setTotal] = useState(0), [afterId, setAfterId] = useState<string | null>(null), [pageBusy, setPageBusy] = useState(false);
-  const pageLock = useRef(false);
+  const pageLock = useRef(false), refreshing = useRef(false);
+  const [refreshBusy, setRefreshBusy] = useState(false);
   const request = useRef(0), alive = useRef(true), lock = useRef(false);
   const pending = (state.pendingOperations || []).filter(o => sameMemoryScope(o.memoryScope, scope));
   const live = state.connection === 'live' && state.capabilities.agentMemory;
   const disabled = !live || busy || pending.length > 0;
   async function refresh() {
-    const n = ++request.current; setError('');
+    const n = ++request.current; refreshing.current = true; setRefreshBusy(true); setError('');
     try {
       const [list, profile] = await Promise.all([client.query({ type: 'explicitMemories', workspaceId, scope }), scope.kind === 'agent' ? client.query({ type: 'agentSoul', workspaceId, agentId: scope.agentId }) : Promise.resolve(null)]);
       if (alive.current && n === request.current) { setMemories(list.memories); setTotal(list.total); setAfterId(list.afterId); setSoul(profile); setConfirm(null); setReady(true); setVersion(v => v + 1); }
     } catch (e) { if (alive.current && n === request.current) { setError(errorText(e)); throw e; } }
+    finally { if (alive.current && n === request.current) { refreshing.current = false; setRefreshBusy(false); } }
   }
   useEffect(() => { alive.current = true; if (live) void refresh().catch(() => {}); return () => { alive.current = false; ++request.current; }; }, [live]);
   async function more() {
-    if (!afterId || pageLock.current || disabled) return;
+    if (!afterId || refreshing.current || pageLock.current || disabled) return;
     const generation = request.current; pageLock.current = true; setPageBusy(true); setError('');
     try {
       const page = await client.query({ type: 'explicitMemories', workspaceId, scope, afterId });
@@ -169,7 +171,7 @@ function MemoryScopePanel({ client, state, scope, prefix, curation }: { client: 
           {editing === m.id && <Editor key={'edit:' + version} client={client} prefix={prefix + ':memory:' + m.id} revision={m.revision} initial={{ text: m.text }} label="更正内容" disabled={disabled} refresh={refresh} command={(d, key) => ({ type: 'correctExplicitMemory', workspaceId, scope, key, memoryId: m.id, expectedRevision: d.revision, text: (d.values as { text: string }).text })} />}
           {confirm === m.id && <div role="group" aria-label="确认停用"><p>停用后，后续启动任务不再加载这条记忆。历史和已启动快照仍保留。</p><button className="button" disabled={disabled} onClick={() => void act(async () => { await client.dispatch({ type: 'forgetExplicitMemory', workspaceId, scope, memoryId: m.id, expectedRevision: m.revision, key: crypto.randomUUID() }); history(m.id); setConfirm(null); setNotice('已停用。后续启动任务不再加载，历史仍可查看。'); })}>确认停用</button><button className="button" onClick={() => setConfirm(null)}>取消停用</button></div>}
         </article>)}
-        {afterId && <button className="button" disabled={disabled || pageBusy} onClick={() => void more()}>{pageBusy ? '正在读取更多记录…' : `加载更多记录（已显示 ${memories.length} / ${total}）`}</button>}
+        {afterId && <button className="button" disabled={disabled || pageBusy || refreshBusy} onClick={() => void more()}>{pageBusy ? '正在读取更多记录…' : `加载更多记录（已显示 ${memories.length} / ${total}）`}</button>}
       </section>
       {selected && <section><h3>所选记忆的历史</h3><details><summary>记忆标识</summary><p>{selected}</p></details><History key={selected + ':' + version} client={client} workspaceId={workspaceId} scope={scope} memoryId={selected} /></section>}
       <section><h3>明确保存一条记忆</h3>{scope.kind === 'room' && <label>来源<select aria-label="记忆来源" value={messageId} onChange={e => setMessageId(e.target.value)}><option value="">手动记录</option>{messages.map(m => <option key={m.id} value={m.id}>消息 v{m.revision} · {m.text.slice(0, 60)}</option>)}</select></label>}{source && <details><summary>查看所选消息原文</summary><pre>{source.text}</pre><p>后端会核对同 Room 消息及版本，保存原文作为来源。</p></details>}

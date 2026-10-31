@@ -16,7 +16,7 @@ type Props = {
 const statusText = { running: '正在整理', applied: '已应用', stale: '原记录已更新，本轮未应用', failed: '整理未通过校验', unknown: '结果待核查' };
 const date = (value: number) => new Date(value).toLocaleString();
 
-// Presentation only. The future Settings/Client controller owns authenticated
+// Presentation only. The Settings/Client controller owns authenticated
 // reads, idempotency keys, pending operations and scope changes. Mount with a
 // backend/database/owner/scope key; never carry history between identities.
 export function MemoryCurationSection({ scopeLabel, status, history, busy, mutationsDisabled = false, error, modelLabel, onRefresh, onConfigure, onInspect, onHistory, onSource }: Props) {
@@ -27,6 +27,7 @@ export function MemoryCurationSection({ scopeLabel, status, history, busy, mutat
     {error && <p role="alert">{error}</p>}
     {!status ? <p role="status">正在读取整理状态…</p> : <>
       {!status.configured ? <p role="status">尚未配置后台整理 Agent。已保存的记忆仍保留，当前不会自动整理。</p> : <>
+        {status.executor && <p className="settings-note">整理员：{status.executor.agentId} · 模型：{status.executor.model}</p>}
         <div className="memory-curation-controls"><span>{status.enabled ? '自动整理已启用' : '自动整理已暂停'}{modelLabel ? ` · ${modelLabel}` : ''}</span><button type="button" className="button" disabled={locked || (!status.enabled && Boolean(latest?.leaseHeld))} onClick={() => onConfigure(!status.enabled, status.revision)}>{status.enabled ? '暂停自动整理' : '启用自动整理'}</button></div>
         <p className="settings-note">至少间隔 10 分钟，每 24 小时最多 {CURATION_LIMITS.startsPerDay} 轮；没有新记录时不调用模型。Soul 独立保存，整理不会改写个性。</p>
       </>}
