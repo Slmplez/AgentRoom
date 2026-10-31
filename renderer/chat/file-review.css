@@ -28,3 +28,15 @@
 .review-comment-thread :focus-visible, .review-editor :focus-visible { outline:2px solid var(--clay-text);outline-offset:2px; }
 .review-gutter-add { width:20px;height:20px;display:grid;place-items:center;border-radius:4px;background:var(--ink);color:var(--surface-2);font:16px/1 var(--font-sans);cursor:pointer; }
 .review-file-toolbar > strong { font-weight:500;min-width:0;overflow-wrap:anywhere; }
+.review-file-reason { padding:16px; margin:0; color:var(--text-secondary);font-size:13px;line-height:1.7;overflow-wrap:anywhere; }
+.workspace-changes-empty { padding:64px 24px;text-align:center;color:var(--text-secondary);font-size:13px;line-height:1.7; }
+.workspace-changes-empty strong { color:var(--ink);font-size:15px;font-weight:500; }
+.workspace-changes-error { color:var(--danger-text); }
+.diff-icon-button[aria-label="刷新工作区变更"] { width:auto;min-width:44px;padding:0 8px;font-size:12px;white-space:nowrap;flex-shrink:0; }
+.diff-icon-button[aria-label="刷新工作区变更"]:disabled { opacity:.6;cursor:wait; }
+@media(max-width:600px) {
+ .review-file-toolbar { flex-wrap:wrap;gap:8px; }
+ .review-file-toolbar > strong { flex-basis:100%; }
+ .review-file-toolbar > span { margin-left:0; }
+ .diff-heading { flex-wrap:wrap; }
+}
