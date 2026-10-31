@@ -6,6 +6,7 @@ import { capabilityCommands } from './capabilities.mjs';
 import { collaborationQuestionSchema, questionCommands } from './questions.mjs';
 import { localTaskSchema, localExecutionCommandSchema } from './local-execution.mjs';
 import { memoryCommandSchema } from './agent-memory.mjs';
+import { consultationSchema, consultationAgentSchema, consultationCommandSchema } from './consultations.mjs';
 
 const id = z.string().min(1).max(300);
 const question = z.object({ id, title: z.string(), multiple: z.boolean(), options: z.array(z.string()) });
@@ -30,6 +31,7 @@ export const approvalSchema = z.object({
 });
 export const snapshotSchema = z.object({
   knownAgents: z.array(id).default([]),
+  consultationAgents: z.array(consultationAgentSchema).default([]), consultations: z.array(consultationSchema).default([]),
   instanceId: id, revision: z.number().int().nonnegative(),
   agents: z.array(z.object({ id, name: z.string(), displayName: z.string(), engine: z.string(), engineId: z.string().default(''), tag: z.string().default(''), directory: z.string().default(''), status: z.string(), workspaceId: id })),
   rooms: z.array(z.object({ id, title: z.string(), type: z.enum(['group', 'dm']), workspaceId: id, memberIds: z.array(id), ownerAgentId: z.string().nullable().default(null), pinned: z.boolean().default(false), description: z.string().default('') })),
@@ -37,12 +39,13 @@ export const snapshotSchema = z.object({
   messages: z.array(messageSchema), approvals: z.array(approvalSchema), runs: z.array(runSchema).default([]), approvalHistory: z.array(approvalSchema).default([]),
   currentUserId: id.nullable().default(null), questions: z.array(collaborationQuestionSchema).default([]),
   localTasks: z.array(localTaskSchema).default([]), localAgentId: id.nullable().default(null),
-  capabilities: z.object({ tasks: z.boolean(), idempotentSend: z.boolean().default(false), collaborationQuestions: z.boolean().default(false), questionAdvice: z.boolean().default(false), localExecution: z.boolean().default(false), readOnlyArtifacts: z.boolean().default(false), artifactPublishing: z.boolean().default(false), agentMemory: z.boolean().default(false) }),
+  capabilities: z.object({ tasks: z.boolean(), consultations: z.boolean().default(false), idempotentSend: z.boolean().default(false), collaborationQuestions: z.boolean().default(false), questionAdvice: z.boolean().default(false), localExecution: z.boolean().default(false), readOnlyArtifacts: z.boolean().default(false), artifactPublishing: z.boolean().default(false), agentMemory: z.boolean().default(false) }),
 });
 export const commandSchema = z.discriminatedUnion('type', [
   ...memoryCommandSchema.options,
   z.object({ type: z.literal('cancelRun'), key: id, runId: id }),
   ...localExecutionCommandSchema.options,
+  ...consultationCommandSchema.options,
   ...connectionCommands,
   ...managementCommands,
   ...capabilityCommands,

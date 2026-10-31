@@ -1,4 +1,6 @@
 import { z } from 'zod';
+import { consultationQuerySchema, consultationSchema } from './consultations.mjs';
+import { runContextSnapshotSchema } from './run-context.mjs';
 import { catalogSchema } from './management.mjs';
 import { capabilityQueries, capabilityQueryResults } from './capabilities.mjs';
 import { telemetryQueries, telemetryQueryResults } from './telemetry.mjs';
@@ -24,6 +26,7 @@ export const connectionCommands = [
   z.object({ type: z.literal('removeConnection'), key: id, id }),
 ];
 export const querySchema = z.discriminatedUnion('type', [
+  ...consultationQuerySchema.options,
   ...memoryQuerySchema.options, taskContextQuerySchema,
   ...artifactQuerySchema.options,
   z.object({ type: z.literal('toolDetails'), ref: id }),
@@ -35,6 +38,7 @@ export const querySchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('modelCatalog'), connectionId: id, model: z.string().max(200).optional() }),
 ]);
 export const queryResults = {
+  consultation: consultationSchema, consultations: z.array(consultationSchema), consultationContext: runContextSnapshotSchema,
   ...memoryQueryResults, taskContextSnapshot: taskContextResultSchema,
   artifact: artifactVersionSchema, artifactVersions: artifactVersionsSchema,
   ...questionQueryResults,

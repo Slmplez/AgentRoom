@@ -13,6 +13,11 @@ The task UI uses the same Client/journal/SSE. See
 [local Agent API and UI](../../docs/LOCAL-AGENT-QUESTIONS.md) for startup,
 schema-2 migration, failure recovery, real CLI evidence and current limits.
 
+The independent trusted `--consultation-config <JSON>` option enables real
+multi-Agent Pi consultation (#37), with durable bounded queues, explicit human
+adoption and confirmed process leases. It uses schema 6 and preserves the
+existing native wait/answer path. See [consultation setup and recovery](../../docs/REAL-AGENT-CONSULTATIONS.md).
+
 Requires Node.js >= 24.4.1 with `node:sqlite` (experimental in the validated
 24.4.1 runtime). Use a separate local data directory. Do not point this service
 at an existing hcom database or a network share. One backend owns the directory.

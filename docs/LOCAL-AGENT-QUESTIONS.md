@@ -1,6 +1,6 @@
 # 本机单 Agent 持久问答 API
 
-2026-10-31，后端票据 [#26](https://github.com/Slmplez/AgentRoom/issues/26)、真实界面票据 [#28](https://github.com/Slmplez/AgentRoom/issues/28)，属于 [#23](https://github.com/Slmplez/AgentRoom/issues/23) 的本机单用户切片。多人登录、Teams、多 Agent 咨询和运行中改目标继续暂缓。Mock 中的问题/建议示例与本机真实任务区分别装配，真实任务不通过 Mock 回答。
+2026-10-31，后端票据 [#26](https://github.com/Slmplez/AgentRoom/issues/26)、真实界面票据 [#28](https://github.com/Slmplez/AgentRoom/issues/28)，属于 [#23](https://github.com/Slmplez/AgentRoom/issues/23) 的本机单用户切片。多人登录和 Teams 已从本轮移除；真实多 Agent 咨询由 [#37 的独立可信配置和持久队列](REAL-AGENT-CONSULTATIONS.md) 承载，原任务仍保持唯一 Owner 和原生等待/答复边界。Mock 中的问题/建议示例与本机真实任务区分别装配，真实任务不通过 Mock 回答。
 
 ## 显式启用
 

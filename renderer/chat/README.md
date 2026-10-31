@@ -42,3 +42,6 @@ npx electron scripts/verify-chat-polish.cjs --disable-gpu
 使用现有 `npm run dev:ui` 查看模拟前端；这不代表真实模型或完整解耦迁移已验收。
 
 结果示例使用 `@json-render/core` 与 `@json-render/react` 0.21.3（Apache-2.0），完整许可证见本目录 `LICENSE.json-render.txt`。它们现在会按需打包进入 Mock 结果面板；根级 THIRD_PARTY_NOTICES.md 已同步说明。
+## 真实多 Agent 咨询（#37）
+
+生产持久模式通过独立 `consultations` 能力和同一 AgentRoomClient 展示注册 Agent、问题与执行队列。`consultations.tsx` 提供显式发起、采纳/自行答复、取消和恢复/核查/放弃；不直接请求网络或创建第二份服务端状态。可信配置、恢复边界和真实双 Pi UI 验证见 [REAL-AGENT-CONSULTATIONS.md](../../docs/REAL-AGENT-CONSULTATIONS.md)。

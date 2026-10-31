@@ -1,6 +1,7 @@
 import { snapshotSchema, commandSchema, receiptSchema, clientError } from '../../contracts/chat.mjs';
 import { persistenceSnapshotSchema, persistenceFrameSchema, persistenceReceiptSchema } from '../../contracts/persistence.mjs';
 
+import { consultationCommandTypes } from '../../contracts/consultations.mjs';
 import { memoryCommandTypes, memoryReceiptSchema } from '../../contracts/agent-memory.mjs';
 import { querySchema, queryResults } from '../../contracts/settings.mjs';
 
@@ -8,7 +9,7 @@ function freeze(value) {
   if (value && typeof value === 'object' && !Object.isFrozen(value)) { Object.freeze(value); Object.values(value).forEach(freeze); }
   return value;
 }
-const empty = () => ({ instanceId: '', revision: -1, agents: [], rooms: [], workspaces: [], messages: [], approvals: [], approvalHistory: [], runs: [], localTasks: [], localAgentId: null, knownAgents: [], currentUserId: null, capabilities: { tasks: false, idempotentSend: false, localExecution: false } });
+const empty = () => ({ instanceId: '', revision: -1, agents: [], rooms: [], workspaces: [], messages: [], approvals: [], approvalHistory: [], runs: [], localTasks: [], consultations: [], consultationAgents: [], localAgentId: null, knownAgents: [], currentUserId: null, capabilities: { tasks: false, idempotentSend: false, localExecution: false } });
 
 // The client owns the single projection, its subscription, recovery and uncertain operations.
 export function createAgentRoomClient(transport) {
@@ -35,16 +36,21 @@ export function createAgentRoomClient(transport) {
       const data = persistenceSnapshotSchema.parse(event.data), boot = event.boot;
       if (data.room.id !== scope.roomId) throw clientError('invalid_scope', '快照范围不匹配。');
       // The projection and applied cursor are published together; listeners never see a cursor ahead of data.
-      const next = snapshotSchema.parse({ instanceId: data.instanceId, revision: data.room.revision, agents: [], rooms: [{ ...data.room, type: 'group', memberIds: [boot.user.id] }], workspaces: [{ ...boot.workspace, directory: '' }], messages: data.messages, approvals: [], runs: [], currentUserId: boot.user.id, localTasks: data.localTasks, localAgentId: boot.localAgentId || null, knownAgents: boot.knownAgents, capabilities: { tasks: false, idempotentSend: true, localExecution: boot.capabilities.localExecution, readOnlyArtifacts: boot.capabilities.readOnlyArtifacts, artifactPublishing: boot.capabilities.artifactPublishing, agentMemory: boot.capabilities.agentMemory } });
+      const next = snapshotSchema.parse({ instanceId: data.instanceId, revision: data.room.revision, agents: [], rooms: [{ ...data.room, type: 'group', memberIds: [boot.user.id] }], workspaces: [{ ...boot.workspace, directory: '' }], messages: data.messages, approvals: [], runs: [], currentUserId: boot.user.id, localTasks: data.localTasks, consultations: data.consultations, consultationAgents: boot.consultationAgents, localAgentId: boot.localAgentId || null, knownAgents: boot.knownAgents, capabilities: { tasks: false, idempotentSend: true, localExecution: boot.capabilities.localExecution, consultations: boot.capabilities.consultations, readOnlyArtifacts: boot.capabilities.readOnlyArtifacts, artifactPublishing: boot.capabilities.artifactPublishing, agentMemory: boot.capabilities.agentMemory } });
       applied = { databaseId: data.databaseId, roomId: data.room.id, cursor: data.cursor };
       publish({ ...next, messages: data.messages, databaseId: data.databaseId, cursor: data.cursor, roomSequenceUpperBound: data.roomSequenceUpperBound, beforeSequence: data.beforeSequence });
     } else if (event.type === 'persistence.frame') {
       if (!applied) throw clientError('resync_required', '需要先读取快照。');
       const frame = persistenceFrameSchema.parse(event.data);
-      let messages = state.messages, localTasks = state.localTasks || [];
+      let messages = state.messages, localTasks = state.localTasks || [], consultations = state.consultations || [];
       if (frame.type === 'event') {
         const e = frame.data;
         if (e.roomId !== scope.roomId || e.workspaceId !== state.rooms[0]?.workspaceId) throw clientError('invalid_scope', '事件范围不匹配。');
+        if (e.type === 'consultation.updated') {
+          const old = consultations.find(q => q.id === e.entityId);
+          if (!old) consultations = [e.payload, ...consultations].slice(0,100);
+          else if (old.revision < e.entityRevision) consultations = consultations.map(q => q.id === e.entityId ? e.payload : q);
+        }
         if (e.type === 'localTask.updated') {
           const old = localTasks.find(t => t.id === e.entityId);
           if (!old) localTasks = [e.payload, ...localTasks].slice(0, 100);
@@ -57,12 +63,12 @@ export function createAgentRoomClient(transport) {
       }
       const cursor = frame.type === 'event' ? frame.data.cursor : frame.cursor;
       applied = { ...applied, cursor };
-      publish({ messages, localTasks, cursor });
+      publish({ messages, localTasks, consultations, cursor });
     } else if (event.type === 'persistence.pending') {
       publish({ pendingOperations: event.data.filter(item => item.roomId === scope.roomId || item.memoryScope?.kind === 'agent' || item.memoryScope?.roomId === scope.roomId) });
     } else if (event.type === 'persistence.ready') {
       attempts = 0; streamOffline = false;
-      publish({ knownAgents: event.data.knownAgents ?? state.knownAgents, instanceId: event.data.instanceId, currentUserId: event.data.user?.id ?? state.currentUserId, localAgentId: event.data.capabilities ? event.data.localAgentId || null : state.localAgentId, capabilities: { ...state.capabilities, agentMemory: event.data.capabilities?.agentMemory ?? state.capabilities.agentMemory, localExecution: event.data.capabilities?.localExecution ?? state.capabilities.localExecution, readOnlyArtifacts: event.data.capabilities?.readOnlyArtifacts ?? state.capabilities.readOnlyArtifacts, artifactPublishing: event.data.capabilities?.artifactPublishing ?? state.capabilities.artifactPublishing }, connection: 'live', syncNotice: state.syncNotice ? '事件记录已不可续订，已重新加载消息；旧历史仍可分页读取。' : '', error: state.databaseChanged ? '后端数据库已更换，请重新确认；旧请求不会重发。' : '' });
+      publish({ consultationAgents: event.data.consultationAgents ?? state.consultationAgents, knownAgents: event.data.knownAgents ?? state.knownAgents, instanceId: event.data.instanceId, currentUserId: event.data.user?.id ?? state.currentUserId, localAgentId: event.data.capabilities ? event.data.localAgentId || null : state.localAgentId, capabilities: { ...state.capabilities, consultations: event.data.capabilities?.consultations ?? state.capabilities.consultations, agentMemory: event.data.capabilities?.agentMemory ?? state.capabilities.agentMemory, localExecution: event.data.capabilities?.localExecution ?? state.capabilities.localExecution, readOnlyArtifacts: event.data.capabilities?.readOnlyArtifacts ?? state.capabilities.readOnlyArtifacts, artifactPublishing: event.data.capabilities?.artifactPublishing ?? state.capabilities.artifactPublishing }, connection: 'live', syncNotice: state.syncNotice ? '事件记录已不可续订，已重新加载消息；旧历史仍可分页读取。' : '', error: state.databaseChanged ? '后端数据库已更换，请重新确认；旧请求不会重发。' : '' });
     }
   }
   function accept(raw) {
@@ -172,6 +178,7 @@ export function createAgentRoomClient(transport) {
       const parsed = commandSchema.safeParse(input);
       if (!parsed.success) throw clientError('invalid_command', '请求不符合聊天契约。');
       const command = parsed.data;
+      if (consultationCommandTypes.includes(command.type) && !state.capabilities.consultations) throw clientError('unsupported', '当前后端未启用真实咨询。');
       if (memoryCommandTypes.includes(command.type) && (!transport.synchronize || !state.capabilities.agentMemory)) throw clientError('unsupported', '当前模式没有真实记忆存储。');
       if (['createLocalTask', 'answerLocalQuestion'].includes(command.type) && !state.capabilities.localExecution) throw clientError('unsupported', '当前后端未启用本机只读执行。');
       if (command.type === 'answerQuestion' && !state.capabilities.collaborationQuestions) throw clientError('unsupported', '当前后端不支持协作问题。');

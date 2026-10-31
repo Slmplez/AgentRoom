@@ -10,7 +10,7 @@ async function setup(t,options={}) {
   const {createApplicationRuntime}=await import('../lib/application-runtime/index.mjs');
   let publish,finish;
   const runtime=await createApplicationRuntime({directory,execution:{agentId:'report-agent',artifacts:options.artifacts??true,createEngine:async context=>{
-    publish=context.publishArtifact;return {onQuestion(){},async start(){},prompt(){return new Promise(resolve=>{finish=()=>resolve({text:'done',outcome:'complete'});});},async close(){finish?.();}};
+    publish=context.publishArtifact;return {onQuestion(){},async start(){},prompt(){return new Promise(resolve=>{finish=()=>resolve({text:'done',outcome:'complete'});});},isStopped:()=>true,async close(){finish?.();}};
   }},...options});
   t.after(()=>runtime.close());
   const actor=runtime.owner,boot=runtime.query({type:'bootstrap'},actor),workspaceId=boot.workspace.id;
@@ -165,6 +165,6 @@ test('authentic v2 schema migration preserves reply chains, receipts, cursors an
   assert.deepEqual(runtime.query({type:'receipt',workspaceId:'workspace',commandType:'sendDiscussion',key:'old-key'},runtime.owner),receipt);
   assert.equal(runtime.query({type:'events',roomId:'room',after:receipt.cursor},runtime.owner).events.length,0);
   db=new DatabaseSync(path.join(directory,'application.sqlite'));
-  assert.equal(db.prepare('PRAGMA user_version').get().user_version,5);assert.equal(db.prepare('PRAGMA foreign_key_check').get(),undefined);
+  assert.equal(db.prepare('PRAGMA user_version').get().user_version,6);assert.equal(db.prepare('PRAGMA foreign_key_check').get(),undefined);
   assert.deepEqual(JSON.parse(db.prepare('SELECT state_json FROM local_tasks').get().state_json),task);db.close();
 });

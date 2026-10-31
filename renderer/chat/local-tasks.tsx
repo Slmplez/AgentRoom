@@ -17,14 +17,14 @@ function saved(key: string): LocalDrafts {
     return { goal: value.goal.slice(0, 16000), answers };
   } catch { return { goal: '', answers: {} }; }
 }
-export function LocalTasks({ client, state, roomId }: { client: ChatClient; state: Snapshot; roomId: string }) {
+export function LocalTasks({ client, state, roomId, onConsult }: { client: ChatClient; state: Snapshot; roomId: string; onConsult?(task: Snapshot['localTasks'][number]): void }) {
   const storageKey = `ar-local-tasks:${JSON.stringify([state.backendId, state.databaseId, state.currentUserId, roomId])}`;
   const [drafts, setDrafts] = useState(() => saved(storageKey)), [busy, setBusy] = useState(false), [error, setError] = useState('');
   const lock = useRef(false), panel = useRef<HTMLDetailsElement>(null);
   const tasks = state.localTasks.filter(t => t.roomId === roomId);
   const operations = (state.pendingOperations || []).filter(p => p.type === 'createLocalTask' || p.type === 'answerLocalQuestion');
   const live = state.connection === 'live', enabled = state.capabilities.localExecution && live;
-  const active = tasks.some(t => ['queued', 'dispatching', 'running', 'awaiting_input', 'answer_pending', 'submitting', 'unknown'].includes(t.phase));
+  const active = tasks.some(t => t.leaseHeld || ['queued', 'dispatching', 'running', 'awaiting_input', 'answer_pending', 'submitting', 'unknown'].includes(t.phase));
   useEffect(() => { if (state.backendId && state.databaseId && state.currentUserId) { try { localStorage.setItem(storageKey, JSON.stringify(drafts)); } catch { /* Command journal still rejects writes when storage is unavailable. */ } } }, [storageKey, drafts]);
   if (!state.capabilities.localExecution && !tasks.length) return null;
   async function act(action: () => Promise<unknown>) {
@@ -54,6 +54,7 @@ export function LocalTasks({ client, state, roomId }: { client: ChatClient; stat
               <fieldset disabled={blocked}><legend>答复内容</legend>{q.options.map(o => <label key={o.id}><input type={q.multiple ? 'checkbox' : 'radio'} name={q.id} value={o.id} checked={draft.optionIds.includes(o.id)} onChange={e => update({ ...draft, optionIds: q.multiple ? e.target.checked ? [...draft.optionIds, o.id] : draft.optionIds.filter(id => id !== o.id) : [o.id] })} />{o.label}</label>)}
               {draft.optionIds.length > 0 && <button className="button" type="button" onClick={() => update({ ...draft, optionIds: [] })}>清除选择</button>}
               <label>你的答复<textarea aria-label="真实问题答复" value={draft.text} rows={2} maxLength={4000} onChange={e => update({ ...draft, text: e.target.value })} /></label></fieldset>
+              {state.capabilities.consultations && <button type="button" className="button" data-consult-native-question disabled={blocked} onClick={() => onConsult?.(task)}>请 Agent 提供建议</button>}
               <button data-answer-local-question className="button" type="submit" disabled={blocked || (!draft.optionIds.length && !draft.text.trim())}>提交答复</button>
             </form>}
             {q.status === 'expired' && <p role="status">原引擎输入会话不可恢复，草稿已保留，不能再次投递。</p>}
@@ -62,6 +63,7 @@ export function LocalTasks({ client, state, roomId }: { client: ChatClient; stat
           {task.delivery !== 'none' && <p className="local-task-note">答复投递：{({ pending: '已记录，等待提交', attempting: '正在提交，结果尚未确认', submitted: '已提交到原引擎管道', unknown: '结果未知，不会自动重发' })[task.delivery]}</p>}
           {state.capabilities.agentMemory && <TaskMemoryContext client={client} roomId={roomId} taskId={task.id} />}
           {task.result && <pre className="local-task-result">{task.result}</pre>}
+          {task.leaseHeld && task.phase === 'reviewing' && <p className="local-task-note">正在确认原引擎进程结束，执行槽尚未释放。</p>}
           {task.phase === 'reviewing' && <p className="local-task-note">轮次结束，尚未通过任务验收。</p>}
         </article>;
       })}

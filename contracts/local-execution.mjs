@@ -15,6 +15,7 @@ export const localTaskSchema = z.object({
   id, runId: id, initiatorId: id, roomId: id, ownerAgentId: id, goal: z.string(), revision: revision.positive(),
   phase: z.enum(['queued', 'dispatching', 'running', 'awaiting_input', 'answer_pending', 'submitting', 'reviewing', 'failed', 'unknown', 'paused']),
   result: z.string().max(16000), delivery: z.enum(['none', 'pending', 'attempting', 'submitted', 'unknown']),
+  leaseHeld: z.boolean().default(false),
   question: localQuestionSchema.nullable(), history: z.array(localQuestionSchema),
   contextSnapshotId: id.optional(),
 });

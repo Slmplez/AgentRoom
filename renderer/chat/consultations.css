@@ -1,0 +1,19 @@
+.consultations { margin: 4px 20px 8px; border-bottom: 1px solid var(--line-strong); font-size: 14px; flex-shrink: 0; min-width: 0; }
+.consultations > summary { padding: 8px 0; color: var(--clay-text); cursor: pointer; }
+.consultations-body { max-height: 52vh; overflow: auto; padding: 4px 4px 16px; }
+.consultations label { display: grid; gap: 8px; padding: 6px 0; }
+.consultations label:has(input) { display: flex; align-items: baseline; }
+.consultations textarea, .consultations select { width: 100%; min-width: 0; color: var(--ink); background: var(--surface-2); border: 1px solid var(--line-strong); border-radius: var(--radius-control); padding: 10px; font: inherit; }
+.consultations textarea { resize: vertical; }
+.consultations fieldset { border: 0; padding: 8px 0; min-width: 0; }
+.consultations input { accent-color: var(--clay-text); }
+.consultations small { display: block; color: var(--text-secondary); margin-top: 3px; }
+.consultations article { padding: 16px 0; border-top: 1px solid var(--line); overflow-wrap: anywhere; }
+.consultations article header { display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+.consultations article section { padding: 12px; margin: 10px 0; background: var(--surface-0); border-radius: var(--radius-panel); }
+.consultations article section > [role=status] { display: block; color: var(--text-secondary); margin-top: 6px; }
+.consultations pre { white-space: pre-wrap; overflow-wrap: anywhere; font: inherit; }
+.consultation-note { font-size: 13px; color: var(--text-secondary); line-height: 1.6; }
+.consultation-actions { display: flex; gap: 8px; margin-top: 12px; }
+.consultations [role=alert], .consultations [data-assignment-status=unknown] > [role=status] { color: var(--danger-text); }
+@media (max-width:759px) { .consultations { margin: 4px 12px 8px; } .consultations-body { max-height: 42vh; } }

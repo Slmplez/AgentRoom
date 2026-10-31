@@ -14,7 +14,7 @@ async function setup(t, options = {}) {
     execution: { agentId, createEngine: engineOptions => {
       let listener, finish, release;
       const run = { engineOptions, prompt: null, answer: null, release: () => release?.(), finish: () => finish?.({ text: 'finished', outcome: 'complete' }), ask: () => listener({ id: 'native-input', title: 'Continue?', multiple: false, options: [] }) };
-      const engine = { onQuestion(fn) { listener = fn; }, async start() {}, prompt(text) { run.prompt = text; return new Promise(resolve => { finish = resolve; }); }, async respond(id, answer) { run.answer = { id, answer }; run.finish(); }, async close() { finish?.({ text: 'closed', outcome: 'unknown' }); } };
+      const engine = { onQuestion(fn) { listener = fn; }, async start() {}, prompt(text) { run.prompt = text; return new Promise(resolve => { finish = resolve; }); }, async respond(id, answer) { run.answer = { id, answer }; run.finish(); }, isStopped: () => true, async close() { finish?.({ text: 'closed', outcome: 'unknown' }); } };
       runs.push(run);
       return options.gated ? new Promise(resolve => { release = () => resolve(engine); }) : engine;
     } },
@@ -65,7 +65,8 @@ test('committed context is exactly the engine prompt; edits after capture affect
   s.runs[0].release(); await until(() => s.runs[0].prompt);
   assert.equal(s.runs[0].prompt, snapshot.prompt);
   assert.equal(s.task(roomId, taskId).goal, '目标保持原文。');
-  assert.deepEqual(s.runs[0].engineOptions, {}, 'Memory text cannot enable publication or other engine capabilities');
+  assert.deepEqual(Object.keys(s.runs[0].engineOptions), ['executionTag'], 'Memory text cannot enable publication or other engine capabilities');
+  assert.match(s.runs[0].engineOptions.executionTag, /^[a-f0-9-]{36}$/);
   s.runs[0].ask();
   const waiting = s.task(roomId, taskId);
   assert.equal(waiting.phase, 'awaiting_input');
@@ -166,8 +167,8 @@ test('legacy tasks expose missing historical context honestly; v4 memory survive
   let s = await setup(t, { directory });
   assert.equal(s.context(legacy.roomId, legacy.taskReceipt.taskId).status, 'not_recorded');
   s.execute(soul('iris', 'migration soul')); s.execute(save(agentScope('iris'), 'migration fact')); await s.close();
-  // No new task has run; removing the sole v5 table yields the unchanged v4 schema.
-  db = new DatabaseSync(path.join(directory, 'application.sqlite')); db.exec('DROP TABLE run_context_snapshots; PRAGMA user_version=4;'); db.close();
+  // No new task has run; removing later v5/v6 tables yields the unchanged v4 schema.
+  db = new DatabaseSync(path.join(directory, 'application.sqlite')); db.exec('DROP INDEX local_tasks_terminal_lease; DROP INDEX local_tasks_agent_phase; DROP TABLE consultation_jobs; DROP TABLE consultations; DROP TABLE run_context_snapshots; PRAGMA user_version=4;'); db.close();
   s = await setup(t, { directory });
   const taskId = s.create(legacy.roomId); await until(() => s.runs[0]?.prompt);
   const snapshot = s.context(legacy.roomId, taskId).snapshot;
