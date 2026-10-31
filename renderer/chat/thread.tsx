@@ -1,6 +1,8 @@
 import React, { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { AssistantRuntimeProvider, MessagePrimitive, ThreadPrimitive, useAuiState, useExternalStoreRuntime, type ThreadMessageLike } from '@assistant-ui/react';
 import { MarkdownTextPrimitive } from '@assistant-ui/react-markdown';
+import remarkGfm from 'remark-gfm';
+import { MermaidDiagram } from './mermaid';
 import type { Agent, Message, ChatClient } from './types';
 import { PreviewMode } from './preview-mode';
 import { useEntrance } from './motion';
@@ -10,7 +12,7 @@ const brief = (text: string) => { const line = text.trim().split(/\r?\n/)[0] || 
 
 const ThreadContext = createContext<{ client?: ChatClient; suppressWelcome?: boolean; renderQuestions?(messageId: string): React.ReactNode; renderArtifacts?(message: Message): React.ReactNode; group?: boolean; statusMessageIds?: string[]; messages: Message[]; agents: Agent[]; portrait(agent: Agent): string; showDiff(patches: string[], trigger?: HTMLElement): void; expanded?: Record<string, boolean>; onExpanded?(id: string, value: boolean): void }>({ messages: [], agents: [], portrait: () => '', showDiff: () => {} });
 const convertMessage = (message: ThreadMessageLike) => message;
-const MarkdownText = () => <MarkdownTextPrimitive />;
+const MarkdownText = () => <MarkdownTextPrimitive remarkPlugins={[remarkGfm]} componentsByLanguage={{ mermaid: { SyntaxHighlighter: MermaidDiagram } }} />;
 export function ChatThread({ client, renderQuestions, renderArtifacts, suppressWelcome = false, group = false, statusMessageIds = [], messages, agents, portrait, showDiff, expanded = {}, onExpanded }: React.ContextType<typeof ThreadContext>) {
   const converted = useMemo<ThreadMessageLike[]>(() => messages.map(m => ({
     id: m.id, role: m.role, content: [{ type: 'text', text: m.text }], createdAt: new Date(m.createdAt || 0),

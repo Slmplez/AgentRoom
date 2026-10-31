@@ -56,6 +56,17 @@ app.whenReady().then(async () => {
   await run(a, 'document.querySelector("textarea[aria-label=本机任务目标]").focus()'); await a.webContents.insertText('请发布报告并更新一个版本');
   await run(a, 'document.querySelector("[data-create-local-task]").click()');
   for (const win of windows) await until(win, 'Boolean(Array.from(document.querySelectorAll("[data-artifact-version]")).find(el=>el.dataset.artifactVersion==="1"))');
+  for (const win of windows) {
+    await run(win, 'document.querySelector(".inline-artifact")?.scrollIntoView({block:"center"})');
+    await until(win, 'document.querySelector(".inline-artifact .result-section")?.textContent.includes("正文 V1")');
+    assert.equal(await run(win, 'Boolean(document.querySelector(".artifact-panel"))'), false, 'Generated report must appear before opening a panel');
+    assert.equal(await run(win, 'Boolean(document.querySelector(".inline-artifact script"))'), false);
+  }
+  await delay(350);
+  await run(a, 'document.querySelector(".inline-artifact").scrollIntoView({block:"start"})');
+  await delay(100);
+  await fs.mkdir(path.resolve(__dirname, '../artifacts'), { recursive: true });
+  await fs.writeFile(path.resolve(__dirname, '../artifacts/report-inline-light.png'), (await a.webContents.capturePage()).toPNG());
   await openFirst(a); await until(a, 'document.querySelector(".artifact-panel .result-section")?.textContent.includes("正文 V1")');
   await delay(400);
   await fs.mkdir(path.resolve(__dirname, '../artifacts'), { recursive: true });
@@ -63,6 +74,9 @@ app.whenReady().then(async () => {
   assert.equal(await run(a, 'Boolean(window.reportInjected)'), false);
   releaseVersion();
   for (const win of windows) await until(win, 'Boolean(Array.from(document.querySelectorAll("[data-artifact-version]")).find(el=>el.dataset.artifactVersion==="2"))');
+  await run(b, 'document.querySelectorAll(".inline-artifact")[1]?.scrollIntoView({block:"center"})');
+  await until(b, 'document.querySelectorAll(".inline-artifact")[1]?.textContent.includes("正文 V2")');
+  assert.ok(await run(b, 'document.querySelector(".inline-artifact").textContent.includes("正文 V1")'), 'New report must not replace the original message preview');
   await until(a, 'Boolean(document.querySelector(".artifact-new-version"))');
   assert.ok(await run(a, 'document.querySelector(".artifact-panel .result-section").textContent.includes("正文 V1")'));
   await run(a, 'document.querySelector(".artifact-new-version").click()');

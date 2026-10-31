@@ -34,6 +34,11 @@
 .chat-markdown td, .chat-markdown th { text-align: left; padding: 8px 14px; border-bottom: 1px solid var(--line-strong); white-space: normal; min-width: 90px; }
 .chat-markdown blockquote { border-left: 3px solid var(--line-strong); margin: 12px 0; padding-left: 14px; color: var(--text-secondary); }
 .chat-markdown a { color: var(--clay-text); }
+.mermaid-block { min-width: 0; margin: 12px 0; }
+.mermaid-diagram { max-width: 100%; overflow-x: auto; padding: 16px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface-0); }
+.mermaid-diagram svg { display: block; max-width: 100%; height: auto; margin: auto; }
+.mermaid-block summary { cursor: pointer; color: var(--text-secondary); margin-top: 8px; }
+.mermaid-fallback > p, .mermaid-pending > p { color: var(--text-secondary); font-size: 13px; }
 .chat-thinking { color: var(--text-secondary); }
 .chat-scroll-bottom { position: absolute; bottom: 8px; left: 50%; transform: translateX(-50%); background: var(--surface-2); color: var(--ink); padding: 7px 13px; border: 1px solid var(--line-strong); border-radius: 20px; box-shadow: var(--shadow); }
 .chat-scroll-bottom:disabled { display: none; }

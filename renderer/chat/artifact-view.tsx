@@ -1,8 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { defineCatalog, type Spec } from '@json-render/core';
-import { schema } from '@json-render/react/schema';
-import { defineRegistry, JSONUIProvider, Renderer } from '@json-render/react';
-import { z } from 'zod';
+import type { Spec } from '@json-render/core';
+import type { z } from 'zod';
+import { ReportContent } from './report-content';
 import { artifactVersionSchema, artifactVersionsSchema, reportSchema } from '../../contracts/artifacts.mjs';
 import { useEntrance } from './motion';
 import './artifact-view.css';
@@ -13,19 +12,6 @@ type Version = z.infer<typeof artifactVersionsSchema>['versions'][number];
 export type ArtifactSelection = { roomId: string; artifactId: string; version: number; title: string; messageId: string };
 type Reader = { query(input: { type: 'artifact'; roomId: string; artifactId: string; version: number } | { type: 'artifactVersions'; roomId: string; artifactId: string; beforeVersion?: number; limit?: number }): Promise<unknown> };
 
-// Separate registry from the Mock form demo: no Field, actions or bindings.
-const catalog = defineCatalog(schema, { components: {
-  Section: { props: z.object({ title: z.string(), description: z.string() }), description: 'Read-only section' },
-  Metrics: { props: z.object({ items: z.array(z.object({ label: z.string(), value: z.string(), detail: z.string() })) }), description: 'Text metrics' },
-  Bars: { props: z.object({ title: z.string(), items: z.array(z.object({ label: z.string(), value: z.number() })) }), description: 'Bars with text values' },
-  Table: { props: z.object({ columns: z.array(z.string()), rows: z.array(z.array(z.string())) }), description: 'Read-only table' },
-}, actions: {} });
-const { registry } = defineRegistry(catalog, { components: {
-  Section: ({ props, children }) => <section className="result-section"><h3>{props.title}</h3><p className="result-description">{props.description}</p>{children}</section>,
-  Metrics: ({ props }) => <dl className="result-metrics">{props.items.map((item, i) => <div key={i}><dt>{item.label}</dt><dd>{item.value}</dd><small>{item.detail}</small></div>)}</dl>,
-  Bars: ({ props }) => <figure className="result-chart"><figcaption>{props.title}</figcaption>{props.items.map((item, i) => <div className="result-bar" key={i}><div><span>{item.label}</span><span>{item.value}%</span></div><div className="result-bar-track" aria-hidden="true"><span style={{ width: `${item.value}%` }} /></div></div>)}</figure>,
-  Table: ({ props }) => <div className="result-table-wrap" tabIndex={0} role="region" aria-label="报告明细，可横向滚动"><table><thead><tr>{props.columns.map((c, i) => <th key={i} scope="col">{c}</th>)}</tr></thead><tbody>{props.rows.map((row, i) => <tr key={i}>{row.map((cell, j) => <td key={j}>{cell}</td>)}</tr>)}</tbody></table></div>,
-} });
 function errorText(error: unknown) {
   const code = (error as { code?: string })?.code;
   return ({ not_found: '报告不存在，或你无权读取它。', forbidden: '当前身份无权读取此报告。', artifact_unavailable: '报告内容缺失或损坏，无法展示。', unsupported_catalog: '此报告的组件目录版本尚不受支持。', invalid_response: '报告内容未通过校验，已停止展示。', stale_query: '会话已变化，请重新打开报告。' } as Record<string, string>)[code || ''] || '读取报告失败，请检查连接后重试。';
@@ -81,7 +67,7 @@ export default function ArtifactView({ client, selection, latestVersion, mock = 
       {!current && <p role="status">正在读取报告…</p>}
       {current?.error && <div role="alert"><p>{current.error}</p><button className="button" onClick={() => retry(n => n + 1)}>重新读取</button></div>}
       {spec && !full && <ReportSummary spec={spec} />}
-      {spec && full && <JSONUIProvider registry={registry}><Renderer spec={spec} registry={registry} /></JSONUIProvider>}
+      {spec && full && <ReportContent spec={spec} />}
     </div>
   </aside>;
 }
